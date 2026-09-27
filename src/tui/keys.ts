@@ -1,0 +1,356 @@
+import type { Key } from 'ink'
+
+import { preferFirst, prefixesOf, setDefaultAccount, showPrefix, suggestName } from '../config.ts'
+import { EFFORTS, MODELS, nextOf } from '../conversations.ts'
+import { deleteDraft } from '../drafts.ts'
+import type { Actions } from './actions.ts'
+import { copyToClipboard } from './clipboard.ts'
+import type { AppCtx } from './context.ts'
+import { backspace, insert, move, type EditorState, type Move } from './editor.ts'
+import { keyToBytes } from './embed.ts'
+import { rank } from './fuzzy.ts'
+import { parseMouse, type MouseEvent } from './mouse.ts'
+import { asText, GROUPS, groupOf, PANELS, typed, type Editing, type Panel } from './state.ts'
+
+type Handler = (input: string, key: Key) => void
+
+// Every key and mouse event, by what has the keyboard: the conversation, the input line, the
+// editor, find, or the board. Built from the current context on every render.
+export function makeInput(ctx: AppCtx, act: Actions): Handler {
+  const { setMessage, setEditing, setForm, setSel } = ctx
+
+  // ---- the mouse: the wheel scrolls what's under it; a click gives that panel the keyboard ----
+  const onMouse = (events: MouseEvent[]) => {
+    const { leftW, midW, accountsH, workH, sessionCols, sessionRows } = ctx.layout
+    const { embed, pick, focus } = ctx
+    for (const ev of events) {
+      const inRight = ev.x > leftW + midW
+      const inMid = !inRight && ev.x > leftW
+      const panel: Panel | 'right' = inRight
+        ? 'right'
+        : inMid
+          ? ev.y > workH
+            ? 'done'
+            : 'work'
+          : ev.y <= accountsH
+            ? 'accounts'
+            : 'projects'
+      // The conversation's own cells: its top edge carries the title.
+      const cellAt = {
+        col: Math.max(0, Math.min(sessionCols - 1, ev.x - (leftW + midW) - 2)),
+        row: Math.max(0, Math.min(sessionRows - 1, ev.y - 2)),
+      }
+      const button = ev.kind === 'press' || ev.kind === 'drag' || ev.kind === 'release'
+      if (embed && ctx.showingEmbed && button && (panel === 'right' || pick?.active)) {
+        // Claude asks for the mouse and does its own selection; give it the events.
+        if (embed.mouseWanted()) {
+          embed.forwardMouse(
+            ev.kind as 'press' | 'drag' | 'release',
+            cellAt.col + 1,
+            cellAt.row + 1,
+          )
+          continue
+        }
+        // Otherwise Hopper selects: drag inside the conversation, let go to copy.
+        if (ev.kind === 'press') {
+          ctx.setPick({ a: cellAt, b: cellAt, active: true })
+          if (focus !== 'session') ctx.setReturnTo(focus)
+          ctx.setFocus('session')
+        } else if (ev.kind === 'drag' && pick?.active) ctx.setPick({ ...pick, b: cellAt })
+        else if (ev.kind === 'release' && pick?.active) {
+          if (cellAt.col === pick.a.col && cellAt.row === pick.a.row) ctx.setPick(null)
+          else {
+            const text = embed.textBetween(pick.a, cellAt)
+            copyToClipboard(text)
+            ctx.setPick({ a: pick.a, b: cellAt, active: false })
+            setMessage(`Copied ${text.length} characters.`)
+          }
+        }
+        continue
+      }
+      if (ev.kind === 'wheel-up' || ev.kind === 'wheel-down') {
+        const up = ev.kind === 'wheel-up'
+        if (panel === 'right') {
+          if (embed && ctx.showingEmbed) embed.wheel(up, ev.x - (leftW + midW) - 1, ev.y - 1)
+          continue
+        }
+        ctx.setEmbedShown(false)
+        setSel((s) => ({
+          ...s,
+          [panel]: Math.max(0, Math.min(ctx.lists[panel] - 1, s[panel] + (up ? -1 : 1))),
+        }))
+      } else if (ev.kind === 'press' && !ctx.editing && !ctx.form && !ctx.find) {
+        if (panel !== 'right') act.go(panel)
+        else if (ctx.showingEmbed) {
+          if (focus !== 'session') ctx.setReturnTo(focus)
+          ctx.setFocus('session')
+        }
+      }
+    }
+  }
+
+  // ---- in a conversation, every key is Claude's except esc ----
+  // esc steps back and leaves the conversation live (⏎ goes back in); ctrl+] closes the view.
+  // Claude's own interrupt is ctrl+c, which passes through; i on the list sends Claude an esc.
+  const onSession: Handler = (input, key) => {
+    const { embed } = ctx
+    if (!embed || key.escape) return act.go(ctx.returnTo)
+    // ctrl+] arrives as the raw control character (0x1d).
+    if (input === '\u001d' || (key.ctrl && input === ']')) {
+      embed.close()
+      ctx.setEmbed(null)
+      return act.go(ctx.returnTo)
+    }
+    if (ctx.pick) ctx.setPick(null)
+    embed.send(keyToBytes(input, key))
+  }
+
+  // ---- the one-line input in the key bar ----
+  const onForm: Handler = (input, key) => {
+    const form = ctx.form!
+    if (key.escape) return setForm(null)
+    if (form.kind === 'remove' || form.kind === 'routine-remove') {
+      if (input === 'y') void act.submitForm(form)
+      else setForm(null)
+      return
+    }
+    if (key.return) return void act.submitForm(form)
+    if (key.backspace || key.delete) return setForm({ ...form, value: form.value.slice(0, -1) })
+    if (typed(input, key)) setForm({ ...form, value: form.value + input })
+  }
+
+  // ---- the draft or routine editor ----
+  const onPick = (e: Editing, input: string, key: Key) => {
+    const list = rank(e.query, ctx.projectKeys)
+    if (key.escape) return setEditing({ ...e, stage: 'act' })
+    if (key.upArrow) return setEditing({ ...e, pickSel: Math.max(0, e.pickSel - 1) })
+    if (key.downArrow)
+      return setEditing({ ...e, pickSel: Math.min(list.length - 1, e.pickSel + 1) })
+    if (key.tab || key.return) {
+      const chosen = list[Math.min(e.pickSel, list.length - 1)]
+      return chosen
+        ? setEditing({ ...e, project: chosen, stage: 'act' })
+        : setMessage('No project matches.')
+    }
+    if (key.backspace || key.delete)
+      return setEditing({ ...e, query: e.query.slice(0, -1), pickSel: 0 })
+    if (typed(input, key))
+      setEditing({ ...e, query: e.query + input.replace(/\s/g, ''), pickSel: 0 })
+  }
+
+  const onWrite = (e: Editing, input: string, key: Key) => {
+    if (key.escape) return setEditing({ ...e, stage: 'act', anchor: null })
+    const ed: EditorState = { text: e.text, cursor: e.cursor, anchor: e.anchor }
+    const put = (n: EditorState) => setEditing({ ...e, ...n })
+    const to = (how: Move) => put(move(ed, how, ctx.layout.rightW - 4, key.shift))
+    if (key.return) return put(insert(ed, '\n'))
+    // On a Mac, Backspace arrives as delete; Option+Backspace removes a word.
+    if (key.backspace || key.delete) return put(backspace(ed, key.meta))
+    if (key.leftArrow) return to(key.meta ? 'wordLeft' : key.ctrl ? 'home' : 'left')
+    if (key.rightArrow) return to(key.meta ? 'wordRight' : key.ctrl ? 'end' : 'right')
+    if (key.upArrow) return to(key.meta ? 'top' : 'up')
+    if (key.downArrow) return to(key.meta ? 'bottom' : 'down')
+    if (key.home) return to('home')
+    if (key.end) return to('end')
+    // What Mac terminals send for Option+←/→ and Cmd+←/→ by default.
+    if (key.meta && (input === 'b' || input === 'f'))
+      return to(input === 'b' ? 'wordLeft' : 'wordRight')
+    if (key.ctrl && (input === 'a' || input === 'e')) return to(input === 'a' ? 'home' : 'end')
+    if (typed(input, key)) put(insert(ed, asText(input)))
+  }
+
+  // Stepped out of writing: decide. A routine's prompt has its own set.
+  const onDecide = (e: Editing, input: string, key: Key) => {
+    if (input === 'm') return setEditing({ ...e, model: nextOf(MODELS, e.model) })
+    if (input === 'e') return setEditing({ ...e, effort: nextOf(EFFORTS, e.effort) })
+    if (input === 'p') return setEditing({ ...e, stage: 'pick', query: '', pickSel: 0 })
+    const r = e.routine
+    if (r) {
+      if (input === 's') return void act.runNow(e)
+      if (input === 'S')
+        return setForm({ kind: 'routine-schedule', value: r.schedule, editing: e, name: r.name })
+      if (input === 'P') return setEditing({ ...e, routine: { ...r, enabled: !r.enabled } })
+      if (input === 'x') {
+        setEditing(null)
+        return setForm({ kind: 'routine-remove', name: r.name })
+      }
+      if (key.escape) return void act.keepRoutine(e)
+      return setEditing({ ...e, stage: 'write' })
+    }
+    if (input === 's') return void act.start(e)
+    if (input === 'r') {
+      if (!e.text.trim()) return setMessage('Write the prompt first.')
+      const suggested = (e.text.toLowerCase().match(/[a-z0-9]+/g) ?? [])
+        .slice(0, 3)
+        .join('-')
+        .slice(0, 30)
+      return setForm({ kind: 'routine-name', value: suggested, editing: e })
+    }
+    if (input === 'y') {
+      copyToClipboard(e.text)
+      return setMessage('Copied the draft.')
+    }
+    if (input === 'x') {
+      setEditing(null)
+      void deleteDraft(ctx.config.home, e.id).then(() => ctx.refresh(false))
+      return setMessage('Draft thrown away.')
+    }
+    if (key.escape || input === 'k') return void act.keepDraft(e)
+    setEditing({ ...e, stage: 'write' })
+  }
+
+  const onEditing: Handler = (input, key) => {
+    const e = ctx.editing!
+    if (e.stage === 'pick') return onPick(e, input, key)
+    if (e.stage === 'write') return onWrite(e, input, key)
+    onDecide(e, input, key)
+  }
+
+  // ---- finding a project ----
+  const onFind: Handler = (input, key) => {
+    const find = ctx.find!
+    const rows = ctx.findRows
+    if (key.escape) return ctx.setFind(null)
+    if (key.upArrow) return ctx.setFind({ ...find, sel: Math.max(0, find.sel - 1) })
+    if (key.downArrow) return ctx.setFind({ ...find, sel: Math.min(rows.length - 1, find.sel + 1) })
+    if (key.return || key.tab) {
+      const row = rows[Math.min(find.sel, rows.length - 1)]
+      ctx.setFind(null)
+      return row ? act.focusProject(row.key) : setMessage('No project matches.')
+    }
+    if (key.backspace || key.delete) return ctx.setFind({ query: find.query.slice(0, -1), sel: 0 })
+    if (typed(input, key)) ctx.setFind({ query: find.query + input.replace(/\s/g, ''), sel: 0 })
+  }
+
+  // ---- the board: panels, lists and accounts ----
+  const onList = (panel: 'work' | 'done', input: string, key: Key) => {
+    const list = panel === 'work' ? ctx.work : ctx.done
+    const it = list[ctx.at(panel)]
+    if (input === 'i') {
+      if (!ctx.embed || ctx.embed.id !== it?.id)
+        return setMessage('Open the conversation first (⏎).')
+      ctx.embed.send('\x1b')
+      return setMessage('Sent esc to Claude.')
+    }
+    if (key.return) return act.open(it)
+    if (input === 'm') return void act.markDone(it, panel === 'work')
+    if (panel !== 'work') return
+    const g = GROUPS.find((x) => x.key === input)
+    if (!g) return
+    const first = ctx.work.findIndex((w) => groupOf(w) === g.id)
+    if (first < 0) return setMessage(`Nothing in ${g.label} yet.`)
+    setSel((s) => ({ ...s, work: first }))
+  }
+
+  const onAccounts = (input: string, key: Key) => {
+    const { config } = ctx
+    const a = ctx.accountStates[ctx.at('accounts')]?.account
+    if (input === 'a') {
+      const hint = ctx.snap?.accounts.find((s) => s.account.configDir === null)?.auth ?? null
+      return setForm({
+        kind: 'add-name',
+        value: config.accounts.length ? '' : suggestName(hint, []),
+      })
+    }
+    if (!a) return
+    if (key.return) return void act.signIn(a)
+    if (input === 'e') {
+      const current = prefixesOf(config, a.name)
+        .map((r) => showPrefix(r.prefix))
+        .join(', ')
+      return setForm({ kind: 'prefixes', name: a.name, value: current })
+    }
+    if (input === 'r') return setForm({ kind: 'label', name: a.name, value: a.label })
+    if (input === '1')
+      return void act.commit((c) => preferFirst(c, a.name), `${a.name} is first on its routes`)
+    if (input === '*') {
+      return void act.commit(
+        (c) => setDefaultAccount(c, a.name),
+        `${a.name} is the default: it runs anything no route names`,
+      )
+    }
+    if (input === 'u') {
+      setMessage(`Asking Claude for ${a.name}’s usage…`)
+      return void ctx.askUsage(a)
+    }
+    if (input === 'd') return setForm({ kind: 'remove', name: a.name })
+  }
+
+  const onBoard: Handler = (input, key) => {
+    const focus = ctx.focus as Panel
+    if (key.escape) {
+      if (focus !== 'projects') return act.go('projects')
+      if (ctx.scope) ctx.setScope(null)
+      return
+    }
+    if (key.tab) return act.go(PANELS[(PANELS.indexOf(focus) + 1) % PANELS.length] ?? 'projects')
+    const jump: Record<string, Panel> = { p: 'projects', q: 'work', v: 'done', c: 'accounts' }
+    if (jump[input]) return act.go(jump[input])
+    if (input === 'n') {
+      // Straight to the first thing waiting on me.
+      act.go('work')
+      return setSel((s) => ({ ...s, work: 0 }))
+    }
+    if (input === 'f') return ctx.setFind({ query: '', sel: 0 })
+    if (input === 't') return act.newConversation()
+    if (input === '?') return ctx.setHelp(true)
+    if (input === 'x') return ctx.exit()
+    if (input === 'R') return void ctx.refresh(true)
+    if (input === 'T' && ctx.untrusted) return void act.trust()
+
+    // ← and → move between columns: projects and accounts, the list, the open conversation.
+    if (key.rightArrow) {
+      if (focus === 'projects' || focus === 'accounts') return act.go('work')
+      if ((focus === 'work' || focus === 'done') && ctx.embed && ctx.showingEmbed) {
+        ctx.setReturnTo(focus)
+        ctx.setFocus('session')
+      }
+      return
+    }
+    if (key.leftArrow) {
+      if (focus === 'work' || focus === 'done') act.go('projects')
+      return
+    }
+    const step = (d: number) => {
+      ctx.setEmbedShown(false)
+      setSel((s) => ({
+        ...s,
+        [focus]: Math.max(0, Math.min(ctx.lists[focus] - 1, ctx.at(focus) + d)),
+      }))
+    }
+    if (input === 'j' || key.downArrow) return step(1)
+    if (input === 'k' || key.upArrow) return step(-1)
+
+    if (focus === 'projects') {
+      const row = ctx.selectedRow
+      if (!row) return
+      if (key.return) return act.focusProject(row.key)
+      if (input === 'z' && row.hasChildren) {
+        ctx.setFolded((f) => {
+          const next = new Set(f)
+          if (next.has(row.key)) next.delete(row.key)
+          else next.add(row.key)
+          return next
+        })
+      }
+      return
+    }
+    if (focus === 'work' || focus === 'done') return onList(focus, input, key)
+    onAccounts(input, key)
+  }
+
+  return (input, key) => {
+    // Mouse events arrive as text; they are never keys, whatever has focus.
+    const mouse = parseMouse(input)
+    if (mouse) return onMouse(mouse)
+    if (ctx.focus === 'session') return onSession(input, key)
+    if (key.ctrl && input === 'c') return ctx.exit()
+    // A message stays until the next keypress, then the key hints come back.
+    if (ctx.message && !ctx.editing) setMessage(null)
+    if (ctx.form) return onForm(input, key)
+    if (ctx.editing) return onEditing(input, key)
+    if (ctx.find) return onFind(input, key)
+    if (ctx.help) return ctx.setHelp(false)
+    onBoard(input, key)
+  }
+}

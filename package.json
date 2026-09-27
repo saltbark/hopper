@@ -1,0 +1,50 @@
+{
+  "name": "hopper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Toss work in the hopper: a terminal app for Claude Code agents across projects and logins.",
+  "bin": {
+    "hopper": "bin/hopper.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx src/cli.tsx",
+    "start": "node bin/hopper.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "oxlint .",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
+    "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true"
+  },
+  "dependencies": {
+    "@xterm/headless": "^6.0.0",
+    "ink": "^7.1.1",
+    "node-pty": "^1.1.0",
+    "react": "^19.3.0",
+    "smol-toml": "^1.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.3.0",
+    "ink-testing-library": "^4.0.0",
+    "oxfmt": "latest",
+    "oxlint": "latest",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
+  "packageManager": "pnpm@10.33.3",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "node-pty"
+    ]
+  }
+}
