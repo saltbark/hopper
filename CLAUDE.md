@@ -35,7 +35,10 @@ The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it befor
   turns it into the string "undefined"). node-pty's `spawn-helper` needs +x (postinstall).
 - **Hopper turns on mouse reporting** (SGR, `src/tui/mouse.ts`) so the wheel arrives as events
   rather than arrow keys. Ink hands them over as text (`[<64;x;yM`); parse them before anything
-  treats them as keys. Turn reporting off around anything that takes over the terminal.
+  treats them as keys. Turn reporting off around anything that takes over the terminal. It asks
+  for every movement (1003), for hover: only set state when the row under the pointer changes.
+  Finding that row reuses the lists' own windowing (`workItemAt`, `itemLines`), so a change to how
+  a list lays out its lines carries over to the mouse.
 - **Claude does its own mouse selection** (it asks for "any" mouse tracking) and copies with OSC 52. The headless terminal has no clipboard, so `embed.ts` catches OSC 52 and Hopper copies.
   Hopper's own drag-select is only the fallback for programs that don't want the mouse.
 - **Usage comes from `claude -p /usage`**, which is answered locally at no cost and refreshes the

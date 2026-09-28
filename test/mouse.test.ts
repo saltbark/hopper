@@ -14,6 +14,7 @@ describe('parseMouse', () => {
     expect(parseMouse('[<0;10;2M')).toEqual([{ kind: 'press', x: 10, y: 2 }])
     expect(parseMouse('[<0;10;2m')).toEqual([{ kind: 'release', x: 10, y: 2 }])
     expect(parseMouse('[<32;11;2M')).toEqual([{ kind: 'drag', x: 11, y: 2 }])
+    expect(parseMouse('[<35;12;3M')).toEqual([{ kind: 'move', x: 12, y: 3 }])
     expect(parseMouse('[<68;1;1M')?.[0]?.kind).toBe('wheel-up') // with shift held
     expect(parseMouse('hello')).toBeNull()
   })

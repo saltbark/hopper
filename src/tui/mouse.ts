@@ -2,12 +2,14 @@
 // turning the wheel into arrow keys (which is what made Claude say "Scroll wheel is sending
 // arrow keys"). SGR format: ESC [ < button ; column ; row M (press) or m (release), 1-based.
 
-// 1002 reports clicks and movement while a button is held (for drag-to-select), 1006 is SGR.
-export const MOUSE_ON = '\x1b[?1002h\x1b[?1006h'
-export const MOUSE_OFF = '\x1b[?1002l\x1b[?1006l'
+// 1003 reports clicks and every movement, a button held (drag-to-select) or not (hover); 1006
+// is SGR. Terminals send a flood of movement with it, so whatever acts on a move only changes
+// state when the row under the pointer does.
+export const MOUSE_ON = '\x1b[?1003h\x1b[?1006h'
+export const MOUSE_OFF = '\x1b[?1003l\x1b[?1006l'
 
 export type MouseEvent = {
-  kind: 'wheel-up' | 'wheel-down' | 'press' | 'drag' | 'release' | 'other'
+  kind: 'wheel-up' | 'wheel-down' | 'press' | 'drag' | 'move' | 'release' | 'other'
   x: number
   y: number
 }
@@ -30,11 +32,13 @@ export function parseMouse(input: string): MouseEvent[] | null {
           ? 'wheel-down'
           : base >= 32 && base <= 34
             ? 'drag' // movement with a button held
-            : base <= 2
-              ? m[4] === 'm'
-                ? 'release'
-                : 'press'
-              : 'other'
+            : base === 35
+              ? 'move' // movement with none
+              : base <= 2
+                ? m[4] === 'm'
+                  ? 'release'
+                  : 'press'
+                : 'other'
     events.push({ kind, x, y })
   }
   return events.length ? events : null

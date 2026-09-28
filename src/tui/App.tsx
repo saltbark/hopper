@@ -37,6 +37,7 @@ import {
   type Editing,
   type Find,
   type Focus,
+  type Hover,
   type Form,
   type Panel,
   type Sel,
@@ -76,6 +77,7 @@ export function App({
     done: 0,
     accounts: 0,
   })
+  const [hover, setHover] = useState<Hover>(null)
   const [scope, setScope] = useState<string | null>(null)
   const [folded, setFolded] = useState<Set<string>>(() => new Set())
   const [help, setHelp] = useState(false)
@@ -275,6 +277,8 @@ export function App({
     setPick,
     sel,
     setSel,
+    hover,
+    setHover,
     scope,
     setScope,
     setFolded,
@@ -307,7 +311,7 @@ export function App({
     selectedItem,
     scopeProject,
     showingEmbed,
-    layout: { leftW, midW, rightW, bandH, workH, sessionCols, sessionRows },
+    layout: { leftW, midW, rightW, bandH, workH, doneH, sessionCols, sessionRows },
   }
   const actions = makeActions(ctx)
   useInput(makeInput(ctx, actions))
@@ -425,6 +429,7 @@ export function App({
               done={done}
               workSel={at('work')}
               doneSel={at('done')}
+              hover={hover}
               scope={scope}
               focus={keysAt}
               held={held}

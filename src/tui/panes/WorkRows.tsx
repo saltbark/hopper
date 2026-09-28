@@ -17,17 +17,10 @@ const GROUP_COLOR: Record<Group, string> = {
 
 type Row = { gap: Group } | { header: Group; count: number } | { item: Item; index: number }
 
-// The one list: items in their groups, a heading before each group with its count, a blank line
-// between groups. The selection counts items only.
-export const WorkRows = memo(function WorkRows(props: {
-  items: Item[]
-  sel: number
-  focused: boolean
-  width: number
-  height: number
-  color: (account: string) => string
-}) {
-  const { items, sel, focused, width, height, color } = props
+// The one list's lines: items in their groups, a heading before each group with its count, and
+// a blank line between groups, windowed around the selection. The selection counts items only.
+// The mouse reads it too, to find the item under the pointer.
+export function workLines(items: Item[], sel: number, height: number): Row[] {
   const counts = new Map<Group, number>()
   for (const it of items) counts.set(groupOf(it), (counts.get(groupOf(it)) ?? 0) + 1)
   const rows: Row[] = []
@@ -43,7 +36,27 @@ export const WorkRows = memo(function WorkRows(props: {
     0,
     rows.findIndex((r) => 'item' in r && r.index === sel),
   )
-  const { slice } = windowed(rows, selRow, height - 2)
+  return windowed(rows, selRow, height - 2).slice
+}
+
+// The item on a line of the list (0 is the first line inside its frame), or null for a heading,
+// a gap or past the end.
+export function workItemAt(items: Item[], sel: number, height: number, line: number) {
+  const r = workLines(items, sel, height)[line]
+  return r && 'item' in r ? r.index : null
+}
+
+export const WorkRows = memo(function WorkRows(props: {
+  items: Item[]
+  sel: number
+  hover: number | null
+  focused: boolean
+  width: number
+  height: number
+  color: (account: string) => string
+}) {
+  const { items, sel, hover, focused, width, height, color } = props
+  const slice = workLines(items, sel, height)
   const w = width - 4
   return (
     <>
@@ -68,6 +81,7 @@ export const WorkRows = memo(function WorkRows(props: {
             key={r.item.account + r.item.sessionId}
             items={[r.item]}
             sel={r.index === sel ? 0 : -1}
+            hover={r.index === hover ? 0 : null}
             focused={focused}
             width={width}
             height={4}

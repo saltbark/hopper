@@ -7,7 +7,7 @@ import { AccountRow, AccountsHeader } from '../panels/Accounts.tsx'
 import { ItemRows } from '../panels/ItemRows.tsx'
 import { Frame, windowed } from '../panels/primitives.tsx'
 import { ProjectRows } from '../panels/ProjectRows.tsx'
-import type { Find, Focus, Panel } from '../state.ts'
+import type { Find, Focus, Hover, Panel } from '../state.ts'
 import { T } from '../theme.ts'
 import { WorkRows } from './WorkRows.tsx'
 
@@ -101,6 +101,7 @@ export function ListColumn(props: {
   done: Item[]
   workSel: number
   doneSel: number
+  hover: Hover
   scope: string | null
   focus: Focus | null
   // The list whose selected row is open on the right: it stays highlighted without the edge.
@@ -110,7 +111,7 @@ export function ListColumn(props: {
   workH: number
   doneH: number
 }) {
-  const { work, done, focus, held, color, width, workH, doneH } = props
+  const { work, done, hover, focus, held, color, width, workH, doneH } = props
   return (
     <Box flexDirection="column" width={width}>
       <Frame
@@ -127,6 +128,7 @@ export function ListColumn(props: {
           <WorkRows
             items={work}
             sel={props.workSel}
+            hover={hover?.panel === 'work' ? hover.index : null}
             focused={focus === 'work' || held === 'work'}
             width={width}
             height={workH}
@@ -150,6 +152,7 @@ export function ListColumn(props: {
         <ItemRows
           items={done}
           sel={props.doneSel}
+          hover={hover?.panel === 'done' ? hover.index : null}
           focused={focus === 'done' || held === 'done'}
           width={width}
           height={doneH}

@@ -227,11 +227,14 @@ export class EmbeddedSession {
     return !this.closed && this.term.modes.mouseTrackingMode !== 'none'
   }
 
-  // Passes a click or drag through, in the panel's own 1-based cells.
-  forwardMouse(kind: 'press' | 'drag' | 'release', col: number, row: number): void {
+  // Passes a click, drag or movement through, in the panel's own 1-based cells. Movement with no
+  // button only goes to a program that asked for all of it.
+  forwardMouse(kind: 'press' | 'drag' | 'move' | 'release', col: number, row: number): void {
+    if (kind === 'move' && (this.closed || this.term.modes.mouseTrackingMode !== 'any')) return
     const c = Math.max(1, Math.min(this.cols, col))
     const r = Math.max(1, Math.min(this.rows, row))
-    this.send(`\x1b[<${kind === 'drag' ? 32 : 0};${c};${r}${kind === 'release' ? 'm' : 'M'}`)
+    const button = kind === 'drag' ? 32 : kind === 'move' ? 35 : 0
+    this.send(`\x1b[<${button};${c};${r}${kind === 'release' ? 'm' : 'M'}`)
   }
 
   // The text between two cells (0-based, either order), a line per row, trailing space trimmed.

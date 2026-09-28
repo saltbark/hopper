@@ -29,8 +29,9 @@ to file items; it knows the project's `_open.md`. The first conversation in a ne
 to trust it once (`T`).
 
 Mouse: the wheel scrolls whatever is under the pointer (a list, or the conversation), and a click
-focuses a panel. A click on a conversation gives it the keyboard, and a click on the details of
-one that isn't open opens it. Drag inside a conversation to select; letting go copies it.
+focuses a panel. In the list and in Done, the row under the pointer lights up; a click selects it,
+and a second click opens it. A click on a conversation gives it the keyboard, and a click on the
+details of one that isn't open opens it. Drag inside a conversation to select; letting go copies it.
 Elsewhere, hold your terminal's selection modifier (often Option or Shift) to select by dragging.
 ← and → move between the columns.
 

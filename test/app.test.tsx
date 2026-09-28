@@ -196,6 +196,44 @@ describe('App', () => {
     unmount()
   })
 
+  it('moving over a row leaves the selection alone; a click selects it', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App config={config} load={async () => snapshot} />,
+    )
+    await tick()
+    // The list's frame starts on line 9: a heading, the waiting session, a gap, a heading, then
+    // the running one on line 14.
+    await press(stdin, '\u001b[<35;20;14M')
+    expect(focusOf(lastFrame())).toBe('projects')
+    await press(stdin, '\u001b[<0;20;14M')
+    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(lastFrame()).toMatch(/│ Sort the inbox  +│/)
+    // A click on a heading only gives the list the keyboard.
+    await press(stdin, '\u001b[<0;20;10M')
+    expect(lastFrame()).toMatch(/│ Sort the inbox  +│/)
+    unmount()
+  })
+
+  it('a second click on the selected row opens it, as ⏎ would', async () => {
+    const d = {
+      id: 'd1',
+      project: 'meta/inbox',
+      text: 'a waiting draft',
+      created: now,
+      updated: now,
+    }
+    const item = { ...draftSession(d, projects, 'kf'), where: 'needs' as const, key: 'meta/inbox' }
+    const snap = { ...snapshot, drafts: [d], items: [item] }
+    const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
+    await tick()
+    await press(stdin, '\u001b[<0;20;11M')
+    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(lastFrame()).not.toContain('NEW CONVERSATION')
+    await press(stdin, '\u001b[<0;20;11M')
+    expect(lastFrame()).toContain('NEW CONVERSATION')
+    unmount()
+  })
+
   it('→ and ← move between the projects column and the list', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,

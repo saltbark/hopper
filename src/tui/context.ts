@@ -6,7 +6,7 @@ import type { Routine } from '../routines/index.ts'
 import type { Row } from '../settings.ts'
 import type { TreeRow } from '../tree.ts'
 import type { EmbeddedSession } from './embed.ts'
-import type { Editing, Find, Focus, Form, Panel, Sel } from './state.ts'
+import type { Editing, Find, Focus, Form, Hover, Panel, Sel } from './state.ts'
 
 type Set<T> = Dispatch<SetStateAction<T>>
 
@@ -38,6 +38,8 @@ export type AppCtx = {
   pick: (Sel & { active: boolean }) | null
   setPick: Set<(Sel & { active: boolean }) | null>
   sel: Record<Panel, number>
+  hover: Hover
+  setHover: Set<Hover>
   setSel: Set<Record<Panel, number>>
   scope: string | null
   setScope: Set<string | null>
@@ -81,6 +83,7 @@ export type AppCtx = {
     rightW: number
     // The band of accounts and projects across the top of the left two columns, then the list.
     bandH: number
+    doneH: number
     workH: number
     sessionCols: number
     sessionRows: number

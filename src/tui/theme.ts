@@ -16,6 +16,8 @@ export const T = {
   focus: '#6fcac3',
   // Behind the selected row, behind a key cap, and the text on a filled chip.
   sel: '#243039',
+  // Behind the row under the pointer: a step short of the selection.
+  hover: '#1a2227',
   cap: '#2a3337',
   onFill: '#0a0c0d',
   waiting: '#e5c06a',

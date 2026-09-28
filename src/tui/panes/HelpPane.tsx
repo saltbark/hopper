@@ -42,8 +42,9 @@ function Section({ label, hints, hi }: { label: string; hints: Hint[]; hi?: bool
 
 const NOTES = [
   'Letters act on the focused panel; esc goes back.',
-  'Mouse: the wheel scrolls what is under it; a click focuses a panel. In a conversation, drag to',
-  'select and let go to copy; elsewhere hold your terminal’s selection modifier.',
+  'Mouse: the wheel scrolls what is under it; a click focuses a panel. In the list, a click selects',
+  'a row and a second opens it. In a conversation, drag to select and let go to copy; elsewhere',
+  'hold your terminal’s selection modifier.',
   'In a conversation esc is Claude’s (its menus, its rewind); ← at its empty prompt, or ctrl+], steps back.',
   'Ask Claude in a conversation to file items; it knows the project’s _open.md.',
 ]

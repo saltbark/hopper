@@ -10,7 +10,9 @@ import { backspace, insert, move, type EditorState, type Move } from './editor.t
 import { keyToBytes } from './embed.ts'
 import { rank } from './fuzzy.ts'
 import { parseMouse, type MouseEvent } from './mouse.ts'
-import { asText, groupOf, typed, type Editing, type Panel } from './state.ts'
+import { itemLines } from './panels/ItemRows.tsx'
+import { workItemAt } from './panes/WorkRows.tsx'
+import { asText, groupOf, typed, type Editing, type Hover, type Panel } from './state.ts'
 
 type Handler = (input: string, key: Key) => void
 
@@ -22,8 +24,9 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
   const { setMessage, setEditing, setForm, setSel } = ctx
 
   // ---- the mouse: the wheel scrolls what's under it; a click gives that panel the keyboard ----
+  // In the list and done, the row under the pointer lights softly and a click selects it.
   const onMouse = (events: MouseEvent[]) => {
-    const { leftW, midW, bandH, workH, sessionCols, sessionRows } = ctx.layout
+    const { leftW, midW, bandH, workH, doneH, sessionCols, sessionRows } = ctx.layout
     const { embed, pick, focus } = ctx
     for (const ev of events) {
       // The band (accounts beside projects) over the list over done, then the right panel.
@@ -41,6 +44,27 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       const cellAt = {
         col: Math.max(0, Math.min(sessionCols - 1, ev.x - (leftW + midW) - 2)),
         row: Math.max(0, Math.min(sessionRows - 1, ev.y - 2)),
+      }
+      // The row under the pointer, drawn as the lists draw it: each frame's top edge, then its
+      // lines. Headings and gaps in the list aren't rows.
+      const rowAt = (): Hover => {
+        if (panel === 'work') {
+          const i = workItemAt(ctx.work, ctx.at('work'), workH, ev.y - bandH - 2)
+          return i === null ? null : { panel, index: i }
+        }
+        if (panel !== 'done') return null
+        const { start, slice } = itemLines(ctx.done, ctx.at('done'), doneH)
+        const line = ev.y - bandH - workH - 2
+        return line >= 0 && line < slice.length ? { panel, index: start + line } : null
+      }
+      if (ev.kind === 'move') {
+        // Claude asks for every movement too, for its own hover.
+        if (panel === 'right' && embed && ctx.showingEmbed)
+          embed.forwardMouse('move', cellAt.col + 1, cellAt.row + 1)
+        // Only a different row is a change, so the flood of movement doesn't redraw.
+        const h = rowAt()
+        ctx.setHover((cur) => (cur?.panel === h?.panel && cur?.index === h?.index ? cur : h))
+        continue
       }
       const button = ev.kind === 'press' || ev.kind === 'drag' || ev.kind === 'release'
       if (embed && ctx.showingEmbed && button && (panel === 'right' || pick?.active)) {
@@ -78,13 +102,26 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
           if (embed && ctx.showingEmbed) embed.wheel(up, ev.x - (leftW + midW) - 1, ev.y - 1)
           continue
         }
+        // The rows move under the pointer; the next movement lights the new one.
+        ctx.setHover(null)
         ctx.setEmbedShown(false)
         setSel((s) => ({
           ...s,
           [panel]: Math.max(0, Math.min(ctx.lists[panel] - 1, s[panel] + (up ? -1 : 1))),
         }))
       } else if (ev.kind === 'press' && !ctx.editing && !ctx.form && !ctx.find) {
-        if (panel !== 'right') act.go(panel)
+        const h = rowAt()
+        if (h) {
+          // A click selects the row; a second click on it, once the list has the keyboard,
+          // opens it, as ⏎ would.
+          if (focus === h.panel && ctx.at(h.panel) === h.index)
+            act.open((h.panel === 'work' ? ctx.work : ctx.done)[h.index])
+          else {
+            if (ctx.at(h.panel) !== h.index) ctx.setEmbedShown(false)
+            setSel((s) => ({ ...s, [h.panel]: h.index }))
+            act.go(h.panel)
+          }
+        } else if (panel !== 'right') act.go(panel)
         // The details of a conversation that isn't open: a click opens it, as ⏎ would.
         else if (!ctx.showingEmbed && ctx.selectedItem) act.open(ctx.selectedItem)
       }

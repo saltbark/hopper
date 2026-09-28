@@ -15,9 +15,15 @@ export function shortName(it: Item): string {
     : it.name
 }
 
+// The rows of a plain list, windowed around the selection. The mouse reads it too.
+export const itemLines = (items: Item[], sel: number, height: number) =>
+  windowed(items, sel, height - 2)
+
 export const ItemRows = memo(function ItemRows(props: {
   items: Item[]
   sel: number
+  // The row under the pointer: a lighter background than the selection's.
+  hover?: number | null
   focused: boolean
   width: number
   height: number
@@ -26,10 +32,10 @@ export const ItemRows = memo(function ItemRows(props: {
   // The done list: a quiet tick instead of the state, and the names step back.
   done?: boolean
 }) {
-  const { items, sel, focused, width, height, empty, color, done } = props
+  const { items, sel, hover, focused, width, height, empty, color, done } = props
   const w = width - 4
   if (!items.length) return <Text color={T.dim}>{' ' + empty}</Text>
-  const { start, slice } = windowed(items, sel, height - 2)
+  const { start, slice } = itemLines(items, sel, height)
   // Narrow panels drop the age column first, then squeeze the project column. Wide ones give
   // what's left to the name.
   const showAge = w >= 40
@@ -40,10 +46,11 @@ export const ItemRows = memo(function ItemRows(props: {
     <>
       {slice.map((it, i) => {
         const isSel = start + i === sel
-        const bg = isSel && focused ? T.sel : undefined
+        const lit = isSel && focused
+        const bg = lit ? T.sel : start + i === hover ? T.hover : undefined
         return (
           <Text key={it.account + it.sessionId} wrap="truncate-end">
-            <Rail on={isSel && focused} bg={bg} />
+            <Rail on={lit} bg={bg} />
             {done ? (
               <Text color={T.faint} backgroundColor={bg}>
                 ✓
@@ -53,7 +60,7 @@ export const ItemRows = memo(function ItemRows(props: {
             )}
             <Text backgroundColor={bg}>
               {' '}
-              <Text color={bg ? T.hi : done ? T.dim : T.text} bold={!!bg}>
+              <Text color={lit ? T.hi : done ? T.dim : T.text} bold={lit}>
                 {cell(shortName(it), nameW)}
               </Text>
               <Text color={T.dim}>{cell(where(it), whereW)}</Text>

@@ -9,6 +9,9 @@ export type Panel = 'projects' | 'work' | 'done' | 'accounts'
 // 'session' is the embedded conversation: while it has focus, every key goes to Claude.
 export type Focus = Panel | 'session'
 
+// The row under the pointer in the list or done, lit more softly than the selection.
+export type Hover = { panel: 'work' | 'done'; index: number } | null
+
 export const PANELS: Panel[] = ['projects', 'work', 'done', 'accounts']
 
 // Everything not done is one list, in these groups, in this order. J K jump between them; the
