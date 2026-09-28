@@ -193,6 +193,55 @@ describe('App', () => {
     unmount()
   })
 
+  it('a click selects a project, and a second click on it focuses it, as ⏎ would', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App config={config} load={async () => snapshot} />,
+    )
+    await tick()
+    await press(stdin, 'c') // the list has the keyboard, so the first click is only a select
+    // Mouse lines count from 1; so do the frame's.
+    const y = (lastFrame() ?? '').split('\n').findIndex((l) => /\bideas\b/.test(l)) + 1
+    const click = `\u001b[<0;40;${y}M`
+    await press(stdin, `\u001b[<35;40;${y}M`) // moving over it changes nothing
+    expect(focusOf(lastFrame())).toBe('conversations')
+    await press(stdin, click)
+    expect(focusOf(lastFrame())).toBe('projects')
+    expect(lastFrame()).toMatch(/\(c\) ─+ all projects/)
+    await press(stdin, click)
+    expect(lastFrame()).toMatch(/\(c\) ─+ meta\/ideas/)
+    unmount()
+  })
+
+  it('a click on a folder’s ▾ folds it, and on its ▸ unfolds it', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App config={config} load={async () => snapshot} />,
+    )
+    await tick()
+    const lines = (lastFrame() ?? '').split('\n')
+    const y = lines.findIndex((l) => /▾ meta\b/.test(l))
+    const x = lines[y]!.indexOf('▾') + 1
+    await press(stdin, `\u001b[<0;${x};${y + 1}M`)
+    expect(lastFrame()).toMatch(/▸ meta\b/)
+    expect(lastFrame()).not.toMatch(/\bideas\b/)
+    await press(stdin, `\u001b[<0;${x};${y + 1}M`)
+    expect(lastFrame()).toMatch(/▾ meta\b/)
+    expect(lastFrame()).toMatch(/\bideas\b/)
+    unmount()
+  })
+
+  it('a click selects an account', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App config={config} load={async () => snapshot} />,
+    )
+    await tick()
+    const y = (lastFrame() ?? '').split('\n').findIndex((l) => l.includes('sb  not signed in'))
+    await press(stdin, `\u001b[<0;5;${y + 1}M`)
+    expect(focusOf(lastFrame())).toBe('accounts')
+    expect(lastFrame()).toContain('│▌sb  not signed in')
+    expect(lastFrame()).toContain('sb · Saltbark')
+    unmount()
+  })
+
   it('the wheel moves the selection in the list under the pointer, and a click focuses it', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,

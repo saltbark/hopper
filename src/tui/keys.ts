@@ -10,7 +10,9 @@ import { backspace, insert, move, type EditorState, type Move } from './editor.t
 import { keyToBytes } from './embed.ts'
 import { rank } from './fuzzy.ts'
 import { parseMouse, type MouseEvent } from './mouse.ts'
+import { accountLines } from './panels/Accounts.tsx'
 import { itemLines } from './panels/ItemRows.tsx'
+import { foldMarkAt, projectLines } from './panels/ProjectRows.tsx'
 import { workItemAt } from './panes/WorkRows.tsx'
 import { asText, groupOf, typed, type Editing, type Hover, type Panel } from './state.ts'
 
@@ -23,8 +25,17 @@ export const QUIT_PROMPT = 'Press x again to quit.'
 export function makeInput(ctx: AppCtx, act: Actions): Handler {
   const { setMessage, setEditing, setForm, setSel } = ctx
 
+  // A folder in Projects: z, or a click on its ▸ ▾.
+  const toggleFold = (key: string) =>
+    ctx.setFolded((f) => {
+      const next = new Set(f)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+
   // ---- the mouse: the wheel scrolls what's under it; a click gives that panel the keyboard ----
-  // In the list and done, the row under the pointer lights softly and a click selects it.
+  // In every list, the row under the pointer lights softly and a click selects it.
   // The help screen: when it is taller than the screen, j k and the arrows
   // scroll it and space a page; any other key closes it.
   const scrollHelp = (by: number) =>
@@ -71,9 +82,24 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
           const i = workItemAt(ctx.work, ctx.at('work'), workH, ev.y - bandH - 2)
           return i === null ? null : { panel, index: i }
         }
-        if (panel !== 'done') return null
-        const { start, slice } = itemLines(ctx.done, ctx.at('done'), doneH)
-        const line = ev.y - bandH - workH - 2
+        if (panel === 'done') {
+          const { start, slice } = itemLines(ctx.done, ctx.at('done'), doneH)
+          const line = ev.y - bandH - workH - 2
+          return line >= 0 && line < slice.length ? { panel, index: start + line } : null
+        }
+        // The band's panels start on the first line; each has a heading line inside its frame.
+        if (panel === 'projects') {
+          // While finding, the panel shows what was found.
+          const rows = ctx.find ? ctx.findRows : ctx.treeRows
+          const sel = ctx.find
+            ? Math.min(ctx.find.sel, Math.max(0, rows.length - 1))
+            : ctx.at('projects')
+          const line = projectLines(rows, sel, bandH)[ev.y - 2]
+          return line && 'row' in line ? { panel, index: line.index } : null
+        }
+        if (panel !== 'accounts') return null
+        const { start, slice } = accountLines(ctx.accountStates, ctx.at('accounts'), bandH)
+        const line = ev.y - 3
         return line >= 0 && line < slice.length ? { panel, index: start + line } : null
       }
       if (ev.kind === 'move') {
@@ -129,11 +155,29 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       } else if (ev.kind === 'press' && !ctx.editing && !ctx.form && !ctx.find) {
         const h = rowAt()
         if (h) {
+          // A click on a folder's ▸ ▾ folds or unfolds it, as z would, and selects it too.
+          const tree = h.panel === 'projects' ? ctx.treeRows[h.index] : undefined
+          const onMark =
+            !!tree?.hasChildren &&
+            !tree.active &&
+            ev.x - leftW - 1 - foldMarkAt(tree) >= 0 &&
+            ev.x - leftW - 1 - foldMarkAt(tree) < 2
+          if (tree && onMark) {
+            toggleFold(tree.key)
+            if (ctx.at('projects') !== h.index) ctx.setEmbedShown(false)
+            setSel((s) => ({ ...s, projects: h.index }))
+            act.go('projects')
+          }
           // A click selects the row; a second click on it, once the list has the keyboard,
           // opens it, as ⏎ would.
-          if (focus === h.panel && ctx.at(h.panel) === h.index)
-            act.open((h.panel === 'work' ? ctx.work : ctx.done)[h.index])
-          else {
+          else if (focus === h.panel && ctx.at(h.panel) === h.index) {
+            if (tree) act.focusProject(tree.key)
+            else if (h.panel === 'accounts') {
+              // Only an account that isn't signed in: signing in takes over the terminal.
+              const a = ctx.accountStates[h.index]
+              if (a && a.auth && !a.auth.loggedIn) void act.signIn(a.account)
+            } else act.open((h.panel === 'work' ? ctx.work : ctx.done)[h.index])
+          } else {
             if (ctx.at(h.panel) !== h.index) ctx.setEmbedShown(false)
             setSel((s) => ({ ...s, [h.panel]: h.index }))
             act.go(h.panel)
@@ -463,14 +507,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       const tree = ctx.selectedRow
       if (!tree) return
       if (key.return) return act.focusProject(tree.key)
-      if (input === 'z' && tree.hasChildren) {
-        ctx.setFolded((f) => {
-          const next = new Set(f)
-          if (next.has(tree.key)) next.delete(tree.key)
-          else next.add(tree.key)
-          return next
-        })
-      }
+      if (input === 'z' && tree.hasChildren) toggleFold(tree.key)
       return
     }
     if (focus === 'work' || focus === 'done') return onList(focus, input, key)

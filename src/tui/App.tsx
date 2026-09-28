@@ -444,6 +444,7 @@ export function App({
               projectSel={at('projects')}
               find={find}
               scope={scope}
+              hover={hover}
               focus={keysAt}
               color={color}
               accountsW={leftW}
