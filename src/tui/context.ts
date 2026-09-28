@@ -46,8 +46,10 @@ export type AppCtx = {
   scope: string | null
   setScope: Set<string | null>
   setFolded: Set<globalThis.Set<string>>
-  help: boolean
-  setHelp: Set<boolean>
+  // The help screen (?), and how far it is scrolled.
+  help: { scroll: number } | null
+  setHelp: Set<{ scroll: number } | null>
+  helpMax: number
   // The settings screen, and where its selection is.
   settings: { sel: number } | null
   setSettings: Set<{ sel: number } | null>

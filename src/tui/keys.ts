@@ -25,10 +25,29 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
 
   // ---- the mouse: the wheel scrolls what's under it; a click gives that panel the keyboard ----
   // In the list and done, the row under the pointer lights softly and a click selects it.
+  // The help screen: when it is taller than the screen, j k and the arrows
+  // scroll it and space a page; any other key closes it.
+  const scrollHelp = (by: number) =>
+    ctx.setHelp((h) => h && { scroll: Math.max(0, Math.min(ctx.helpMax, h.scroll + by)) })
+  const onHelp: Handler = (input, key) => {
+    if (!ctx.helpMax) return ctx.setHelp(null)
+    if (input === 'j' || key.downArrow) return scrollHelp(1)
+    if (input === 'k' || key.upArrow) return scrollHelp(-1)
+    if (input === ' ' || key.pageDown) return scrollHelp(10)
+    if (key.pageUp) return scrollHelp(-10)
+    ctx.setHelp(null)
+  }
+
   const onMouse = (events: MouseEvent[]) => {
     const { leftW, midW, bandH, workH, doneH, sessionCols, sessionRows } = ctx.layout
     const { embed, pick, focus } = ctx
     for (const ev of events) {
+      // Over the help screen the wheel scrolls it and nothing else does anything.
+      if (ctx.help) {
+        if (ev.kind === 'wheel-up' || ev.kind === 'wheel-down')
+          scrollHelp(ev.kind === 'wheel-up' ? -3 : 3)
+        continue
+      }
       // The band (accounts beside projects) over the list over done, then the right panel.
       const panel: Panel | 'right' =
         ev.x > leftW + midW
@@ -377,7 +396,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       return setSel((s) => ({ ...s, work: 0 }))
     }
     if (input === 'f') return ctx.setFind({ query: '', sel: 0 })
-    if (input === '?') return ctx.setHelp(true)
+    if (input === '?') return ctx.setHelp({ scroll: 0 })
     if (input === ',') return ctx.setSettings({ sel: 0 })
     // x sits next to z (fold), so quitting takes a second x straight after.
     if (input === 'x') return ctx.message === QUIT_PROMPT ? ctx.exit() : setMessage(QUIT_PROMPT)
@@ -471,7 +490,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (key.ctrl && input === 'c') return ctx.exit()
     // A message stays until the next keypress, then the key hints come back.
     if (ctx.message && !ctx.editing) setMessage(null)
-    if (ctx.help) return ctx.setHelp(false)
+    if (ctx.help) return onHelp(input, key)
     if (ctx.form) return onForm(input, key)
     if (ctx.settings) return onSettings(input, key)
     if (ctx.editing) return onEditing(input, key)

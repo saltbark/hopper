@@ -27,7 +27,7 @@ import { Detail, detailTitle } from './panels/detail/index.tsx'
 import { accountColor, Frame } from './panels/primitives.tsx'
 import { Band, ListColumn } from './panes/Columns.tsx'
 import { DraftPane } from './panes/DraftPane.tsx'
-import { HelpPane } from './panes/HelpPane.tsx'
+import { HelpPane, helpMaxScroll } from './panes/HelpPane.tsx'
 import { KeyBar } from './panes/KeyBar.tsx'
 import { PickPane } from './panes/PickPane.tsx'
 import { SessionPane } from './panes/SessionPane.tsx'
@@ -84,7 +84,7 @@ export function App({
   const [hover, setHover] = useState<Hover>(null)
   const [scope, setScope] = useState<string | null>(null)
   const [folded, setFolded] = useState<Set<string>>(() => new Set())
-  const [help, setHelp] = useState(false)
+  const [help, setHelp] = useState<{ scroll: number } | null>(null)
   const [settings, setSettings] = useState<{ sel: number } | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [form, setForm] = useState<Form | null>(null)
@@ -293,6 +293,7 @@ export function App({
     setFolded,
     help,
     setHelp,
+    helpMax: helpMaxScroll(W, bodyH),
     settings,
     setSettings,
     settingRows,
@@ -404,7 +405,7 @@ export function App({
   return (
     <Box flexDirection="column" width={W} height={H}>
       {help ? (
-        <HelpPane config={config} here={here} width={W} height={bodyH} />
+        <HelpPane config={config} here={here} scroll={help.scroll} width={W} height={bodyH} />
       ) : settings ? (
         <SettingsPane
           config={config}
