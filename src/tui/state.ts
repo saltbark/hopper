@@ -11,16 +11,17 @@ export type Focus = Panel | 'session'
 
 export const PANELS: Panel[] = ['projects', 'work', 'done', 'accounts']
 
-// Everything not done is one list, in these groups, in this order. A letter jumps to each.
+// Everything not done is one list, in these groups, in this order. J K jump between them; the
+// letters on the list act on the selected row instead.
 export type Group = 'waiting' | 'draft' | 'running' | 'routines' | 'next'
-export const GROUPS: { id: Group; label: string; key: string }[] = [
-  { id: 'waiting', label: 'waiting on you', key: 'w' },
-  { id: 'draft', label: 'drafts', key: 'd' },
-  { id: 'running', label: 'running', key: 'r' },
+export const GROUPS: { id: Group; label: string }[] = [
+  { id: 'waiting', label: 'waiting on you' },
+  { id: 'draft', label: 'drafts' },
+  { id: 'running', label: 'running' },
   // Prompts that run on a schedule; each run is its own conversation.
-  { id: 'routines', label: 'routines', key: 'o' },
+  { id: 'routines', label: 'routines' },
   // Work that will start on its own when an account has room. Nothing lands here until dispatch.
-  { id: 'next', label: 'up next', key: 'u' },
+  { id: 'next', label: 'up next' },
 ]
 export const groupOf = (i: Item): Group =>
   i.kind === 'draft'
@@ -32,8 +33,9 @@ export const groupOf = (i: Item): Group =>
         : 'waiting'
 export const groupRank = (g: Group) => GROUPS.findIndex((x) => x.id === g)
 
-// A conversation before it starts, or a routine's prompt. Writing is roomy (⏎ is a new line);
-// esc steps out to decide.
+// A conversation before it starts, or a routine's prompt, open in the editor. Writing is roomy
+// (⏎ is a new line); esc saves it and closes the editor, leaving it selected on the list, where
+// its keys are. 'pick' is choosing another project for one, from the list.
 export type Editing = {
   id: string
   project: string
@@ -42,7 +44,7 @@ export type Editing = {
   cursor: number
   anchor: number | null
   created: number
-  stage: 'write' | 'act' | 'pick'
+  stage: 'write' | 'pick'
   query: string
   pickSel: number
   // What it starts with; undefined is Claude's default.
@@ -62,6 +64,7 @@ export type Form =
   | { kind: 'routine-name'; value: string; editing: Editing }
   | { kind: 'routine-schedule'; value: string; editing: Editing; name: string }
   | { kind: 'routine-remove'; name: string }
+  | { kind: 'draft-remove'; id: string; name: string }
   | { kind: 'setting'; name: string; value: string; id: string }
   | { kind: 'setting-remove'; name: string; id: string }
   | { kind: 'setting-add-source'; value: string }
@@ -77,6 +80,7 @@ export const FORM_PROMPT: Record<Form['kind'], string> = {
   'routine-schedule':
     'when it runs: daily 7:00 · weekdays 7:00, 13:00 · weekly mon 9:00 · monthly 1st 9:00 · blank for run-now only',
   'routine-remove': '',
+  'draft-remove': '',
   setting: 'new value (blank for the default)',
   'setting-remove': '',
   'setting-add-source': 'prefix and meta repo folder, like: kf ~/Workspace/kf-meta',

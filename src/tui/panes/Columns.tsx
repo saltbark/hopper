@@ -7,7 +7,7 @@ import { AccountRow, AccountsHeader } from '../panels/Accounts.tsx'
 import { ItemRows } from '../panels/ItemRows.tsx'
 import { Frame, windowed } from '../panels/primitives.tsx'
 import { ProjectRows } from '../panels/ProjectRows.tsx'
-import type { Find, Focus } from '../state.ts'
+import type { Find, Focus, Panel } from '../state.ts'
 import { T } from '../theme.ts'
 import { WorkRows } from './WorkRows.tsx'
 
@@ -21,7 +21,8 @@ export function Band(props: {
   projectSel: number
   find: Find | null
   scope: string | null
-  focus: Focus
+  // Where the keys are, for the blue edge; null while the editor has them.
+  focus: Focus | null
   color: (account: string) => string
   accountsW: number
   projectsW: number
@@ -101,13 +102,15 @@ export function ListColumn(props: {
   workSel: number
   doneSel: number
   scope: string | null
-  focus: Focus
+  focus: Focus | null
+  // The list whose selected row is open on the right: it stays highlighted without the edge.
+  held: Panel | null
   color: (account: string) => string
   width: number
   workH: number
   doneH: number
 }) {
-  const { work, done, focus, color, width, workH, doneH } = props
+  const { work, done, focus, held, color, width, workH, doneH } = props
   return (
     <Box flexDirection="column" width={width}>
       <Frame
@@ -124,7 +127,7 @@ export function ListColumn(props: {
           <WorkRows
             items={work}
             sel={props.workSel}
-            focused={focus === 'work'}
+            focused={focus === 'work' || held === 'work'}
             width={width}
             height={workH}
             color={color}
@@ -147,7 +150,7 @@ export function ListColumn(props: {
         <ItemRows
           items={done}
           sel={props.doneSel}
-          focused={focus === 'done'}
+          focused={focus === 'done' || held === 'done'}
           width={width}
           height={doneH}
           empty="Nothing done."

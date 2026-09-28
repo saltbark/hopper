@@ -5,10 +5,14 @@ import { ago, wrapText } from '../../../format.ts'
 import type { OpenItem } from '../../../items.ts'
 import { OTHER, type Item } from '../../../model.ts'
 import { tildify } from '../../../paths.ts'
+import { draftKeys } from '../../keymap.ts'
+import { modelLabel } from '../../state.ts'
 import { stateMark, T } from '../../theme.ts'
 import { Heading, Keys, Mark } from '../primitives.tsx'
 import { OpenItems, row, stateWords, title } from './parts.tsx'
 
+// A draft as it sits on the list: its settings, its keys, then its text, read only. ⏎ is the
+// only way back into writing it.
 export function DraftDetail({
   item,
   draft,
@@ -18,7 +22,8 @@ export function DraftDetail({
   draft?: Draft | undefined
   width: number
 }) {
-  const lines = wrapText(draft?.text ?? '', width).filter((l, i, a) => l || i < a.length - 1)
+  const lines = wrapText(draft?.text ?? '', width)
+  while (lines.length && !lines.at(-1)) lines.pop()
   return (
     <>
       {title(item.name)}
@@ -29,14 +34,16 @@ export function DraftDetail({
       </Text>
       <Text> </Text>
       {row('project', item.key)}
-      {lines.slice(1, 5).map((l, i) => (
-        <Text key={i} color={T.dim} wrap="truncate-end">
+      {row('model', modelLabel(draft?.model, draft?.effort))}
+      <Text> </Text>
+      <Keys keys={draftKeys(draft ?? {})} width={width} />
+      <Text> </Text>
+      <Heading label="text · ⏎ to keep writing" width={width} />
+      {lines.map((l, i) => (
+        <Text key={i} color={T.text}>
           {l || ' '}
         </Text>
       ))}
-      <Text> </Text>
-      <Keys keys={[['⏎', 'keep writing']]} />
-      <Text color={T.dim}>esc then s starts</Text>
     </>
   )
 }
@@ -72,12 +79,12 @@ export function ConversationDetail(props: {
             inList
               ? [
                   ['⏎', 'open here'],
-                  ['m', 'mark done'],
+                  ['d', 'mark done'],
                   ['i', 'interrupt'],
                 ]
               : [
                   ['⏎', 'open here'],
-                  ['m', 'bring it back'],
+                  ['d', 'bring it back'],
                 ]
           }
         />

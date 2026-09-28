@@ -17,8 +17,8 @@ const GROUP_COLOR: Record<Group, string> = {
 
 type Row = { gap: Group } | { header: Group; count: number } | { item: Item; index: number }
 
-// The one list: items in their groups, a heading before each group with its count and, while the
-// list has the keyboard, the key that jumps to it; a blank line between groups. The selection counts items only.
+// The one list: items in their groups, a heading before each group with its count, a blank line
+// between groups. The selection counts items only.
 export const WorkRows = memo(function WorkRows(props: {
   items: Item[]
   sel: number
@@ -52,14 +52,11 @@ export const WorkRows = memo(function WorkRows(props: {
         if ('header' in r) {
           const g = GROUPS.find((x) => x.id === r.header)!
           const head = ` ${g.label.toUpperCase()} `
-          // The jump keys only work from the list, so they only show there.
-          const hint = focused ? `(${g.key}) ` : ''
-          const tail = `${r.count} ${hint}`
+          const tail = `${r.count} `
           return (
             <Text key={'h-' + r.header} wrap="truncate-end">
               <Text color={GROUP_COLOR[r.header]}>{head}</Text>
-              <Text color={T.dim}>{`${r.count} `}</Text>
-              {hint ? <Text color={T.faint}>{hint}</Text> : null}
+              <Text color={T.dim}>{tail}</Text>
               <Text color={T.line}>
                 {'─'.repeat(Math.max(0, w + 1 - head.length - tail.length))}
               </Text>

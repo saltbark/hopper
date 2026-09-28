@@ -16,15 +16,9 @@ const keysOf = (h: Partial<Here>) => hereKeys({ ...base, ...h }).hints.map(([k])
 
 describe('hereKeys', () => {
   it('follows what is selected in the list', () => {
-    expect(keysOf({ item: conversation })).toEqual(['⏎ →', 'm', 'J K', 'w d r o u'])
-    expect(keysOf({ item: conversation, embedOpen: true })).toEqual([
-      '⏎ →',
-      'i',
-      'm',
-      'J K',
-      'w d r o u',
-    ])
-    expect(keysOf({ focus: 'done', item: conversation })).toEqual(['⏎ →', 'm'])
+    expect(keysOf({ item: conversation })).toEqual(['⏎ →', 'd', 'J K'])
+    expect(keysOf({ item: conversation, embedOpen: true })).toEqual(['⏎ →', 'i', 'd', 'J K'])
+    expect(keysOf({ focus: 'done', item: conversation })).toEqual(['⏎ →', 'd'])
   })
   it('offers fold only on folders, and esc only when the list is narrowed', () => {
     const row = { key: 'sb', hasChildren: true, folded: true } as Here['row']
@@ -38,20 +32,25 @@ describe('hereKeys', () => {
     ])
     expect(hereKeys({ ...base, focus: 'projects', row }).hints).toContainEqual(['z', 'unfold'])
   })
-  it('knows a conversation and a draft', () => {
+  it('knows a conversation, a draft on the list, and writing one', () => {
     expect(hereKeys({ ...base, focus: 'session' }).label).toBe('a conversation')
-    const editing = { stage: 'act', model: 'opus' } as Here['editing']
-    expect(hereKeys({ ...base, editing }).hints).toContainEqual(['m', 'model (opus)'])
+    const draft = { kind: 'draft', model: 'opus' } as Item
+    const hints = hereKeys({ ...base, item: draft }).hints
+    expect(hints).toContainEqual(['m', 'model (opus)'])
+    expect(hints).toContainEqual(['s', 'start it'])
+    expect(hints).toContainEqual(['d', 'throw away'])
+    const editing = { stage: 'write' } as Here['editing']
+    expect(hereKeys({ ...base, editing }).hints).toContainEqual(['esc', 'save and close'])
   })
   it('leaves out of the key bar what the screen already shows', () => {
-    // The summary lists ⏎ and m, leaving → of "⏎ →"; the list's headings show the group letters.
+    // The summary lists ⏎ and d, leaving → of "⏎ →".
     expect(barKeys({ ...base, item: conversation }).map(([k]) => k)).toEqual(['→', 'J K'])
     // With the conversation open instead, nothing on the right lists them.
     expect(
       barKeys({ ...base, item: conversation, embedOpen: true, summaryShown: false }).map(
         ([k]) => k,
       ),
-    ).toEqual(['⏎ →', 'i', 'm', 'J K'])
+    ).toEqual(['⏎ →', 'i', 'd', 'J K'])
     expect(barKeys({ ...base, focus: 'accounts' })).toEqual([])
   })
 })

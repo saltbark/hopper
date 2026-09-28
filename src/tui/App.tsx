@@ -86,6 +86,7 @@ export function App({
   const [editing, setEditing] = useState<Editing | null>(null)
   // A draft Claude refused to start because its folder isn't trusted yet; T trusts and starts it.
   const [untrusted, setUntrusted] = useState<{ dir: string; draft: Editing } | null>(null)
+  const [follow, setFollow] = useState<string | null>(null)
 
   const { snap, snapRef, error, refresh } = useSnapshot(config, load)
   const { usageText, askUsage } = useUsage(config.home, snapRef, refresh)
@@ -108,6 +109,13 @@ export function App({
     }
   }, [snap, scope])
   const projectKeys = useMemo(() => (snap?.projects ?? []).map((p) => p.key), [snap])
+  // Select a row that was just saved, once the list has it (state adjusted while rendering, as
+  // React allows for a component's own state).
+  const followAt = follow ? work.findIndex((w) => w.sessionId === follow) : -1
+  if (followAt >= 0) {
+    setSel((s) => ({ ...s, work: followAt }))
+    setFollow(null)
+  }
 
   const treeRows = useMemo(() => {
     if (!snap) return []
@@ -175,6 +183,19 @@ export function App({
   const scopeProject = scope && projectKeys.includes(scope) ? scope : null
   const showingEmbed =
     !!embed && (focus === 'session' || embedShown || selectedItem?.id === embed.id)
+  // The blue edge is where the keys go: nowhere on the left while the editor has them.
+  const keysAt = editing ? null : focus
+  // The list whose selected row the right panel is showing, which keeps its highlight while the
+  // keys are over there.
+  const editingId =
+    editing &&
+    (editing.routine ? routineSessionId(editing.routine.name) : draftSessionId(editing.id))
+  const held: Panel | null =
+    focus === 'session'
+      ? returnTo
+      : editingId && selectedItem?.sessionId === editingId
+        ? listFocus
+        : null
   // What the key bar and the help screen describe.
   const here: Here = {
     focus,
@@ -273,6 +294,7 @@ export function App({
     setEditing,
     untrusted,
     setUntrusted,
+    setFollow,
     work,
     done,
     projectKeys,
@@ -391,7 +413,7 @@ export function App({
               projectSel={at('projects')}
               find={find}
               scope={scope}
-              focus={focus}
+              focus={keysAt}
               color={color}
               accountsW={leftW}
               projectsW={midW}
@@ -404,7 +426,8 @@ export function App({
               workSel={at('work')}
               doneSel={at('done')}
               scope={scope}
-              focus={focus}
+              focus={keysAt}
+              held={held}
               color={color}
               width={listW}
               workH={workH}

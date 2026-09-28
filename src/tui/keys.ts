@@ -2,7 +2,7 @@ import type { Key } from 'ink'
 
 import { preferFirst, prefixesOf, setDefaultAccount, showPrefix, suggestName } from '../config.ts'
 import { EFFORTS, MODELS, nextOf } from '../conversations.ts'
-import { deleteDraft } from '../drafts.ts'
+import type { Item } from '../model.ts'
 import type { Actions } from './actions.ts'
 import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
@@ -10,7 +10,7 @@ import { backspace, insert, move, type EditorState, type Move } from './editor.t
 import { keyToBytes } from './embed.ts'
 import { rank } from './fuzzy.ts'
 import { parseMouse, type MouseEvent } from './mouse.ts'
-import { asText, GROUPS, groupOf, typed, type Editing, type Panel } from './state.ts'
+import { asText, groupOf, typed, type Editing, type Panel } from './state.ts'
 
 type Handler = (input: string, key: Key) => void
 
@@ -114,6 +114,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (
       form.kind === 'remove' ||
       form.kind === 'routine-remove' ||
+      form.kind === 'draft-remove' ||
       form.kind === 'setting-remove'
     ) {
       if (input === 'y') void act.submitForm(form)
@@ -128,15 +129,15 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
   // ---- the draft or routine editor ----
   const onPick = (e: Editing, input: string, key: Key) => {
     const list = rank(e.query, ctx.projectKeys)
-    if (key.escape) return setEditing({ ...e, stage: 'act' })
+    if (key.escape) return setEditing(null)
     if (key.upArrow) return setEditing({ ...e, pickSel: Math.max(0, e.pickSel - 1) })
     if (key.downArrow)
       return setEditing({ ...e, pickSel: Math.min(list.length - 1, e.pickSel + 1) })
     if (key.tab || key.return) {
       const chosen = list[Math.min(e.pickSel, list.length - 1)]
-      return chosen
-        ? setEditing({ ...e, project: chosen, stage: 'act' })
-        : setMessage('No project matches.')
+      if (!chosen) return setMessage('No project matches.')
+      setEditing(null)
+      return void act.saveEdit({ ...e, project: chosen }, `Moved to ${chosen}.`)
     }
     if (key.backspace || key.delete)
       return setEditing({ ...e, query: e.query.slice(0, -1), pickSel: 0 })
@@ -144,8 +145,9 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       setEditing({ ...e, query: e.query + input.replace(/\s/g, ''), pickSel: 0 })
   }
 
+  // esc saves and closes the editor; what was in it stays selected on the list, with its keys.
   const onWrite = (e: Editing, input: string, key: Key) => {
-    if (key.escape) return setEditing({ ...e, stage: 'act', anchor: null })
+    if (key.escape) return void (e.routine ? act.keepRoutine(e) : act.keepDraft(e))
     const ed: EditorState = { text: e.text, cursor: e.cursor, anchor: e.anchor }
     const put = (n: EditorState) => setEditing({ ...e, ...n })
     const to = (how: Move) => put(move(ed, how, ctx.layout.rightW - 4, key.shift))
@@ -167,52 +169,10 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (typed(input, key)) put(insert(ed, asText(input)))
   }
 
-  // Stepped out of writing: decide. A routine's prompt has its own set.
-  const onDecide = (e: Editing, input: string, key: Key) => {
-    if (input === '?') return ctx.setHelp(true)
-    if (input === 'm') return setEditing({ ...e, model: nextOf(MODELS, e.model) })
-    if (input === 'e') return setEditing({ ...e, effort: nextOf(EFFORTS, e.effort) })
-    if (input === 'p') return setEditing({ ...e, stage: 'pick', query: '', pickSel: 0 })
-    const r = e.routine
-    if (r) {
-      if (input === 's') return void act.runNow(e)
-      if (input === 'S')
-        return setForm({ kind: 'routine-schedule', value: r.schedule, editing: e, name: r.name })
-      if (input === 'P') return setEditing({ ...e, routine: { ...r, enabled: !r.enabled } })
-      if (input === 'x') {
-        setEditing(null)
-        return setForm({ kind: 'routine-remove', name: r.name })
-      }
-      if (key.escape) return void act.keepRoutine(e)
-      return setEditing({ ...e, stage: 'write' })
-    }
-    if (input === 's') return void act.start(e)
-    if (input === 'r') {
-      if (!e.text.trim()) return setMessage('Prompt is empty.')
-      const suggested = (e.text.toLowerCase().match(/[a-z0-9]+/g) ?? [])
-        .slice(0, 3)
-        .join('-')
-        .slice(0, 30)
-      return setForm({ kind: 'routine-name', value: suggested, editing: e })
-    }
-    if (input === 'y') {
-      copyToClipboard(e.text)
-      return setMessage('Draft copied.')
-    }
-    if (input === 'x') {
-      setEditing(null)
-      void deleteDraft(ctx.config.home, e.id).then(() => ctx.refresh(false))
-      return setMessage('Draft deleted.')
-    }
-    if (key.escape || input === 'k') return void act.keepDraft(e)
-    setEditing({ ...e, stage: 'write' })
-  }
-
   const onEditing: Handler = (input, key) => {
     const e = ctx.editing!
     if (e.stage === 'pick') return onPick(e, input, key)
-    if (e.stage === 'write') return onWrite(e, input, key)
-    onDecide(e, input, key)
+    onWrite(e, input, key)
   }
 
   // ---- finding a project ----
@@ -267,6 +227,54 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
   }
 
   // ---- the board: panels, lists and accounts ----
+  // A draft's and a routine's keys work on its row, without opening it: ⏎ is the only way into
+  // the editor. They come before the board's letters, so p and s mean the row's here.
+  const rowKeys = (it: Item | undefined): Record<string, () => unknown> => {
+    const e = act.editingOf(it)
+    if (!it || !e) return {}
+    const r = e.routine
+    const both: Record<string, () => unknown> = {
+      s: () => (r ? act.runNow(e) : act.start(e)),
+      m: () => {
+        const model = nextOf(MODELS, e.model)
+        return act.saveEdit({ ...e, model }, `Model: ${model ?? 'default'}.`)
+      },
+      e: () => {
+        const effort = nextOf(EFFORTS, e.effort)
+        return act.saveEdit({ ...e, effort }, `Effort: ${effort ?? 'default'}.`)
+      },
+      p: () => setEditing({ ...e, stage: 'pick', query: '', pickSel: 0 }),
+      y: () => {
+        copyToClipboard(e.text)
+        setMessage(r ? 'Prompt copied.' : 'Draft copied.')
+      },
+    }
+    if (r) {
+      return {
+        ...both,
+        S: () => setForm({ kind: 'routine-schedule', value: r.schedule, editing: e, name: r.name }),
+        P: () => {
+          const enabled = !r.enabled
+          const said = `${enabled ? 'Resumed' : 'Paused'} ${r.name}.`
+          return act.saveEdit({ ...e, routine: { ...r, enabled } }, said)
+        },
+        d: () => setForm({ kind: 'routine-remove', name: r.name }),
+      }
+    }
+    return {
+      ...both,
+      r: () => {
+        if (!e.text.trim()) return setMessage('Prompt is empty.')
+        const suggested = (e.text.toLowerCase().match(/[a-z0-9]+/g) ?? [])
+          .slice(0, 3)
+          .join('-')
+          .slice(0, 30)
+        setForm({ kind: 'routine-name', value: suggested, editing: e })
+      },
+      d: () => setForm({ kind: 'draft-remove', id: e.id, name: it.name }),
+    }
+  }
+
   const onList = (panel: 'work' | 'done', input: string, key: Key) => {
     const list = panel === 'work' ? ctx.work : ctx.done
     const it = list[ctx.at(panel)]
@@ -276,13 +284,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       return setMessage('Sent esc to Claude.')
     }
     if (key.return) return act.open(it)
-    if (input === 'm') return void act.markDone(it, panel === 'work')
-    if (panel !== 'work') return
-    const g = GROUPS.find((x) => x.key === input)
-    if (!g) return
-    const first = ctx.work.findIndex((w) => groupOf(w) === g.id)
-    if (first < 0) return setMessage(`Nothing in ${g.label}.`)
-    setSel((s) => ({ ...s, work: first }))
+    if (input === 'd') return void act.markDone(it, panel === 'work')
   }
 
   const onAccounts = (input: string, key: Key) => {
@@ -321,6 +323,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
 
   const onBoard: Handler = (input, key) => {
     const focus = ctx.focus as Panel
+    const own = focus === 'work' || focus === 'done' ? rowKeys(ctx.selectedItem)[input] : undefined
+    if (own) return void own()
     if (key.escape) {
       if (focus !== 'projects') return act.go('projects')
       if (ctx.scope) ctx.setScope(null)
@@ -337,7 +341,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     }
     if (input === 'f') return ctx.setFind({ query: '', sel: 0 })
     if (input === '?') return ctx.setHelp(true)
-    if (input === 's') return ctx.setSettings({ sel: 0 })
+    if (input === ',') return ctx.setSettings({ sel: 0 })
     // x sits next to z (fold), so quitting takes a second x straight after.
     if (input === 'x') return ctx.message === QUIT_PROMPT ? ctx.exit() : setMessage(QUIT_PROMPT)
     if (input === 'R') return void ctx.refresh(true)
@@ -405,14 +409,14 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (input === 'k' || key.upArrow) return step(-1)
 
     if (focus === 'projects') {
-      const row = ctx.selectedRow
-      if (!row) return
-      if (key.return) return act.focusProject(row.key)
-      if (input === 'z' && row.hasChildren) {
+      const tree = ctx.selectedRow
+      if (!tree) return
+      if (key.return) return act.focusProject(tree.key)
+      if (input === 'z' && tree.hasChildren) {
         ctx.setFolded((f) => {
           const next = new Set(f)
-          if (next.has(row.key)) next.delete(row.key)
-          else next.add(row.key)
+          if (next.has(tree.key)) next.delete(tree.key)
+          else next.add(tree.key)
           return next
         })
       }

@@ -69,14 +69,11 @@ export function HelpPane({
       {PANEL_KEYS.map(([label, hints]) => (
         <Section key={label} label={label} hints={hints} />
       ))}
-      <Section label="writing a draft" hints={WRITING_KEYS} />
-      <Section label="then" hints={draftKeys({})} />
-      <Section
-        label="a routine"
-        hints={[['⏎', 'opens its prompt, then esc for'], ...routineKeys({})]}
-      />
+      <Section label="a draft" hints={draftKeys({})} />
+      <Section label="a routine" hints={routineKeys({})} />
+      <Section label="writing" hints={WRITING_KEYS} />
       <Section label="a conversation" hints={CONVERSATION_KEYS} />
-      <Section label="settings (s)" hints={SETTINGS_KEYS} />
+      <Section label="settings (,)" hints={SETTINGS_KEYS} />
       <Text> </Text>
       {NOTES.map((l, i) => (
         <Text key={i} color={T.dim}>

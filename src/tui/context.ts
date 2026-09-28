@@ -59,6 +59,8 @@ export type AppCtx = {
   setEditing: Set<Editing | null>
   untrusted: { dir: string; draft: Editing } | null
   setUntrusted: Set<{ dir: string; draft: Editing } | null>
+  // A row to select on the list once it shows up there: a draft or routine just saved.
+  setFollow: Set<string | null>
 
   work: Item[]
   done: Item[]

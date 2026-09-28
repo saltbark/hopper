@@ -65,7 +65,7 @@ export function DraftPane({
     >
       {editing.text ? null : (
         <Text dimColor wrap="truncate-end">
-          ⏎ new line · esc then s starts
+          ⏎ new line · esc saves it to the list
         </Text>
       )}
       {shown.map(row)}

@@ -37,7 +37,10 @@ const note = (message: string | null, hint: string) =>
 
 function FormBar({ form }: { form: Form }) {
   const removing =
-    form.kind === 'remove' || form.kind === 'routine-remove' || form.kind === 'setting-remove'
+    form.kind === 'remove' ||
+    form.kind === 'routine-remove' ||
+    form.kind === 'draft-remove' ||
+    form.kind === 'setting-remove'
   const label = removing
     ? 'remove'
     : form.kind === 'add-name' || form.kind === 'add-dir'
@@ -58,11 +61,15 @@ function FormBar({ form }: { form: Form }) {
             ? `  Remove ${form.name} from Hopper? Its login and sessions stay.  `
             : form.kind === 'setting-remove'
               ? `  Remove ${form.name} from projects.toml?  `
-              : `  Remove the routine ${form.name}? Its schedule stops; past runs stay.  `}
+              : form.kind === 'draft-remove'
+                ? `  Throw away the draft ${form.name}?  `
+                : `  Remove the routine ${form.name}? Its schedule stops; past runs stay.  `}
           <Text bold color={T.hi}>
             y
           </Text>
-          <Text color={T.dim}> remove · any other key keeps it</Text>
+          <Text color={T.dim}>
+            {form.kind === 'draft-remove' ? ' throw away' : ' remove'} · any other key keeps it
+          </Text>
         </Text>
       ) : (
         <Text color={T.text}>
@@ -78,10 +85,7 @@ function FormBar({ form }: { form: Form }) {
 
 function editingHint(e: Editing, here: Here): string {
   if (e.stage === 'pick') return 'type to filter · ↑↓ choose · tab or ⏎ picks · esc back'
-  const hint = hintText(hereKeys(here).hints)
-  return e.stage === 'write'
-    ? `type · ${hint}`
-    : `${hint} · any other key ${e.routine ? 'edits the prompt' : 'keeps writing'}`
+  return `type · ${hintText(hereKeys(here).hints)}`
 }
 
 // The bottom line: what the keys do right now, or the last message.

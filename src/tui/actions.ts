@@ -97,22 +97,56 @@ export function makeActions(ctx: AppCtx) {
     )
   }
 
-  const reopenDraft = (d: Draft) =>
-    setEditing(
-      newEditing({
-        id: d.id,
-        project: d.project,
-        text: d.text,
-        created: d.created,
-        model: d.model,
-        effort: d.effort,
-      }),
-    )
+  const draftEditing = (d: Draft) =>
+    newEditing({
+      id: d.id,
+      project: d.project,
+      text: d.text,
+      created: d.created,
+      model: d.model,
+      effort: d.effort,
+    })
+
+  const routineEditing = (r: Routine) =>
+    newEditing({
+      id: 'routine:' + r.name,
+      project: r.project,
+      text: r.prompt,
+      created: now(),
+      model: r.model,
+      effort: r.effort,
+      routine: { name: r.name, schedule: r.schedule, enabled: r.enabled },
+    })
+
+  // A draft or routine on the list, as the editor would hold it, so the list's keys act on it the
+  // way they would with it open.
+  const editingOf = (item: Item | undefined): Editing | undefined => {
+    if (item?.kind === 'draft') {
+      const d = snap?.drafts.find((x) => draftSessionId(x.id) === item.sessionId)
+      return d && draftEditing(d)
+    }
+    if (item?.kind === 'routine') {
+      const r = snap?.routines.find((x) => routineSessionId(x.name) === item.sessionId)
+      return r && routineEditing(r)
+    }
+    return undefined
+  }
+
+  // Closing the editor leaves what was in it selected on the list, with its details on the
+  // right. The list catches up on the next refresh; App selects the row once it is there.
+  const leaveEditor = (sessionId: string) => {
+    setEditing(null)
+    ctx.setFollow(sessionId)
+    ctx.setEmbedShown(false)
+    ctx.setFocus('work')
+  }
 
   const keepDraft = async (e: Editing) => {
-    setEditing(null)
-    if (!e.text.trim()) return setMessage('Empty, so not kept.')
-    setMessage('Draft kept.')
+    if (!e.text.trim()) {
+      setEditing(null)
+      return setMessage('Empty, so not kept.')
+    }
+    leaveEditor(draftSessionId(e.id))
     await saveDraft(config.home, toDraft(e, now()))
     void refresh(false)
   }
@@ -220,30 +254,12 @@ export function makeActions(ctx: AppCtx) {
     await refresh(false)
   }
 
-  const openRoutine = (item: Item) => {
-    const r = snap?.routines.find((x) => routineSessionId(x.name) === item.sessionId)
-    if (!r) return
-    setEditing(
-      newEditing({
-        id: 'routine:' + r.name,
-        project: r.project,
-        text: r.prompt,
-        created: now(),
-        stage: 'act',
-        model: r.model,
-        effort: r.effort,
-        routine: { name: r.name, schedule: r.schedule, enabled: r.enabled },
-      }),
-    )
-  }
-
   // ⏎ on anything in the lists.
   const open = (item: Item | undefined) => {
     if (!item) return
-    if (item.kind === 'routine') return openRoutine(item)
-    if (item.kind === 'draft') {
-      const d = snap?.drafts.find((x) => draftSessionId(x.id) === item.sessionId)
-      return d ? reopenDraft(d) : undefined
+    if (item.kind === 'routine' || item.kind === 'draft') {
+      const e = editingOf(item)
+      return e ? setEditing(e) : undefined
     }
     const account = config.accounts.find((a) => a.name === item.account)
     if (!item.id || !account) return setMessage('Interactive session: switch to its terminal.')
@@ -266,10 +282,25 @@ export function makeActions(ctx: AppCtx) {
   const keepRoutine = async (e: Editing) => {
     const r = e.routine
     if (!r) return
-    setEditing(null)
+    leaveEditor(routineSessionId(r.name))
     try {
       await saveAndSync(toRoutine(e, r.name, r.schedule, r.enabled))
       setMessage(`Saved ${r.name} · ${r.enabled ? whenNext(r.schedule) : 'paused'}`)
+    } catch (err) {
+      setMessage((err as Error).message)
+    }
+  }
+
+  // A change made from the list (model, effort, project, paused): saved straight away.
+  const saveEdit = async (e: Editing, done: string) => {
+    try {
+      const r = e.routine
+      if (r) await saveAndSync(toRoutine(e, r.name, r.schedule, r.enabled))
+      else {
+        await saveDraft(config.home, toDraft(e, now()))
+        void refresh(false)
+      }
+      setMessage(done)
     } catch (err) {
       setMessage((err as Error).message)
     }
@@ -360,6 +391,12 @@ export function makeActions(ctx: AppCtx) {
       setMessage(`${f.name} · ${schedule || 'no schedule'} · ${whenNext(schedule)}`)
       return void refresh(false)
     }
+    if (f.kind === 'draft-remove') {
+      setForm(null)
+      await deleteDraft(config.home, f.id)
+      setMessage(`Threw away ${f.name}.`)
+      return void refresh(false)
+    }
     if (f.kind === 'routine-remove') {
       setForm(null)
       await deleteRoutine(config.home, f.name)
@@ -410,7 +447,7 @@ export function makeActions(ctx: AppCtx) {
   const submitForm = (f: Form) =>
     f.kind.startsWith('setting')
       ? settings.submitSettingsForm(f)
-      : f.kind.startsWith('routine-')
+      : f.kind.startsWith('routine-') || f.kind === 'draft-remove'
         ? submitRoutineForm(f)
         : submitAccountForm(f)
 
@@ -424,6 +461,8 @@ export function makeActions(ctx: AppCtx) {
     markDone,
     open,
     keepRoutine,
+    editingOf,
+    saveEdit,
     runNow,
     commit,
     signIn,

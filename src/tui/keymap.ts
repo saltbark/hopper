@@ -5,7 +5,7 @@
 import type { Item } from '../model.ts'
 import type { Row } from '../settings.ts'
 import type { TreeRow } from '../tree.ts'
-import { GROUPS, type Editing, type Focus } from './state.ts'
+import type { Editing, Focus } from './state.ts'
 
 export type Hint = [key: string, does: string]
 
@@ -32,13 +32,11 @@ export const ANYWHERE: Hint[] = [
   ['n', 'next waiting on you'],
   ['p c v a', 'projects, conversations, done, accounts'],
   ['← →', 'between columns'],
-  ['s', 'settings'],
+  [',', 'settings'],
   ['R', 'refresh'],
   ['esc', 'back'],
   ['x x', 'quit'],
 ]
-
-const GROUP_KEYS: Hint = [GROUPS.map((g) => g.key).join(' '), GROUPS.map((g) => g.label).join(', ')]
 
 // Every key of each panel, for the help screen.
 export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
@@ -60,16 +58,15 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
       ['j k', 'move'],
       ['J K', 'next group (or shift+↑↓)'],
       ['⏎ →', 'open it here, or go back into it'],
-      ['m', 'mark done'],
+      ['d', 'mark done'],
       ['i', 'send esc to its conversation'],
-      GROUP_KEYS,
     ],
   ],
   [
     'done',
     [
       ['⏎ →', 'open it here'],
-      ['m', 'bring it back'],
+      ['d', 'bring it back'],
     ],
   ],
   [
@@ -121,38 +118,37 @@ export const WRITING_KEYS: Hint[] = [
   ['option+⌫ ctrl+w', 'delete a word'],
   ['cmd+arrows', 'to the ends'],
   ['shift', 'selects'],
-  ['esc', 'decide'],
+  ['esc', 'save and close'],
 ]
 
-// For the help screen, with no draft open, the model and effort read "default".
-type Choices = Partial<Pick<Editing, 'model' | 'effort' | 'routine'>>
+// A draft's and a routine's keys, on its row in the list. For the help screen, with nothing
+// selected, the model and effort read "default".
+type Choices = { model?: string | undefined; effort?: string | undefined }
 
 export function draftKeys(e: Choices): Hint[] {
   return [
+    ['⏎', 'keep writing'],
     ['s', 'start it'],
-    ['r', 'make it a routine'],
     ['m', `model (${e.model ?? 'default'})`],
     ['e', `effort (${e.effort ?? 'default'})`],
-    ['p', 'move'],
+    ['p', 'move to a project'],
+    ['r', 'make it a routine'],
     ['y', 'copy'],
-    ['x', 'throw away'],
-    ['esc', 'keep as draft'],
-    ['?', 'all keys'],
+    ['d', 'throw away'],
   ]
 }
 
-export function routineKeys(e: Choices): Hint[] {
-  const r = e.routine
+export function routineKeys(e: Choices & { paused?: boolean }): Hint[] {
   return [
+    ['⏎', 'edit the prompt'],
     ['s', 'run now'],
-    ['S', `schedule (${r?.schedule || 'none'})`],
-    ['P', r?.enabled === false ? 'resume' : 'pause'],
+    ['S', 'schedule'],
+    ['P', e.paused ? 'resume' : 'pause'],
     ['m', `model (${e.model ?? 'default'})`],
-    ['e', 'effort'],
+    ['e', `effort (${e.effort ?? 'default'})`],
     ['p', 'project'],
-    ['x', 'remove'],
-    ['esc', 'save'],
-    ['?', 'all keys'],
+    ['y', 'copy'],
+    ['d', 'remove'],
   ]
 }
 
@@ -160,13 +156,7 @@ export function routineKeys(e: Choices): Hint[] {
 export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   const trust: Hint[] = h.untrusted ? [['T', 'trust the folder and start']] : []
   if (h.setting !== undefined) return { label: 'settings', hints: settingKeys(h.setting) }
-  if (h.editing) {
-    const e = h.editing
-    if (e.stage === 'write') return { label: 'writing', hints: WRITING_KEYS }
-    return e.routine
-      ? { label: 'a routine', hints: routineKeys(e) }
-      : { label: 'a draft', hints: draftKeys(e) }
-  }
+  if (h.editing) return { label: 'writing', hints: WRITING_KEYS }
   if (h.focus === 'session') return { label: 'a conversation', hints: CONVERSATION_KEYS }
   if (h.focus === 'projects') {
     const hints: Hint[] = [
@@ -182,14 +172,16 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   const it = h.item
   const done = h.focus === 'done'
   const hints: Hint[] = []
-  if (it?.kind === 'draft') hints.push(['⏎', 'keep writing'])
-  else if (it?.kind === 'routine') hints.push(['⏎', 'edit the prompt'])
+  if (it?.kind === 'draft') hints.push(...draftKeys(it))
+  else if (it?.kind === 'routine')
+    hints.push(...routineKeys({ ...it, paused: it.state === 'paused' }))
   else if (it?.id) {
     if (h.embedOpen) hints.push(['⏎ →', 'into the conversation'], ['i', 'interrupt'])
     else hints.push(['⏎ →', 'open it here'])
   }
-  if (it) hints.push(['m', done ? 'bring it back' : 'mark done'])
-  if (!done) hints.push(['J K', 'groups'], [GROUP_KEYS[0], 'jump to a group'])
+  if (it && it.kind !== 'draft' && it.kind !== 'routine')
+    hints.push(['d', done ? 'bring it back' : 'mark done'])
+  if (!done) hints.push(['J K', 'groups'])
   return { label: done ? 'done' : 'the list', hints: [...trust, ...hints] }
 }
 
@@ -197,21 +189,20 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
 function summaryKeys(h: Here): Set<string> {
   if (h.focus === 'projects') return new Set(['⏎', 'tab', 'z'])
   if (h.focus === 'accounts') return new Set(PANEL_KEYS[3]![1].map(([k]) => k))
-  if (h.item?.kind === 'routine') return new Set(['⏎', 's'])
-  if (h.item?.kind === 'draft') return new Set(['⏎'])
-  if (h.item?.id) return new Set(['⏎', 'm', 'i'])
+  if (h.item?.kind === 'routine') return new Set(routineKeys({}).map(([k]) => k))
+  if (h.item?.kind === 'draft') return new Set(draftKeys({}).map(([k]) => k))
+  if (h.item?.id) return new Set(['⏎', 'd', 'i'])
   return new Set()
 }
 
-// The key bar: the keys for where you are that nothing on screen already shows. Group letters
-// are on the list's headings; a summary on the right lists its own.
+// The key bar: the keys for where you are that nothing on screen already shows. A summary on the
+// right lists its own.
 export function barKeys(h: Here): Hint[] {
   const { hints } = hereKeys(h)
   if (h.editing || h.focus === 'session' || h.setting !== undefined) return hints
   const shown = h.summaryShown ? summaryKeys(h) : new Set<string>()
   // "⏎ →" with ⏎ already on the summary is just "→".
   return hints
-    .filter(([k]) => k !== GROUP_KEYS[0])
     .map(([k, d]): Hint => [
       k
         .split(' ')

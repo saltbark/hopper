@@ -101,6 +101,9 @@ const press = async (stdin: { write: (s: string) => void }, keys: string) => {
   stdin.write(keys)
   await tick()
 }
+// After esc a draft is saved and selected on the list, its text on the right.
+const onList = (frame: () => string | undefined) =>
+  until(() => (frame() ?? '').includes('⏎ to keep writing'))
 // The key bar names the focused panel at its right end.
 const focusOf = (frame: string | undefined) =>
   (frame ?? '').trimEnd().split('\n').at(-1)?.trim().split(/\s+/).at(-1)
@@ -359,7 +362,22 @@ describe('conversations', () => {
     const projects = await loadProjects(home)
     const cfg: Config = { ...setPrefixes(config, 'kf', ['kf/', 'meta/']), home }
     const snap: Snapshot = { ...snapshot, projects, items: [] }
-    return { home, cfg, snap, projects, log }
+    // The signed-in accounts above, with the drafts as they are on disk: esc leaves a draft on
+    // the list, and the list's keys act on it there.
+    const live = async (): Promise<Snapshot> => {
+      const { listDrafts } = await import('../src/drafts.ts')
+      const drafts = await listDrafts(home)
+      const items = toItems(
+        drafts.map((d) => draftSession(d, projects, 'kf')),
+        projects,
+      )
+      for (const it of items) {
+        const d = drafts.find((x) => `draft:${x.id}` === it.sessionId)
+        if (d) Object.assign(it, { key: d.project, model: d.model, effort: d.effort })
+      }
+      return { ...snap, drafts, items }
+    }
+    return { home, cfg, snap, projects, log, live }
   }
   const calls = async (log: string) =>
     (await readFile(log, 'utf8').catch(() => '')).trim().split('\n').filter(Boolean)
@@ -368,9 +386,9 @@ describe('conversations', () => {
     delete process.env['HOPPER_FAKE_UNTRUSTED']
   }
 
-  it('tab opens a draft where enter is a new line; esc then s starts it and opens it', async () => {
-    const { cfg, snap, projects, log } = await setup()
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
+  it('tab opens a draft where enter is a new line; esc leaves it on the list, s starts it', async () => {
+    const { cfg, projects, log, live } = await setup()
+    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     expect(lastFrame()).toContain('NEW CONVERSATION')
@@ -380,7 +398,9 @@ describe('conversations', () => {
     await press(stdin, 'nightly, somewhere off this machine')
     expect(await calls(log)).toEqual([]) // nothing starts while writing
     await press(stdin, '\u001b')
-    expect(lastFrame()).toContain('s start it')
+    await onList(lastFrame)
+    expect(lastFrame()).toContain('s  start it')
+    expect(lastFrame()).toContain('nightly, somewhere')
     await press(stdin, 's')
     await until(() => (lastFrame() ?? '').includes('fake claude screen'))
     const inbox = projects.find((p) => p.key === 'meta/inbox')!
@@ -445,25 +465,31 @@ describe('conversations', () => {
     unmount()
   })
 
-  it('esc twice keeps a draft; it shows in Needs you and enter keeps writing', async () => {
+  it('esc keeps a draft on the list; only enter goes back to writing; d throws it away', async () => {
     const { home, cfg } = await setup()
     const { lastFrame, stdin, unmount } = render(<App config={cfg} />) // the real loader: drafts come from disk
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'maybe a weekly digest')
     await press(stdin, '\u001b')
-    await press(stdin, '\u001b')
-    expect(lastFrame()).toContain('Draft kept')
-    await until(() => (lastFrame() ?? '').includes('DRAFTS 1'))
+    await onList(lastFrame)
     expect(lastFrame()).toContain('DRAFTS 1')
+    expect(lastFrame()).not.toContain('NEW CONVERSATION')
     const { listDrafts } = await import('../src/drafts.ts')
     expect((await listDrafts(home)).map((d) => d.text)).toEqual(['maybe a weekly digest'])
-    await press(stdin, 'n')
+    await press(stdin, 'q') // not a key of the draft's: it doesn't reopen it
+    expect(lastFrame()).not.toContain('NEW CONVERSATION')
     await press(stdin, '\r')
     expect(lastFrame()).toContain('NEW CONVERSATION')
     await press(stdin, ' of what agents did')
     await press(stdin, '\u001b')
-    await press(stdin, 'x') // throw it away
+    await until(async () =>
+      (await listDrafts(home)).some((d) => d.text.endsWith('of what agents did')),
+    )
+    await onList(lastFrame)
+    await press(stdin, 'd')
+    expect(lastFrame()).toContain('Throw away the draft')
+    await press(stdin, 'y')
     await until(async () => (await listDrafts(home)).length === 0)
     expect(await listDrafts(home)).toEqual([])
     done()
@@ -495,15 +521,18 @@ describe('conversations', () => {
   })
 
   it('m and e choose the model and effort, and they go to Claude and are recorded', async () => {
-    const { home, cfg, snap, log } = await setup()
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
+    const { home, cfg, log, live } = await setup()
+    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'sort the inbox')
     await press(stdin, '\u001b')
+    await onList(lastFrame)
     await press(stdin, 'm') // haiku
+    await until(() => (lastFrame() ?? '').includes('model (haiku)'))
     await press(stdin, 'e') // low
-    expect(lastFrame()).toContain('m model (haiku) · e effort (low)')
+    await until(() => (lastFrame() ?? '').includes('effort (low)'))
+    expect(lastFrame()).toContain('haiku · low')
     await press(stdin, 's')
     await until(async () => (await readFile(log, 'utf8').catch(() => '')).includes('attach'))
     const logged = await readFile(log, 'utf8')
@@ -519,12 +548,12 @@ describe('conversations', () => {
   })
 
   it('r turns a draft into a routine, saves it and syncs the schedule', async () => {
-    const { home, cfg, snap } = await setup()
+    const { home, cfg, live } = await setup()
     const synced: string[][] = []
     const { lastFrame, stdin, unmount } = render(
       <App
         config={cfg}
-        load={async () => snap}
+        load={live}
         syncSchedule={async (_c, rs) => void synced.push(rs.map((r) => r.name))}
       />,
     )
@@ -532,7 +561,8 @@ describe('conversations', () => {
     await press(stdin, '\t')
     await press(stdin, 'triage the inbox')
     await press(stdin, '\u001b')
-    expect(lastFrame()).toContain('r make it a routine')
+    await onList(lastFrame)
+    expect(lastFrame()).toContain('r  make it a routine')
     await press(stdin, 'r')
     expect(lastFrame()).toContain('name this routine')
     expect(lastFrame()).toContain('triage-the-inbox')
@@ -554,7 +584,7 @@ describe('conversations', () => {
     unmount()
   })
 
-  it('a routine sits in the routines group; ⏎ opens it and s runs it now, as its own conversation', async () => {
+  it('a routine sits in the routines group; s on its row runs it now, as its own conversation', async () => {
     const { home, cfg, snap, projects, log } = await setup()
     const { saveRoutine } = await import('../src/routines/index.ts')
     const routine = {
@@ -592,9 +622,7 @@ describe('conversations', () => {
     await tick()
     await press(stdin, 'c')
     expect(lastFrame()).toContain('ROUTINES')
-    await press(stdin, '\r')
-    expect(lastFrame()).toContain('ROUTINE triage')
-    expect(lastFrame()).toContain('s run now')
+    expect(lastFrame()).toContain('s  run now')
     await press(stdin, 's')
     await until(() => (lastFrame() ?? '').includes('fake claude screen'))
     const logged = await readFile(log, 'utf8')
@@ -608,28 +636,33 @@ describe('conversations', () => {
   })
 
   it('p moves a draft to another project before it starts', async () => {
-    const { cfg, snap } = await setup()
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
+    const { home, cfg, live } = await setup()
+    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'an idea')
     await press(stdin, '\u001b')
+    await onList(lastFrame)
     await press(stdin, 'p')
     expect(lastFrame()).toContain('MOVE TO PROJECT')
     await press(stdin, 'con')
     await press(stdin, '\r')
-    expect(lastFrame()).toContain(' draft  kf/console')
+    const { listDrafts } = await import('../src/drafts.ts')
+    await until(async () => (await listDrafts(home))[0]?.project === 'kf/console')
+    expect((await listDrafts(home))[0]?.project).toBe('kf/console')
+    expect(lastFrame()).toContain('Moved to kf/console')
     done()
     unmount()
   })
 
   it('an untrusted folder says so and offers T, keeping the draft', async () => {
-    const { home, cfg, snap } = await setup({ untrusted: true })
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
+    const { home, cfg, live } = await setup({ untrusted: true })
+    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'hello')
     await press(stdin, '\u001b')
+    await onList(lastFrame)
     await press(stdin, 's')
     await until(() => (lastFrame() ?? '').includes('T trusts it and starts'))
     expect(lastFrame()).toContain('T trusts it and starts')
@@ -639,7 +672,7 @@ describe('conversations', () => {
     unmount()
   })
 
-  it('m marks a finished conversation done, in Hopper’s own state', async () => {
+  it('d marks a finished conversation done, in Hopper’s own state', async () => {
     const { home, cfg, projects } = await setup()
     const inbox = projects.find((p) => p.key === 'meta/inbox')!
     const snap: Snapshot = {
@@ -654,7 +687,7 @@ describe('conversations', () => {
     await tick()
     await press(stdin, 'n')
     expect(lastFrame()).toContain('Backups chat')
-    await press(stdin, 'm')
+    await press(stdin, 'd')
     await until(() => (lastFrame() ?? '').includes('Done: Backups chat'))
     expect(JSON.parse(await readFile(join(home, 'state', 'done.json'), 'utf8'))).toEqual({
       sessions: ['sess-1'],

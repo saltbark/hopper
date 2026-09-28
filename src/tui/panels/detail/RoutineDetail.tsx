@@ -2,6 +2,7 @@ import { Text } from 'ink'
 
 import { cell, when, wrapText } from '../../../format.ts'
 import { nextRun, type Result, type Routine, type Run } from '../../../routines/index.ts'
+import { routineKeys } from '../../keymap.ts'
 import { T } from '../../theme.ts'
 import { Heading, Keys } from '../primitives.tsx'
 import { row, title } from './parts.tsx'
@@ -59,12 +60,7 @@ export function RoutineDetail({ view, width }: { view: RoutineView; width: numbe
         )
       })}
       <Text> </Text>
-      <Keys
-        keys={[
-          ['⏎', 'edit'],
-          ['s', 'run now (after ⏎)'],
-        ]}
-      />
+      <Keys keys={routineKeys({ ...r, paused: !r.enabled })} width={width} />
     </>
   )
 }

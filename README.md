@@ -53,10 +53,15 @@ project's own folder instead. Projects in the home folder (`meta/`) run from the
     strip = "kf"    # registry key kf/console lists as kf/console, not kf/kf/console
     # run_in = "project"   # run in each project's folder, not the meta repo
 
+Drafts: `tab` opens one; `esc` saves it and leaves it selected in the list, its text on the
+right. From its row: `s` starts it, `m` `e` choose the model and effort, `p` moves it to another
+project, `y` copies it, `d` throws it away; ⏎ is the only way back to writing it.
+
 Routines: a prompt that runs on a schedule, each run its own conversation. Write it as a draft,
 then `esc`, `r`: name it and say when it runs (`daily 7:00`, `weekdays 7:00, 13:00`,
 `weekly mon 9:00`, `monthly 1st 9:00`, or blank for run-now only). Routines have their own group
-in the list; ⏎ opens one, and after `esc`: `s` runs it now, `S` changes the schedule, `P` pauses.
+in the list; from a routine's row `s` runs it now, `S` changes the schedule, `P` pauses, `d`
+removes it, and ⏎ edits the prompt.
 Each run writes a result file under `<home>/routines/<name>/runs/`; a run that says nothing needs
 you goes straight to Done. macOS runs the schedule (`hopper run <name>` from launchd), so
 routines run with Hopper closed. A run is skipped when every account for its project is full.
@@ -68,13 +73,14 @@ routines run with Hopper closed. A run is skipped when every account for its pro
 Accounts: the default account (`*` in the Accounts panel) runs anything no prefix names.
 
 Keys: `p` `c` `v` `a` jump to projects, conversations, done, accounts; `n` the first thing waiting on
-you; `J` `K` (or shift+↑↓) the nearest folder in Projects, the next group in the list;
+you; `J` `K` (or shift+↑↓) the nearest folder in Projects, the next group in the list; `d` on a
+conversation marks it done (in Done, brings it back);
 option+↑↓ in Projects go up a level (↑ the parent, ↓ the parent's next sibling); on the list →
 opens a conversation like ⏎ and ← comes back, so the arrows alone get around; `x` twice
 quits. The bottom line shows the keys for what is selected that nothing on screen already
 shows; `?` shows them all, starting there.
 
-Settings: `s` shows every setting in `config.toml`, `accounts.toml` and `projects.toml` in one
+Settings: `,` shows every setting in `config.toml`, `accounts.toml` and `projects.toml` in one
 place, what each is now, whether it's set or a default, and what it does. `⏎` edits one (or
 moves a choice on), `d` puts it back to its default or removes an entry, `a` adds an account,
 source or project, `o` opens the file itself in `$EDITOR`. The files stay the truth; writes from

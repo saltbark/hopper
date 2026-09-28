@@ -132,16 +132,32 @@ export function Rail({ on, bg }: { on: boolean; bg?: string | undefined }) {
 }
 
 // Actions as key caps: ` ⏎ ` open  ` m ` mark done.
-export function Keys({ keys }: { keys: [string, string][] }) {
+// Given a width, they run onto as many lines as they need.
+export function Keys({ keys, width }: { keys: [string, string][]; width?: number }) {
+  const lines: [string, string][][] = [[]]
+  let used = 0
+  for (const kd of keys) {
+    const w = kd[0].length + kd[1].length + 6
+    if (width && used && used + w > width) {
+      lines.push([])
+      used = 0
+    }
+    lines.at(-1)!.push(kd)
+    used += w
+  }
   return (
-    <Text wrap="truncate-end">
-      {keys.map(([k, d], i) => (
-        <Text key={i}>
-          <Text backgroundColor={T.cap} color={T.text}>{` ${k} `}</Text>
-          <Text color={T.dim}>{` ${d}   `}</Text>
+    <>
+      {lines.map((line, n) => (
+        <Text key={n} wrap="truncate-end">
+          {line.map(([k, d], i) => (
+            <Text key={i}>
+              <Text backgroundColor={T.cap} color={T.text}>{` ${k} `}</Text>
+              <Text color={T.dim}>{` ${d}   `}</Text>
+            </Text>
+          ))}
         </Text>
       ))}
-    </Text>
+    </>
   )
 }
 

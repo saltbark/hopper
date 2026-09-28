@@ -85,7 +85,7 @@ describe('rows', () => {
 })
 
 describe('the settings screen', () => {
-  it('opens with s, changes a choice with enter, and writes it to projects.toml', async () => {
+  it('opens with a comma, changes a choice with enter, and writes it to projects.toml', async () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-settings-'))
     await initHome(home)
     await writeFile(join(home, 'projects.toml'), TOML)
@@ -109,7 +109,7 @@ describe('the settings screen', () => {
       await new Promise((r) => setTimeout(r, 40))
     }
     await press('')
-    await press('s')
+    await press(',')
     expect(lastFrame()).toContain('SETTINGS')
     await press('J') // accounts
     await press('J') // sources
