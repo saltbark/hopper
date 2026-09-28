@@ -84,7 +84,7 @@ export function atEmptyPrompt(b: xterm.IBuffer): boolean {
 
 // How many conversations stay open at once. Each is a `claude attach` process, so the one gone
 // into longest ago is closed to make room; the conversation itself keeps running.
-export const OPEN_AT_ONCE = 5
+export const OPEN_AT_ONCE = 10
 
 // The open conversations with `s` put first (in place of any open one with its id), and the
 // ones that no longer fit, for the caller to close.
