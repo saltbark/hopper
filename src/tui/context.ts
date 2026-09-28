@@ -77,7 +77,8 @@ export type AppCtx = {
     leftW: number
     midW: number
     rightW: number
-    accountsH: number
+    // The band of accounts and projects across the top of the left two columns, then the list.
+    bandH: number
     workH: number
     sessionCols: number
     sessionRows: number

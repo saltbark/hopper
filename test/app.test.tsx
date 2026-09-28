@@ -119,6 +119,22 @@ describe('App', () => {
     unmount()
   })
 
+  it('lists projects with something going on first, by full key, above the tree', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App config={config} load={async () => snapshot} />,
+    )
+    await tick()
+    const lines = (lastFrame() ?? '').split('\n')
+    const first = lines.findIndex((l) => l.includes('meta/inbox'))
+    const tree = lines.findIndex((l) => /▾ meta\b/.test(l))
+    expect(first).toBeGreaterThan(0)
+    expect(tree).toBeGreaterThan(first)
+    expect(lines.slice(first, tree).join('\n')).toMatch(/ all ─/)
+    await press(stdin, '\r') // ⏎ on it narrows the list to it, as on the tree
+    expect(lastFrame()).toMatch(/\(c\) ─+ meta\/inbox/)
+    unmount()
+  })
+
   it('K jumps up to the nearest folder, and x quits only when pressed twice', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,
@@ -145,17 +161,20 @@ describe('App', () => {
       <App config={config} load={async () => snapshot} />,
     )
     await tick()
-    await press(stdin, 'j') // meta/ideas, straight away: Projects already has focus
+    // Past meta/inbox, listed first because something is running there, and the meta folder,
+    // to meta/ideas. Straight away: Projects already has focus.
+    await press(stdin, 'j')
+    await press(stdin, 'j')
     await press(stdin, '\r')
     expect(focusOf(lastFrame())).toBe('conversations')
-    expect(lastFrame()).toContain('(c) ─ meta/ideas')
+    expect(lastFrame()).toMatch(/\(c\) ─+ meta\/ideas/)
     expect(lastFrame()).toContain('Nothing going on.')
     await press(stdin, '\u001b')
     expect(focusOf(lastFrame())).toBe('projects')
-    expect(lastFrame()).toContain('(c) ─ meta/ideas')
+    expect(lastFrame()).toMatch(/\(c\) ─+ meta\/ideas/)
     await press(stdin, '\u001b')
     expect(focusOf(lastFrame())).toBe('projects')
-    expect(lastFrame()).toContain('(c) ─ all proje')
+    expect(lastFrame()).toMatch(/\(c\) ─+ all projects/)
     expect(lastFrame()).toContain('Sort t')
     unmount()
   })
@@ -165,10 +184,10 @@ describe('App', () => {
       <App config={config} load={async () => snapshot} />,
     )
     await tick()
-    // At 100 columns the list is in columns 33 to 68. Click it, then wheel down a row.
-    await press(stdin, '\u001b[<0;40;5M')
+    // The list is under the band of accounts and projects, across the first 68 columns.
+    await press(stdin, '\u001b[<0;40;12M')
     expect(focusOf(lastFrame())).toBe('conversations')
-    await press(stdin, '\u001b[<65;40;5M')
+    await press(stdin, '\u001b[<65;40;12M')
     // Down one: from the waiting session to the running one, shown in SELECTED.
     expect(lastFrame()).toContain('Sort t')
     unmount()
@@ -238,7 +257,7 @@ describe('App', () => {
     expect(lastFrame()).toContain(' 1 found ─╮')
     await press(stdin, '\r')
     expect(focusOf(lastFrame())).toBe('conversations')
-    expect(lastFrame()).toContain('(c) ─ meta/ideas')
+    expect(lastFrame()).toMatch(/\(c\) ─+ meta\/ideas/)
     unmount()
   })
 

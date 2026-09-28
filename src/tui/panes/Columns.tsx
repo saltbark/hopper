@@ -11,8 +11,8 @@ import type { Find, Focus } from '../state.ts'
 import { T } from '../theme.ts'
 import { WorkRows } from './WorkRows.tsx'
 
-// Left: accounts over projects.
-export function LeftColumn(props: {
+// The band across the top: accounts beside projects, both as tall as the band.
+export function Band(props: {
   snap: Snapshot | null
   accountStates: AccountState[]
   accountSel: number
@@ -23,11 +23,12 @@ export function LeftColumn(props: {
   scope: string | null
   focus: Focus
   color: (account: string) => string
-  width: number
-  accountsH: number
-  projectsH: number
+  accountsW: number
+  projectsW: number
+  height: number
 }) {
-  const { snap, accountStates, accountSel, find, focus, color, width, accountsH, projectsH } = props
+  const { snap, accountStates, accountSel, find, focus, color, accountsW, projectsW, height } =
+    props
   // The name column fits the longest account name.
   const nameW = Math.max(4, ...accountStates.map((a) => a.account.name.length + 2))
   // How old the usage numbers are, always shown: the oldest of them.
@@ -36,24 +37,24 @@ export function LeftColumn(props: {
   const finding = !!find
   const rows = find ? props.findRows : props.treeRows
   return (
-    <Box flexDirection="column" width={width}>
+    <Box flexDirection="row" height={height}>
       <Frame
         title="ACCOUNTS"
         keyHint="a"
         {...(usageAge ? { meta: usageAge } : {})}
-        width={width}
-        height={accountsH}
+        width={accountsW}
+        height={height}
         focused={focus === 'accounts'}
         inset="rail"
       >
         {accountStates.length ? (
           <>
-            <AccountsHeader width={width} nameW={nameW} />
-            {windowed(accountStates, accountSel, Math.max(1, accountsH - 3)).slice.map((a) => (
+            <AccountsHeader width={accountsW} nameW={nameW} />
+            {windowed(accountStates, accountSel, Math.max(1, height - 3)).slice.map((a) => (
               <AccountRow
                 key={a.account.name}
                 a={a}
-                width={width}
+                width={accountsW}
                 nameW={nameW}
                 color={color(a.account.name)}
                 selected={accountStates.indexOf(a) === accountSel}
@@ -74,8 +75,8 @@ export function LeftColumn(props: {
             ? `${rows.length} found`
             : (snap?.projectsError ?? String(snap?.projects.length ?? '…'))
         }
-        width={width}
-        height={projectsH}
+        width={projectsW}
+        height={height}
         focused={focus === 'projects' || finding}
         inset="rail"
       >
@@ -84,16 +85,16 @@ export function LeftColumn(props: {
           sel={find ? Math.min(find.sel, Math.max(0, rows.length - 1)) : props.projectSel}
           focused={focus === 'projects' || finding}
           scope={find ? null : props.scope}
-          width={width}
-          height={projectsH}
+          width={projectsW}
+          height={height}
         />
       </Frame>
     </Box>
   )
 }
 
-// Middle: every conversation, grouped, over the ones marked done.
-export function MiddleColumn(props: {
+// Under the band: every conversation, grouped, over the ones marked done.
+export function ListColumn(props: {
   loaded: boolean
   work: Item[]
   done: Item[]

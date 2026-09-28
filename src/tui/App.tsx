@@ -5,7 +5,7 @@ import { prefixesOf, saveAccounts, type Config } from '../config.ts'
 import { draftSessionId, gather, inScope, OTHER, routineSessionId, type Item } from '../model.ts'
 import type { Routine } from '../routines/index.ts'
 import { buildRows } from '../settings.ts'
-import { buildTree, type TreeRow } from '../tree.ts'
+import { activeRows, buildTree, type TreeRow } from '../tree.ts'
 import { defaultSync, makeActions } from './actions.ts'
 import type { AppCtx } from './context.ts'
 import type { EmbeddedSession } from './embed.ts'
@@ -23,7 +23,7 @@ import type { Here } from './keymap.ts'
 import { makeInput } from './keys.ts'
 import { Detail, detailTitle } from './panels/detail/index.tsx'
 import { accountColor, Frame } from './panels/primitives.tsx'
-import { LeftColumn, MiddleColumn } from './panes/Columns.tsx'
+import { Band, ListColumn } from './panes/Columns.tsx'
 import { DraftPane } from './panes/DraftPane.tsx'
 import { HelpPane } from './panes/HelpPane.tsx'
 import { KeyBar } from './panes/KeyBar.tsx'
@@ -125,8 +125,19 @@ export function App({
     }))
     if (snap.items.some((i) => i.key === OTHER))
       entries.push({ key: OTHER, isProject: false, counts: counts(OTHER, 0) })
-    return buildTree(entries, folded)
-  }, [snap, folded])
+    const tree = buildTree(entries, folded)
+    // Above the tree, the projects with something going on, by full key.
+    const last = new Map<string, number>()
+    for (const i of snap.items) last.set(i.key, Math.max(last.get(i.key) ?? 0, i.startedAt))
+    const active = activeRows(
+      entries
+        .filter((e) => e.isProject)
+        .map((e) => ({ key: e.key, counts: e.counts, last: last.get(e.key) ?? 0 })),
+      scope,
+      snap.at,
+    )
+    return [...active, ...tree]
+  }, [snap, folded, scope])
 
   // Every project and every folder above one, for finding.
   const allKeys = useMemo(() => withFolders(projectKeys), [projectKeys])
@@ -190,8 +201,9 @@ export function App({
   const openItems = useProjectItems(snap, itemsKey)
 
   // ---- layout ----
-  // Left: accounts over projects. Middle: the list over done. Right: whatever is focused. No
-  // status line on top: every panel says its own state, so the body runs down to the key bar.
+  // A band on top of the left two columns: accounts beside projects, as tall as they need up to
+  // a cap. Under it the list, then done, as wide as both. Right: whatever is focused. No status
+  // line on top: every panel says its own state, so the body runs down to the key bar.
   const W = columns
   // Every row: Ink 7 writes a frame exactly the terminal's height without a trailing newline, so
   // it neither scrolls nor repaints. Only a taller frame makes it clear the screen.
@@ -202,10 +214,17 @@ export function App({
   // Exactly what is left: panels draw their own top edges to their width, so the columns must
   // add up to the terminal rather than be squeezed by flexbox.
   const rightW = Math.max(20, W - leftW - midW)
-  // Accounts: the top edge, a column header, one line each, the bottom edge.
-  const accountsH = Math.min(Math.round(bodyH * 0.45), 3 + Math.max(1, accountStates.length))
-  const doneH = Math.max(6, Math.min(14, Math.round(bodyH * 0.28)))
-  const workH = bodyH - doneH
+  const listW = leftW + midW
+  // Each panel in the band: the top edge, a column header, one line a row, the bottom edge, and
+  // for projects the rule between the active ones and the tree. Past the cap, projects scroll.
+  const hasActive = treeRows.some((r) => r.active)
+  const bandNeeds = Math.max(
+    3 + Math.max(1, accountStates.length),
+    3 + treeRows.length + (hasActive ? 1 : 0),
+  )
+  const bandH = Math.min(bandNeeds, Math.max(8, Math.min(16, Math.round(bodyH * 0.3))))
+  const doneH = Math.max(5, Math.min(10, Math.round(bodyH * 0.2)))
+  const workH = bodyH - bandH - doneH
   // The conversation fills the right panel inside its border; the title is in the top edge.
   const sessionCols = rightW - 2
   const sessionRows = bodyH - 2
@@ -266,7 +285,7 @@ export function App({
     selectedItem,
     scopeProject,
     showingEmbed,
-    layout: { leftW, midW, rightW, accountsH, workH, sessionCols, sessionRows },
+    layout: { leftW, midW, rightW, bandH, workH, sessionCols, sessionRows },
   }
   const actions = makeActions(ctx)
   useInput(makeInput(ctx, actions))
@@ -362,34 +381,36 @@ export function App({
         />
       ) : (
         <Box flexDirection="row" height={bodyH}>
-          <LeftColumn
-            snap={snap}
-            accountStates={accountStates}
-            accountSel={at('accounts')}
-            treeRows={treeRows}
-            findRows={findRows}
-            projectSel={at('projects')}
-            find={find}
-            scope={scope}
-            focus={focus}
-            color={color}
-            width={leftW}
-            accountsH={accountsH}
-            projectsH={bodyH - accountsH}
-          />
-          <MiddleColumn
-            loaded={!!snap}
-            work={work}
-            done={done}
-            workSel={at('work')}
-            doneSel={at('done')}
-            scope={scope}
-            focus={focus}
-            color={color}
-            width={midW}
-            workH={workH}
-            doneH={doneH}
-          />
+          <Box flexDirection="column" width={listW}>
+            <Band
+              snap={snap}
+              accountStates={accountStates}
+              accountSel={at('accounts')}
+              treeRows={treeRows}
+              findRows={findRows}
+              projectSel={at('projects')}
+              find={find}
+              scope={scope}
+              focus={focus}
+              color={color}
+              accountsW={leftW}
+              projectsW={midW}
+              height={bandH}
+            />
+            <ListColumn
+              loaded={!!snap}
+              work={work}
+              done={done}
+              workSel={at('work')}
+              doneSel={at('done')}
+              scope={scope}
+              focus={focus}
+              color={color}
+              width={listW}
+              workH={workH}
+              doneH={doneH}
+            />
+          </Box>
           {right}
         </Box>
       )}

@@ -23,20 +23,20 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
 
   // ---- the mouse: the wheel scrolls what's under it; a click gives that panel the keyboard ----
   const onMouse = (events: MouseEvent[]) => {
-    const { leftW, midW, accountsH, workH, sessionCols, sessionRows } = ctx.layout
+    const { leftW, midW, bandH, workH, sessionCols, sessionRows } = ctx.layout
     const { embed, pick, focus } = ctx
     for (const ev of events) {
-      const inRight = ev.x > leftW + midW
-      const inMid = !inRight && ev.x > leftW
-      const panel: Panel | 'right' = inRight
-        ? 'right'
-        : inMid
-          ? ev.y > workH
-            ? 'done'
-            : 'work'
-          : ev.y <= accountsH
-            ? 'accounts'
-            : 'projects'
+      // The band (accounts beside projects) over the list over done, then the right panel.
+      const panel: Panel | 'right' =
+        ev.x > leftW + midW
+          ? 'right'
+          : ev.y <= bandH
+            ? ev.x <= leftW
+              ? 'accounts'
+              : 'projects'
+            : ev.y <= bandH + workH
+              ? 'work'
+              : 'done'
       // The conversation's own cells: its top edge carries the title.
       const cellAt = {
         col: Math.max(0, Math.min(sessionCols - 1, ev.x - (leftW + midW) - 2)),

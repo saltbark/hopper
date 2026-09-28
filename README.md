@@ -11,9 +11,11 @@ hopper status             # what Hopper sees, as text
 hopper                    # the app
 ```
 
-Everyday: Hopper opens on Projects. `f` and a few letters finds a project; ⏎ focuses it, `tab` starts a conversation there. The
-middle column is one list of every conversation that isn't done, grouped: waiting on you, drafts,
-running, up next (`w` `d` `r` `u` jump to each). Done sits below it.
+Everyday: Hopper opens on Projects, in a band across the top beside Accounts. Projects with
+something waiting, running or used today are listed first by full key, above the tree. `f` and a
+few letters finds a project; ⏎ focuses it, `tab` starts a conversation there. Under the band is
+one list of every conversation that isn't done, grouped: waiting on you, drafts, running, up next
+(`w` `d` `r` `u` jump to each). Done sits below it.
 
 `tab` starts a new conversation as a draft: a real text box (arrows, option+arrows by word,
 shift to select, ⏎ for new lines), saved as you type. `esc`, then `s` starts it, `p` moves it,
@@ -26,7 +28,8 @@ to file items; it knows the project's `_open.md`. The first conversation in a ne
 to trust it once (`T`).
 
 Mouse: the wheel scrolls whatever is under the pointer (a list, or the conversation), and a click
-focuses a panel. Drag inside a conversation to select; letting go copies it to the clipboard.
+focuses a panel. A click on a conversation gives it the keyboard, and a click on the details of
+one that isn't open opens it. Drag inside a conversation to select; letting go copies it.
 Elsewhere, hold your terminal's selection modifier (often Option or Shift) to select by dragging.
 ← and → move between the columns.
 

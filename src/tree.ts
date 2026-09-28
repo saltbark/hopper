@@ -11,6 +11,10 @@ export type TreeRow = {
   hasChildren: boolean
   folded: boolean
   counts: Counts
+  // Set on the rows listed above the tree because something is going on there (activeRows).
+  active?: boolean
+  // When a conversation there last started or a draft was last edited.
+  last?: number
 }
 
 type Node = {
@@ -72,4 +76,37 @@ export function buildTree(
   }
   walk(root, 0)
   return rows
+}
+
+// Projects with something going on, listed by full key above the tree so they're found without
+// unfolding it: the one the list is narrowed to, then those waiting on you, then running, then
+// any used in the last day.
+export const RECENT_MS = 24 * 60 * 60 * 1000
+
+export function activeRows(
+  projects: { key: string; counts: Counts; last: number }[],
+  scope: string | null,
+  now: number,
+): TreeRow[] {
+  const recent = (p: { last: number }) => p.last > 0 && now - p.last < RECENT_MS
+  return projects
+    .filter((p) => p.key === scope || p.counts.you || p.counts.run || recent(p))
+    .sort(
+      (a, b) =>
+        Number(b.key === scope) - Number(a.key === scope) ||
+        b.counts.you - a.counts.you ||
+        b.counts.run - a.counts.run ||
+        b.last - a.last,
+    )
+    .map((p) => ({
+      key: p.key,
+      name: p.key,
+      depth: 0,
+      isProject: true,
+      hasChildren: false,
+      folded: false,
+      counts: p.counts,
+      active: true,
+      last: p.last,
+    }))
 }
