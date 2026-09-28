@@ -54,7 +54,7 @@ const snapshot: Snapshot = {
   drafts: [],
   routines: [],
   runs: [],
-  results: {},
+  reports: {},
   projects,
   projectsError: null,
   openCounts: new Map([
@@ -740,6 +740,98 @@ describe('conversations', () => {
     expect(logged).toContain('--model haiku')
     const { listRuns } = await import('../src/routines/index.ts')
     expect((await listRuns(home, 'triage'))[0]).toMatchObject({ status: 'started', id: 'abc12345' })
+    done()
+    unmount()
+  })
+
+  it("o lists a routine's reports on the right; ⏎ reads one there, c opens its conversation", async () => {
+    const { home, cfg, snap, projects, log } = await setup()
+    const { saveRoutine, listReports } = await import('../src/routines/index.ts')
+    const routine = {
+      name: 'triage',
+      project: 'meta/inbox',
+      schedule: '',
+      enabled: true,
+      prompt: 'Sort.',
+    }
+    await saveRoutine(home, routine)
+    const dir = join(home, 'routines', 'triage', 'runs')
+    const { mkdir, writeFile } = await import('node:fs/promises')
+    await mkdir(dir, { recursive: true })
+    await writeFile(join(dir, '2026-09-27-0700.md'), 'needs: nothing\nQuiet day.\n')
+    const body = ['needs: you', 'Two replies to check.', '', '# Replies', 'Line one of the detail.']
+    await writeFile(join(dir, '2026-09-28-0700.md'), body.join('\n') + '\n')
+    const run = {
+      routine: 'triage',
+      at: 0,
+      status: 'started' as const,
+      id: 'abc12345',
+      account: 'kf',
+      result: join(dir, '2026-09-28-0700.md'),
+      prompt: 'x',
+    }
+    const inbox = projects.find((p) => p.key === 'meta/inbox')!
+    const withReports: Snapshot = {
+      ...snap,
+      routines: [routine],
+      runs: [run],
+      reports: { triage: await listReports(home, 'triage', [run]) },
+      items: toItems(
+        [
+          {
+            account: 'kf',
+            id: null,
+            sessionId: 'routine:triage',
+            kind: 'routine',
+            cwd: inbox.path,
+            name: 'triage',
+            startedAt: 0,
+            state: 'manual',
+          },
+          session({ name: 'triage run', id: 'abc12345', cwd: inbox.path, state: 'done' }),
+        ],
+        projects,
+        new Set(['s-triage run']),
+      ),
+    }
+    const { lastFrame, stdin, unmount } = render(
+      <App config={cfg} load={async () => withReports} syncSchedule={async () => {}} />,
+    )
+    await tick()
+    await press(stdin, 'c')
+    // The panel is narrow here, so the routine's keys leave room only to say there are reports.
+    expect(lastFrame()).toContain('2 reports · o to read them')
+    expect(lastFrame()).toContain('o  its reports')
+    // With the keyboard, the panel drops the routine's keys for the reports, newest first.
+    await press(stdin, 'o')
+    expect(lastFrame()).toContain('⏎ → read it')
+    const f = lastFrame() ?? ''
+    expect(f.indexOf('needs yo')).toBeGreaterThan(0)
+    expect(f.indexOf('needs yo')).toBeLessThan(f.indexOf('nothing'))
+    expect(f).toMatch(/▌.*needs yo/)
+    // The arrows move as j k do; ⏎ reads the one selected.
+    await press(stdin, '\u001b[B')
+    await press(stdin, '\u001b[A')
+    await press(stdin, '\r')
+    await until(() => (lastFrame() ?? '').includes('REPORT '))
+    expect(lastFrame()).toContain('Line one of the detail.')
+    expect(lastFrame()).toContain('1 of 2')
+    // J goes to the older one, K back.
+    await press(stdin, 'J')
+    await until(() => (lastFrame() ?? '').includes('2 of 2'))
+    await press(stdin, 'K')
+    await until(() => (lastFrame() ?? '').includes('1 of 2'))
+    // esc goes up a level at a time: to the reports, then to the list.
+    await press(stdin, '\u001b')
+    expect(lastFrame()).not.toContain('Line one of the detail.')
+    expect(lastFrame()).toContain('⏎ → read it')
+    await press(stdin, '\u001b')
+    expect(lastFrame()).toContain('o  its reports')
+    // c from the reports opens the conversation that wrote the selected one.
+    await press(stdin, 'o')
+    await press(stdin, 'c')
+    await until(() => (lastFrame() ?? '').includes('fake claude screen'))
+    expect(await readFile(log, 'utf8')).toContain('attach')
     done()
     unmount()
   })

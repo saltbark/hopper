@@ -10,6 +10,7 @@ import {
   hereKeys,
   MOUSE_KEYS,
   PANEL_KEYS,
+  REPORTS_HELP,
   routineKeys,
   SETTINGS_KEYS,
   WRITING_KEYS,
@@ -30,6 +31,7 @@ const SECTIONS: [label: string, hints: Hint[]][] = [
   ['a routine', routineKeys({})],
   ['writing', WRITING_KEYS],
   ['a conversation', CONVERSATION_KEYS],
+  ['routine reports', REPORTS_HELP],
   ['settings', SETTINGS_KEYS],
   ['mouse', MOUSE_KEYS],
 ]
@@ -87,6 +89,7 @@ function hereLabel(here: Here): string {
   const label = hereKeys(here).label
   if (label === 'the list' && here.item?.kind === 'draft') return 'a draft'
   if (label === 'the list' && here.item?.kind === 'routine') return 'a routine'
+  if (label === 'a report') return 'routine reports'
   return label
 }
 

@@ -133,7 +133,7 @@ export function Rail({ on, bg }: { on: boolean; bg?: string | undefined }) {
 
 // Actions as key caps: ` ⏎ ` open  ` m ` mark done.
 // Given a width, they run onto as many lines as they need.
-export function Keys({ keys, width }: { keys: [string, string][]; width?: number }) {
+export function keyLines(keys: [string, string][], width?: number): [string, string][][] {
   const lines: [string, string][][] = [[]]
   let used = 0
   for (const kd of keys) {
@@ -145,6 +145,11 @@ export function Keys({ keys, width }: { keys: [string, string][]; width?: number
     lines.at(-1)!.push(kd)
     used += w
   }
+  return lines
+}
+
+export function Keys({ keys, width }: { keys: [string, string][]; width?: number }) {
+  const lines = keyLines(keys, width)
   return (
     <>
       {lines.map((line, n) => (

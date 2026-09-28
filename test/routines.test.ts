@@ -8,6 +8,7 @@ import { addAccount, setDefaultAccount, type Config } from '../src/config.ts'
 import { loadConversations } from '../src/conversations.ts'
 import type { AccountState } from '../src/model.ts'
 import {
+  listReports,
   listRoutines,
   listRuns,
   nextRun,
@@ -86,6 +87,35 @@ describe('results', () => {
       summary: '3 replies drafted for you to check.',
     })
     expect(await readResult(join(dir, 'missing.md'))).toBeNull()
+  })
+  it('list every report in the runs folder, newest first, with the run that wrote it', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-reports-'))
+    const runs = join(home, 'routines', 'triage', 'runs')
+    await mkdir(runs, { recursive: true })
+    await writeFile(join(runs, '2026-09-27-0700.md'), 'needs: nothing\nQuiet.\n')
+    await writeFile(join(runs, '2026-09-28-0700.md'), 'needs: you\nTwo replies to check.\n')
+    await writeFile(join(runs, 'by-hand.md'), '# Notes\nWritten by hand.\n')
+    await writeFile(join(runs, 'notes.txt'), 'not a report')
+    const run = {
+      routine: 'triage',
+      at: 0,
+      status: 'started' as const,
+      id: 'abc12345',
+      account: 'kf',
+      result: join(runs, '2026-09-28-0700.md'),
+      prompt: 'x',
+    }
+    const got = await listReports(home, 'triage', [run])
+    // The hand-written one has no stamp, so its time is when it was written: now.
+    expect(got.map((r) => r.summary)).toEqual([
+      'Written by hand.',
+      'Two replies to check.',
+      'Quiet.',
+    ])
+    expect(got[1]).toMatchObject({ needs: 'you', id: 'abc12345', account: 'kf' })
+    expect(got[2]).toMatchObject({ needs: 'nothing', id: undefined })
+    expect(got[2]!.at).toBe(new Date(2026, 8, 27, 7, 0).getTime())
+    expect(await listReports(home, 'nothing-here', [])).toEqual([])
   })
 })
 

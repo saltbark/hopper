@@ -23,6 +23,9 @@ export type Here = {
   editing: Editing | null
   // Set while the settings screen is open: the row selected there.
   setting?: Row | null | undefined
+  // Set while a routine's reports have the keyboard: reading one, and whether the selected
+  // report's conversation is still there to open.
+  reports?: { reading: boolean; conversation: boolean } | undefined
 }
 
 export const ANYWHERE: Hint[] = [
@@ -154,6 +157,7 @@ export function draftKeys(e: Choices): Hint[] {
 export function routineKeys(e: Choices & { paused?: boolean }): Hint[] {
   return [
     ['⏎', 'edit the prompt'],
+    ['o', 'its reports'],
     ['s', 'run now'],
     ['S', 'schedule'],
     ['P', e.paused ? 'resume' : 'pause'],
@@ -165,10 +169,43 @@ export function routineKeys(e: Choices & { paused?: boolean }): Hint[] {
   ]
 }
 
+// A routine's reports in the right panel (o on a routine), and one of them open for reading.
+export const REPORT_LIST_KEYS: Hint[] = [
+  ['j k ↑↓', 'move'],
+  ['⏎ →', 'read it'],
+  ['c', 'its conversation'],
+  ['esc ←', 'back to the list'],
+]
+export const REPORT_KEYS: Hint[] = [
+  ['j k ↑↓', 'scroll'],
+  ['space', 'a page down'],
+  ['J K', 'older, newer'],
+  ['c', 'its conversation'],
+  ['y', 'copy it'],
+  ['esc ←', 'back to the reports'],
+]
+// Both, as one section of the help screen.
+export const REPORTS_HELP: Hint[] = [
+  ['j k ↑↓', 'move, or scroll a report'],
+  ['⏎ →', 'read it'],
+  ['space', 'a page down'],
+  ['J K', 'older, newer report'],
+  ['c', 'its conversation'],
+  ['y', 'copy the report'],
+  ['esc ←', 'back a level'],
+]
+
 // The keys that do something for what is selected right now.
 export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   const trust: Hint[] = h.untrusted ? [['T', 'trust the folder and start']] : []
   if (h.setting !== undefined) return { label: 'settings', hints: settingKeys(h.setting) }
+  if (h.reports) {
+    // c only when Claude still has the conversation that wrote it.
+    const keep = ([k]: Hint) => k !== 'c' || h.reports!.conversation
+    return h.reports.reading
+      ? { label: 'a report', hints: REPORT_KEYS.filter(keep) }
+      : { label: 'routine reports', hints: REPORT_LIST_KEYS.filter(keep) }
+  }
   if (h.editing) return { label: 'writing', hints: WRITING_KEYS }
   if (h.focus === 'session') return { label: 'a conversation', hints: CONVERSATION_KEYS }
   if (h.focus === 'projects') {
@@ -212,7 +249,7 @@ function summaryKeys(h: Here): Set<string> {
 // right lists its own.
 export function barKeys(h: Here): Hint[] {
   const { hints } = hereKeys(h)
-  if (h.editing || h.focus === 'session' || h.setting !== undefined) return hints
+  if (h.editing || h.focus === 'session' || h.setting !== undefined || h.reports) return hints
   const shown = h.summaryShown ? summaryKeys(h) : new Set<string>()
   // "⏎ →" with ⏎ already on the summary is just "→".
   return hints

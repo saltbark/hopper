@@ -29,11 +29,11 @@ describe('the help screen', () => {
   it('lays sections out in columns, one key a line, and lights where you are', () => {
     const frame = draw(here, 0)
     expect(frame).toContain('ANYWHERE')
-    expect(frame).toMatch(/│ ANYWHERE +A DRAFT/)
+    expect(frame).toMatch(/│ ANYWHERE +A ROUTINE/)
     expect(frame).toMatch(/│ +f {2}find a project +/)
     expect(frame).toContain('THE LIST  you are here')
     const draft = { kind: 'draft' } as Item
-    expect(draw({ ...here, item: draft }, 0)).toContain('A DRAFT  you are here')
+    expect(draw({ ...here, item: draft }, 0, 100, 70)).toContain('A DRAFT  you are here')
   })
   it('scrolls when taller than the screen, and no further than its end', () => {
     expect(helpMaxScroll(100, 200)).toBe(0)

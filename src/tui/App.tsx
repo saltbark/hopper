@@ -31,6 +31,7 @@ import { DraftPane } from './panes/DraftPane.tsx'
 import { HelpPane, helpMaxScroll } from './panes/HelpPane.tsx'
 import { KeyBar } from './panes/KeyBar.tsx'
 import { PickPane } from './panes/PickPane.tsx'
+import { ReportPane } from './panes/ReportPane.tsx'
 import { SessionPane } from './panes/SessionPane.tsx'
 import { SettingsPane } from './panes/SettingsPane.tsx'
 import {
@@ -43,6 +44,7 @@ import {
   type Hover,
   type Form,
   type Panel,
+  type Reports,
   type Sel,
 } from './state.ts'
 
@@ -100,6 +102,7 @@ export function App({
   // A draft Claude refused to start because its folder isn't trusted yet; T trusts and starts it.
   const [untrusted, setUntrusted] = useState<{ dir: string; draft: Editing } | null>(null)
   const [follow, setFollow] = useState<string | null>(null)
+  const [reportsFocus, setReportsFocus] = useState<Reports | null>(null)
 
   const { snap, snapRef, error, refresh } = useSnapshot(config, load)
   const { usageText, askUsage } = useUsage(config.home, snapRef, refresh)
@@ -194,6 +197,20 @@ export function App({
   const selectedItem =
     listFocus === 'work' ? work[at('work')] : listFocus === 'done' ? done[at('done')] : undefined
   const scopeProject = scope && projectKeys.includes(scope) ? scope : null
+  const selectedRoutine =
+    selectedItem?.kind === 'routine'
+      ? snap?.routines.find((x) => routineSessionId(x.name) === selectedItem.sessionId)
+      : undefined
+  const routineReports = useMemo(
+    () => (selectedRoutine && snap?.reports[selectedRoutine.name]) || [],
+    [selectedRoutine, snap],
+  )
+  // The reports have the keyboard only while their routine is the one selected.
+  const reports =
+    reportsFocus && reportsFocus.routine === selectedRoutine?.name && routineReports.length
+      ? { ...reportsFocus, sel: Math.min(reportsFocus.sel, routineReports.length - 1) }
+      : null
+  const selectedReport = reports ? routineReports[reports.sel] : undefined
   // While you're in a conversation, or just stepped back from one, the panel shows the one you
   // went into; otherwise whichever open one the selected row is.
   const embed =
@@ -202,7 +219,7 @@ export function App({
       : (embeds.find((e) => !!selectedItem?.id && e.id === selectedItem.id) ?? null)
   const showingEmbed = !!embed
   // The blue edge is where the keys go: nowhere on the left while the editor has them.
-  const keysAt = editing ? null : focus
+  const keysAt = editing || reports ? null : focus
   // The list whose selected row the right panel is showing, which keeps its highlight while the
   // keys are over there.
   const editingId =
@@ -211,7 +228,7 @@ export function App({
   const held: Panel | null =
     focus === 'session'
       ? returnTo
-      : editingId && selectedItem?.sessionId === editingId
+      : reports || (editingId && selectedItem?.sessionId === editingId)
         ? listFocus
         : null
   // What the key bar and the help screen describe.
@@ -225,6 +242,13 @@ export function App({
     untrusted: !!untrusted,
     editing,
     setting: settings ? (settingRows[settings.sel] ?? null) : undefined,
+    reports: reports
+      ? {
+          reading: !!reports.open,
+          conversation:
+            !!selectedReport?.id && !!snap?.items.some((i) => i.id === selectedReport.id),
+        }
+      : undefined,
   }
 
   // The project whose open items show on the right: the highlighted one, else the selected
@@ -326,6 +350,9 @@ export function App({
     untrusted,
     setUntrusted,
     setFollow,
+    reports,
+    setReports: setReportsFocus,
+    routineReports,
     work,
     done,
     projectKeys,
@@ -338,7 +365,7 @@ export function App({
     selectedItem,
     scopeProject,
     showingEmbed,
-    layout: { leftW, midW, rightW, bandH, workH, doneH, sessionCols, sessionRows },
+    layout: { leftW, midW, rightW, bodyH, bandH, workH, doneH, sessionCols, sessionRows },
   }
   const actions = makeActions(ctx)
   useInput(makeInput(ctx, actions))
@@ -390,22 +417,32 @@ export function App({
       selectedItem?.kind === 'draft'
         ? snap?.drafts.find((d) => draftSessionId(d.id) === selectedItem.sessionId)
         : undefined
-    const r =
-      selectedItem?.kind === 'routine'
-        ? snap?.routines.find((x) => routineSessionId(x.name) === selectedItem.sessionId)
-        : undefined
+    const r = selectedRoutine
+    if (r && reports?.open && selectedReport) {
+      return (
+        <ReportPane
+          routine={r.name}
+          report={selectedReport}
+          text={reports.open.text}
+          scroll={reports.open.scroll}
+          index={reports.sel}
+          count={routineReports.length}
+          width={rightW}
+          height={bodyH}
+        />
+      )
+    }
     const routine =
       r && snap
-        ? {
-            routine: r,
-            runs: snap.runs.filter((x) => x.routine === r.name),
-            results: snap.results,
-            account: selectedItem?.account,
-            now: snap.at,
-          }
+        ? { routine: r, reports: routineReports, account: selectedItem?.account, now: snap.at }
         : undefined
     return (
-      <Frame title={detailTitle(selectedItem, project, account)} width={rightW} height={bodyH}>
+      <Frame
+        title={detailTitle(selectedItem, project, account)}
+        width={rightW}
+        height={bodyH}
+        focused={!!reports}
+      >
         <Detail
           item={selectedItem}
           draft={draft}
@@ -413,7 +450,9 @@ export function App({
           account={account}
           openItems={selectedItem ? openItems : undefined}
           routine={routine}
+          reportSel={reports?.sel}
           width={rightW}
+          height={bodyH}
         />
       </Frame>
     )
