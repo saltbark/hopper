@@ -122,6 +122,17 @@ describe('App', () => {
     unmount()
   })
 
+  it('titles the tab with how many conversations need you', async () => {
+    const titles: string[] = []
+    const { unmount } = render(
+      <App config={config} load={async () => snapshot} setTitle={(t) => titles.push(t)} />,
+    )
+    await tick()
+    expect(titles.at(0)).toBe('Hopper')
+    expect(titles.at(-1)).toBe('Hopper (1)')
+    unmount()
+  })
+
   it('lists projects with something going on first, by full key, above the tree', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,

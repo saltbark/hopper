@@ -12,6 +12,7 @@ import type { gather, Item, Snapshot } from '../model.ts'
 import { expandHome } from '../paths.ts'
 import { parseProjectsDoc, type ProjectsDoc } from '../settings.ts'
 import { now, toDraft, type Editing } from './state.ts'
+import { titleText } from './title.ts'
 
 export type Loader = typeof gather
 
@@ -207,4 +208,30 @@ export function useChime(
     prev.current = snap.items
     if (fresh.length) now.chime(now.sound ?? DEFAULT_SOUND)
   }, [snap])
+}
+
+// Keeps the tab titled "Hopper (n)", n being what needs you, and puts it back after anything
+// that hands the terminal over (Claude sets its own title while it has it). Returns
+// suspendTerminal wrapped to do that.
+export function useTabTitle(
+  snap: Snapshot | null,
+  setTitle: (text: string) => void,
+  suspendTerminal: (fn: () => Promise<void>) => Promise<void>,
+) {
+  const text = titleText(snap?.items.filter((i) => i.where === 'needs').length ?? 0)
+  const last = useRef(text)
+  useEffect(() => {
+    last.current = text
+    setTitle(text)
+  }, [text, setTitle])
+  return useCallback(
+    async (fn: () => Promise<void>) => {
+      try {
+        await suspendTerminal(fn)
+      } finally {
+        setTitle(last.current)
+      }
+    },
+    [suspendTerminal, setTitle],
+  )
 }

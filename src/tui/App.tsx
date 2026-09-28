@@ -18,6 +18,7 @@ import {
   useSettingsDoc,
   useProjectItems,
   useSnapshot,
+  useTabTitle,
   useUsage,
   type Loader,
 } from './hooks.ts'
@@ -48,6 +49,8 @@ import {
 export type { Loader }
 export type Saver = typeof saveAccounts
 
+const noTitle = () => {}
+
 const LISTED = new Set<Item['where']>(['queue', 'needs', 'routine'])
 const byGroup = (a: Item, b: Item) =>
   groupRank(groupOf(a)) - groupRank(groupOf(b)) || b.startedAt - a.startedAt
@@ -58,14 +61,17 @@ export function App({
   save = saveAccounts,
   syncSchedule = defaultSync,
   chime = playChime,
+  setTitle = noTitle,
 }: {
   config: Config
   load?: Loader
   save?: Saver
   syncSchedule?: (config: Config, routines: Routine[]) => Promise<unknown>
   chime?: Chime
+  // Writes the terminal tab's title; tests leave it out.
+  setTitle?: (text: string) => void
 }) {
-  const { exit, suspendTerminal } = useApp()
+  const { exit, suspendTerminal: suspendInk } = useApp()
   const { columns, rows } = useWindowSize()
 
   const [config, setConfig] = useState(initialConfig)
@@ -98,6 +104,7 @@ export function App({
   const { usageText, askUsage } = useUsage(config.home, snapRef, refresh)
   useDraftAutosave(editing, config.home)
   useFoldImported(snap, setFolded)
+  const suspendTerminal = useTabTitle(snap, setTitle, suspendInk)
   const settingsDoc = useSettingsDoc(!!settings, config.home)
   const settingRows = useMemo(
     () => buildRows(config, settingsDoc.doc, snap?.projects ?? [], settingsDoc.missing),
