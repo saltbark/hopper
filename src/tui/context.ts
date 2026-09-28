@@ -32,7 +32,7 @@ export type AppCtx = {
   listFocus: Panel
   embed: EmbeddedSession | null
   setEmbed: Set<EmbeddedSession | null>
-  // After esc, the conversation stays in the panel until the selection moves.
+  // After stepping back, the conversation stays in the panel until the selection moves.
   embedShown: boolean
   setEmbedShown: Set<boolean>
   pick: (Sel & { active: boolean }) | null

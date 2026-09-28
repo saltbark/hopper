@@ -55,8 +55,10 @@ The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it befor
   The project Hopper recorded when it started it (`conversations.json`) wins; cwd matching is the
   fallback, for sessions Hopper didn't start. `extraDirs` adds the project's own folder when it
   resolves outside the run folder (it does, through the meta repo's `projects/` symlink).
-- **Keys are letters and esc.** `esc` is Hopper's even inside an embedded conversation; Claude's
-  interrupt is ctrl+c (passed through) or `i` from the list. No Ctrl or Cmd bindings. What the
+- **Keys are letters and esc.** Inside an embedded conversation every key is Claude's, esc
+  included; the way back to Hopper is Claude's own ← at the empty prompt, or ctrl+] (the one Ctrl
+  binding), and both leave it live. Claude's interrupt is ctrl+c (passed through) or `i` from the
+  list. No other Ctrl or Cmd bindings. What the
   keys do is described once, in `src/tui/keymap.ts` (the key bar and `?` both read it); a key
   added or changed in `keys.ts` gets its line there too. `esc` goes up a level; the top level is
   a menu of single letters.

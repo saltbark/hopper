@@ -110,9 +110,9 @@ function settingKeys(row: Row | null): Hint[] {
 }
 
 export const CONVERSATION_KEYS: Hint[] = [
-  ['esc', 'back to Hopper, leaving it open (⏎ goes back in)'],
+  ['← ctrl+]', 'back to Hopper, leaving it open (⏎ goes back in)'],
+  ['esc', "Claude's"],
   ['ctrl+c', 'interrupt Claude'],
-  ['ctrl+]', 'close it'],
 ]
 
 export const WRITING_KEYS: Hint[] = [

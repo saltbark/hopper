@@ -91,18 +91,14 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     }
   }
 
-  // ---- in a conversation, every key is Claude's except esc ----
-  // esc steps back and leaves the conversation live (⏎ goes back in); ctrl+] closes the view.
-  // Claude's own interrupt is ctrl+c, which passes through; i on the list sends Claude an esc.
+  // ---- in a conversation, every key is Claude's, esc included ----
+  // Stepping back to Hopper is Claude's own ← at the empty prompt (embed.ts sees its agents
+  // screen), or ctrl+], which works from anywhere, a Claude menu included. Both leave the
+  // conversation live; ⏎ goes back in. Claude's interrupt is ctrl+c, or i on the list.
   const onSession: Handler = (input, key) => {
     const { embed } = ctx
-    if (!embed || key.escape) return act.go(ctx.returnTo)
     // ctrl+] arrives as the raw control character (0x1d).
-    if (input === '\u001d' || (key.ctrl && input === ']')) {
-      embed.close()
-      ctx.setEmbed(null)
-      return act.go(ctx.returnTo)
-    }
+    if (!embed || input === '\u001d' || (key.ctrl && input === ']')) return act.go(ctx.returnTo)
     if (ctx.pick) ctx.setPick(null)
     embed.send(keyToBytes(input, key))
   }

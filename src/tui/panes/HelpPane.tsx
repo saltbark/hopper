@@ -44,7 +44,7 @@ const NOTES = [
   'Letters act on the panel you are in; esc goes back. Hopper opens on Projects.',
   'Mouse: the wheel scrolls what is under it; a click focuses a panel. In a conversation, drag to',
   'select and let go to copy; elsewhere hold your terminal’s selection modifier.',
-  'Claude’s own double-esc rewind isn’t available inside Hopper: esc is always Hopper’s.',
+  'In a conversation esc is Claude’s (its menus, its rewind); ← at its empty prompt, or ctrl+], steps back.',
   'Ask Claude in a conversation to file items; it knows the project’s _open.md.',
 ]
 

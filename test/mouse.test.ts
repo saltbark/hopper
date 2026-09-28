@@ -31,6 +31,7 @@ describe('EmbeddedSession.wheel', () => {
     const plain = new EmbeddedSession(account, 'a', 'x', 40, 10, {
       onChange: () => {},
       onLeave: () => {},
+      onStepBack: () => {},
     })
     plain.start()
     await until(() =>
@@ -52,6 +53,7 @@ describe('EmbeddedSession.wheel', () => {
     const mousy = new EmbeddedSession(account, 'a', 'x', 40, 10, {
       onChange: () => {},
       onLeave: () => {},
+      onStepBack: () => {},
     })
     mousy.start()
     await until(() =>

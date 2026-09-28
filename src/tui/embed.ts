@@ -21,7 +21,8 @@ export type Seg = {
 }
 
 // Claude's own "leave" gesture (← at the empty prompt) swaps the conversation for its list of
-// agents. Seeing that screen means the person wants out, so Hopper closes the view.
+// agents. Seeing that screen means the person wants out: Hopper presses enter to put attach back
+// on the conversation and hands the keyboard back, leaving the conversation live, as esc used to.
 const AGENTS_SCREEN = /enter to return · space to reply/
 
 // The 16 basic colours as xterm draws them, then the 6×6×6 cube and the grey ramp.
@@ -90,6 +91,8 @@ export class EmbeddedSession {
   // Whether the program shows the terminal's cursor (DECTCEM, `CSI ? 25 h/l`). Claude puts the
   // real cursor where you type, so Hopper has to draw it; the headless terminal doesn't say.
   private cursorShown = true
+  // Set while the agents screen is up, so it's answered once rather than on every redraw.
+  private onAgents = false
 
   constructor(
     readonly account: Account,
@@ -97,7 +100,14 @@ export class EmbeddedSession {
     readonly name: string,
     private cols: number,
     private rows: number,
-    private events: { onChange?: () => void; onLeave: () => void; onCopy?: (text: string) => void },
+    private events: {
+      onChange?: () => void
+      // The attach process ended.
+      onLeave: () => void
+      // Claude showed its agents screen: the person stepped back, the conversation stays open.
+      onStepBack: () => void
+      onCopy?: (text: string) => void
+    },
   ) {
     this.term = new xterm.Terminal({ cols, rows, allowProposedApi: true, scrollback: 0 })
     // Claude does its own selection and copies with OSC 52 ("c;<base64>"). A headless
@@ -139,7 +149,12 @@ export class EmbeddedSession {
   // Redraws at most about 30 times a second, however fast Claude writes.
   private changed(): void {
     if (this.closed) return
-    if (AGENTS_SCREEN.test(this.bottomText())) return this.leave()
+    const agents = AGENTS_SCREEN.test(this.bottomText())
+    if (agents && !this.onAgents) {
+      this.send('\r')
+      this.events.onStepBack()
+    }
+    this.onAgents = agents
     if (this.timer) return
     this.timer = setTimeout(() => {
       this.timer = null
@@ -149,13 +164,16 @@ export class EmbeddedSession {
     }, 33)
   }
 
-  // The last few lines with anything on them: where Claude puts its footer.
+  // The last few lines with anything on them: where Claude puts its footer. A line the terminal
+  // wrapped is joined back up, so a narrow panel doesn't split the footer.
   private bottomText(): string {
     const b = this.term.buffer.active
     const lines: string[] = []
     for (let y = 0; y < this.rows; y++) {
-      const text = b.getLine(b.viewportY + y)?.translateToString(true) ?? ''
-      if (text.trim()) lines.push(text)
+      const line = b.getLine(b.viewportY + y)
+      const text = line?.translateToString(true) ?? ''
+      if (line?.isWrapped && lines.length) lines[lines.length - 1] += text
+      else if (text.trim()) lines.push(text)
     }
     return lines.slice(-3).join('\n')
   }

@@ -64,6 +64,7 @@ describe('EmbeddedSession', () => {
     const s = new EmbeddedSession(account, 'abc', 'test', 40, 6, {
       onChange: () => changes++,
       onLeave: () => {},
+      onStepBack: () => {},
     })
     s.start()
     const text = () =>
@@ -95,7 +96,10 @@ describe('EmbeddedSession', () => {
     process.env['HOPPER_CLAUDE'] = await fake(
       'stty -echo; printf "one\\ntwo"; read -r a; printf "\\033[?25l"; read -r b; printf "\\033[?25h"; sleep 5',
     )
-    const s = new EmbeddedSession(account, 'abc', 'test', 40, 6, { onLeave: () => {} })
+    const s = new EmbeddedSession(account, 'abc', 'test', 40, 6, {
+      onLeave: () => {},
+      onStepBack: () => {},
+    })
     s.start()
     const wait = async (ok: () => boolean) => {
       for (let i = 0; i < 300 && !ok(); i++) await new Promise((r) => setTimeout(r, 50))
@@ -119,6 +123,7 @@ describe('EmbeddedSession', () => {
     const s = new EmbeddedSession(account, 'abc', 'test', 40, 6, {
       onChange: () => {},
       onLeave: () => {},
+      onStepBack: () => {},
       onCopy: (t) => copied.push(t),
     })
     s.start()
@@ -128,23 +133,35 @@ describe('EmbeddedSession', () => {
     delete process.env['HOPPER_CLAUDE']
   }, 30_000)
 
-  it("treats Claude's agents screen as leaving, and so does the session ending", async () => {
+  it("steps back on Claude's agents screen, pressing enter to return; the session ending leaves", async () => {
     process.env['HOPPER_CLAUDE'] = await fake(
-      'printf "Needs input\\n  enter to return · space to reply · ctrl+x to delete\\n"; sleep 5',
+      'printf "Needs input\\n  enter to return · space to reply · ctrl+x to delete\\n"; read -r line; printf "\\033[2J\\033[Hback in it\\n"; sleep 5',
     )
     let left = 0
+    let stepped = 0
     const s = new EmbeddedSession(account, 'abc', 'test', 60, 6, {
       onChange: () => {},
       onLeave: () => left++,
+      onStepBack: () => stepped++,
     })
     s.start()
-    for (let i = 0; i < 160 && !left; i++) await new Promise((r) => setTimeout(r, 50))
-    expect(left).toBe(1)
+    const text = () =>
+      s
+        .screen()
+        .map((r) => r.map((x) => x.text).join(''))
+        .join('\n')
+    for (let i = 0; i < 160 && !text().includes('back in it'); i++)
+      await new Promise((r) => setTimeout(r, 50))
+    expect(text()).toContain('back in it')
+    expect(stepped).toBe(1)
+    expect(left).toBe(0)
+    s.close()
     process.env['HOPPER_CLAUDE'] = await fake('printf "bye\\n"')
     let ended = 0
     const t = new EmbeddedSession(account, 'abc', 'test', 60, 6, {
       onChange: () => {},
       onLeave: () => ended++,
+      onStepBack: () => {},
     })
     t.start()
     for (let i = 0; i < 160 && !ended; i++) await new Promise((r) => setTimeout(r, 50))

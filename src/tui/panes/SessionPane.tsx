@@ -68,7 +68,7 @@ export function SessionPane(props: {
   return (
     <Frame
       title="CONVERSATION"
-      meta={`${session.name} · ${session.account.name}${focused ? ' · esc back to Hopper' : ' · ⏎ to type here'}`}
+      meta={`${session.name} · ${session.account.name}${focused ? ' · ← or ctrl+] back to Hopper' : ' · ⏎ to type here'}`}
       width={width}
       height={height}
       focused={focused}

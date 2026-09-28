@@ -131,7 +131,7 @@ export function KeyBar(props: {
         {chip('claude')}
         {note(
           message,
-          `keys go to Claude · ${hintText(hereKeys(here).hints)} · esc then ? all keys`,
+          `keys go to Claude · ${hintText(hereKeys(here).hints)} · ctrl+] then ? all keys`,
         )}
       </Text>
     )

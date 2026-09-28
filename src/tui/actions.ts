@@ -136,6 +136,10 @@ export function makeActions(ctx: AppCtx) {
         )
         void refresh(false)
       },
+      onStepBack: () => {
+        ctx.setFocus(from)
+        setMessage(null)
+      },
     })
     session.start(cwd)
     ctx.setEmbed(session)

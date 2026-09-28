@@ -338,7 +338,7 @@ describe('conversations', () => {
     bin = await fakeClaude(
       'echo "$PWD|$*" >> "$HOPPER_FAKE_LOG"\n' +
         'case "$1" in --bg) if [ -n "$HOPPER_FAKE_UNTRUSTED" ]; then echo "Workspace not trusted."; exit 1; fi; echo "backgrounded · abc12345 · name";;\n' +
-        '  attach) printf "fake claude screen\\n❯ "; while read -r line; do printf "you said: %s\\n❯ " "$line"; done;; esac\n' +
+        '  attach) printf "fake claude screen\\n❯ "; while read -r line; do case "$line" in leave) printf "  enter to return · space to reply\\n";; "") printf "\\033[2J\\033[Hback in the conversation\\n❯ ";; *) printf "you said: %s\\n❯ " "$line";; esac; done;; esac\n' +
         'exit 0',
     )
     await new Promise<void>((resolve) =>
@@ -399,8 +399,8 @@ describe('conversations', () => {
     await press(stdin, '\r')
     await until(() => (lastFrame() ?? '').includes('you said: thanks'))
     expect(lastFrame()).toContain('you said: thanks')
-    // esc comes back to Hopper and leaves the conversation live in the panel; ⏎ goes back in.
-    await press(stdin, '\u001b')
+    // ctrl+] comes back to Hopper and leaves the conversation live in the panel; ⏎ goes back in.
+    await press(stdin, '\u001d')
     expect(focusOf(lastFrame())).toBe('conversations')
     expect(lastFrame()).toContain('you said: thanks')
     await press(stdin, '\r')
@@ -415,9 +415,18 @@ describe('conversations', () => {
     expect(await readFile(clip, 'utf8')).toBe('fake')
     expect(lastFrame()).toContain('Copied 4 characters')
     delete process.env['HOPPER_CLIPBOARD_FILE']
-    // ctrl+] closes the view outright.
-    await press(stdin, '\u001d')
+    // Claude's own leave (its agents screen) comes back to Hopper too: Hopper presses enter to
+    // return attach to the conversation, and it stays live in the panel.
+    await press(stdin, 'leave')
+    await press(stdin, '\r')
+    await until(() => (lastFrame() ?? '').includes('back in the conversation'))
     expect(focusOf(lastFrame())).toBe('conversations')
+    expect(lastFrame()).toContain('back in the conversation')
+    // → goes back in, and esc is Claude's there: it stays in the conversation.
+    await press(stdin, '\u001b[C')
+    expect(lastFrame()).toContain(' claude ')
+    await press(stdin, '\u001b')
+    expect(lastFrame()).toContain(' claude ')
     done()
     unmount()
   })

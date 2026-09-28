@@ -21,9 +21,10 @@ one list of every conversation that isn't done, grouped: waiting on you, drafts,
 shift to select, ⏎ for new lines), saved as you type. `esc`, then `s` starts it, `p` moves it,
 `y` copies it, `x` throws it away, or `esc` keeps it.
 
-Conversations open in the right-hand panel: the real Claude session, every key going to Claude
-except `esc`, which comes back to Hopper and leaves it open (⏎ goes back in). Inside, ctrl+c
-interrupts Claude; from the list, `i` sends it an esc. `m` marks a conversation done. Ask Claude
+Conversations open in the right-hand panel: the real Claude session, every key going to Claude,
+`esc` included. ← at Claude's empty prompt, or ctrl+] from anywhere, comes back to Hopper and
+leaves it open (⏎ goes back in). Inside, ctrl+c interrupts Claude; from the list, `i` sends it
+an esc. `m` marks a conversation done. Ask Claude
 to file items; it knows the project's `_open.md`. The first conversation in a new folder asks you
 to trust it once (`T`).
 
