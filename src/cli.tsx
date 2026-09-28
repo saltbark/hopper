@@ -1,5 +1,4 @@
 import { mkdir } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
 
 import { render } from 'ink'
 
@@ -32,14 +31,7 @@ import { initHome } from './home.ts'
 import { gather, OTHER } from './model.ts'
 import { configPath, tildify } from './paths.ts'
 import { hopperPrompt } from './prompts.ts'
-import {
-  listRoutines,
-  loadRoutine,
-  nextRun,
-  runRoutine,
-  setDispatchSchedule,
-  syncLaunchd,
-} from './routines/index.ts'
+import { listRoutines, loadRoutine, nextRun, runRoutine, removeLaunchd } from './routines/index.ts'
 import { App } from './tui/App.tsx'
 import { MOUSE_OFF, MOUSE_ON } from './tui/mouse.ts'
 import { TITLE_RESTORE, TITLE_SAVE, titleSeq } from './tui/title.ts'
@@ -50,8 +42,9 @@ const HELP = `hopper: toss work in the hopper, hop from item to item.
   hopper init            write the config and the home folder (never overwrites)
   hopper status [--json] what Hopper sees: logins, usage, sessions, projects
   hopper login <account> sign a login in (runs claude auth login for it)
-  hopper run <routine>   run a routine once now (what the schedule calls)
-  hopper routines [sync] list routines and when they next run; sync updates the schedule
+  hopper run <routine>   run a routine once now
+  hopper routines        list routines and when they next run (routines and up next run
+                         only while the app is open)
   hopper list [--json]   every project, draft, conversation, routine and run
   hopper draft new --project <key> [--model m] [--effort e] [--queue now|night]
                    [--after <id>,…] [--done "…"] [--proposed <who>] "<message>" | -
@@ -60,8 +53,7 @@ const HELP = `hopper: toss work in the hopper, hop from item to item.
   hopper routine templates               the routines Hopper ships
   hopper routine install <template> [--name n] [--project key] [--schedule "…"]
                    [--check "cmd"] [--enable]   add one (paused unless --enable)
-  hopper dispatch [--json]               start queued drafts that are ready
-  hopper dispatch install|remove         run dispatch every ten minutes, or stop
+  hopper dispatch [--json]               start queued drafts that are ready now
   hopper help            this
 
 For agents: docs/agents.md, written to <home>/CLAUDE.md.
@@ -186,6 +178,8 @@ async function tui() {
     process.exit(1)
   }
   await writeGuide(config.home)
+  // Nothing runs with Hopper closed: take out launchd entries earlier versions made.
+  await removeLaunchd()
   process.stdout.write(TITLE_SAVE)
   const setTitle = (text: string) => process.stdout.write(titleSeq(text))
   const app = render(<App config={config} setTitle={setTitle} />, {
@@ -207,11 +201,9 @@ async function tui() {
   }
 }
 
-// The command launchd runs for a routine: this file's own bin/hopper.js.
-export const hopperBin = () => fileURLToPath(new URL('../bin/hopper.js', import.meta.url))
-
-// One run of a routine. launchd calls this on schedule; it skips (and says why) when every
-// account for the routine's project is full or the previous run is still going.
+// One run of a routine, now. The open app runs routines on their schedule; this is for trying
+// one from a shell. It skips (and says why) when every account for the routine's project is
+// full or the previous run is still going.
 async function run(name: string | undefined) {
   const config = await requireConfig()
   if (!name) {
@@ -272,11 +264,11 @@ async function routine(sub: string | undefined, rest: string[]) {
   if (sub === 'check') {
     const name = rest.find((a) => !a.startsWith('--'))
     if (!name) throw new UsageError('hopper routine check <name>')
-    const out = await routineCheck(config, name, hopperBin())
+    const out = await routineCheck(config, name)
     if (rest.includes('--json')) json(out)
     else {
       console.log(
-        `${out.name}: ${out.ok ? 'ok' : 'problems'} · launchd ${out.launchd ?? '–'} · next ${out.next ? when(Date.parse(out.next)) : '–'}`,
+        `${out.name}: ${out.ok ? 'ok' : 'problems'} · next ${out.next ? when(Date.parse(out.next)) : '–'} (while Hopper is open)`,
       )
       for (const p of out.problems) console.log(`  - ${p}`)
     }
@@ -292,7 +284,6 @@ async function routine(sub: string | undefined, rest: string[]) {
   }
   if (sub === 'install') {
     const r = await routineInstall(config, rest)
-    await syncLaunchd(config, await listRoutines(config.home), { hopper: hopperBin() })
     console.log(
       `added routines/${r.name}.md · ${r.project} · ${r.schedule || 'run-now only'} · ${r.enabled ? 'on' : 'paused (P in the app resumes it)'}`,
     )
@@ -303,15 +294,7 @@ async function routine(sub: string | undefined, rest: string[]) {
 
 async function dispatchCmd(rest: string[]) {
   const config = await requireConfig()
-  const sub = rest.find((a) => !a.startsWith('--'))
-  if (sub === 'install' || sub === 'remove') {
-    const path = await setDispatchSchedule(config, sub === 'install', { hopper: hopperBin() })
-    console.log(
-      sub === 'install' ? `dispatch every ten minutes · ${tildify(path)}` : 'dispatch unscheduled',
-    )
-    return
-  }
-  if (sub) throw new UsageError('hopper dispatch [--json] | install | remove')
+  if (rest.some((a) => !a.startsWith('--'))) throw new UsageError('hopper dispatch [--json]')
   await writeGuide(config.home)
   const report = await dispatchOnce(config)
   if (rest.includes('--json')) return json(report)
@@ -320,14 +303,9 @@ async function dispatchCmd(rest: string[]) {
   for (const w of report.waiting) console.log(`${at} waiting ${w.draft}: ${w.reason}`)
 }
 
-async function routines(sub: string | undefined) {
+async function routines() {
   const config = await requireConfig()
   const all = await listRoutines(config.home)
-  if (sub === 'sync') {
-    const { loaded, removed } = await syncLaunchd(config, all, { hopper: hopperBin() })
-    console.log(`schedule synced · ${loaded.length} updated · ${removed.length} removed`)
-    return
-  }
   if (!all.length) return console.log(`No routines yet in ${tildify(config.home)}/routines`)
   for (const r of all) {
     const next = r.enabled ? nextRun(r.schedule, new Date()) : null
@@ -345,7 +323,7 @@ try {
   else if (cmd === 'status') await status(rest.includes('--json'))
   else if (cmd === 'login') await login(rest[0])
   else if (cmd === 'run') await run(rest[0])
-  else if (cmd === 'routines') await routines(rest[0])
+  else if (cmd === 'routines') await routines()
   else if (cmd === 'list') await list(rest)
   else if (cmd === 'draft') await draft(rest[0], rest.slice(1))
   else if (cmd === 'routine') await routine(rest[0], rest.slice(1))

@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 
 import { runInteractive, UntrustedError } from '../claude.ts'
@@ -22,12 +22,10 @@ import { expandHome, isWithin, tildify } from '../paths.ts'
 import { hopperPrompt } from '../prompts.ts'
 import {
   deleteRoutine,
-  listRoutines,
   nextRun,
   ROUTINE_NAME,
   runRoutine,
   saveRoutine,
-  syncLaunchd,
   type Report,
   type Routine,
 } from '../routines/index.ts'
@@ -48,10 +46,6 @@ import {
   type Form,
   type Panel,
 } from './state.ts'
-
-// Keeps launchd in step with the routine files, pointing it at the hopper command running now.
-export const defaultSync = (config: Config, routines: Routine[]) =>
-  syncLaunchd(config, routines, { hopper: realpathSync(process.argv[1] ?? 'hopper') })
 
 const whenNext = (schedule: string) => {
   const n = nextRun(schedule, new Date())
@@ -319,10 +313,9 @@ export function makeActions(ctx: AppCtx) {
     open(item)
   }
 
-  // Routines: saved on esc, and launchd kept in step every time one changes.
+  // Routines: saved on esc. The open app runs them when they're due (autopilot.ts).
   const saveAndSync = async (r: Routine) => {
     await saveRoutine(config.home, r)
-    await ctx.syncSchedule(config, await listRoutines(config.home))
     void refresh(false)
   }
 
@@ -437,7 +430,6 @@ export function makeActions(ctx: AppCtx) {
       setEditing(null)
       // A draft that became a routine is no longer a draft.
       if (!e.routine) await deleteDraft(config.home, e.id)
-      await ctx.syncSchedule(config, await listRoutines(config.home))
       setMessage(`${f.name} · ${schedule || 'no schedule'} · ${whenNext(schedule)}`)
       return void refresh(false)
     }
@@ -450,7 +442,6 @@ export function makeActions(ctx: AppCtx) {
     if (f.kind === 'routine-remove') {
       setForm(null)
       await deleteRoutine(config.home, f.name)
-      await ctx.syncSchedule(config, await listRoutines(config.home))
       setMessage(`Removed ${f.name}. Its runs stay in Done.`)
       return void refresh(false)
     }
@@ -501,8 +492,8 @@ export function makeActions(ctx: AppCtx) {
         ? submitRoutineForm(f)
         : submitAccountForm(f)
 
-  // Up next. Queued work starts on its own, unattended; `g` (and launchd every ten minutes) runs
-  // a dispatch. Queueing for now dispatches straight away.
+  // Up next. Queued work starts on its own, unattended: the open app dispatches whenever
+  // something changes that could make it ready (autopilot.ts), and `g` runs one now. Queueing for now dispatches straight away.
   const dispatchNow = async (quiet = false) => {
     if (!quiet) setMessage('Dispatching…')
     try {

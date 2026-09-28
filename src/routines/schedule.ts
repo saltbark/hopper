@@ -69,3 +69,24 @@ export function nextRun(schedule: string, from: Date): Date | null {
   }
   return best
 }
+
+// The latest time at or before `from` any slot fired, or null for a routine with no schedule.
+export function lastRun(schedule: string, from: Date): Date | null {
+  const slots = parseSchedule(schedule)
+  if (typeof slots === 'string' || !slots.length) return null
+  for (let d = 0; d <= 62; d++) {
+    const day = new Date(from.getFullYear(), from.getMonth(), from.getDate() - d)
+    let best: Date | null = null
+    for (const s of slots) {
+      if (s.weekday !== undefined && day.getDay() !== s.weekday) continue
+      if (s.day !== undefined && day.getDate() !== s.day) continue
+      const hours = s.hour === -1 ? [...Array(24).keys()] : [s.hour]
+      for (const h of hours) {
+        const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, s.minute)
+        if (at <= from && (!best || at > best)) best = at
+      }
+    }
+    if (best) return best
+  }
+  return null
+}

@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { Chime } from '../chime.ts'
 import type { Account, Config } from '../config.ts'
 import type { AccountState, Item, Snapshot } from '../model.ts'
-import type { Report, Routine } from '../routines/index.ts'
+import type { Report } from '../routines/index.ts'
 import type { Row } from '../settings.ts'
 import type { TreeRow } from '../tree.ts'
 import type { EmbeddedSession } from './embed.ts'
@@ -17,7 +17,6 @@ export type AppCtx = {
   config: Config
   setConfig: Set<Config>
   save: (config: Config) => Promise<void>
-  syncSchedule: (config: Config, routines: Routine[]) => Promise<unknown>
   chime: Chime
   snap: Snapshot | null
   snapRef: { current: Snapshot | null }

@@ -693,16 +693,9 @@ describe('conversations', () => {
     unmount()
   })
 
-  it('r turns a draft into a routine, saves it and syncs the schedule', async () => {
+  it('r turns a draft into a routine and saves it', async () => {
     const { home, cfg, live } = await setup()
-    const synced: string[][] = []
-    const { lastFrame, stdin, unmount } = render(
-      <App
-        config={cfg}
-        load={live}
-        syncSchedule={async (_c, rs) => void synced.push(rs.map((r) => r.name))}
-      />,
-    )
+    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'triage the inbox')
@@ -715,9 +708,8 @@ describe('conversations', () => {
     await press(stdin, '\r') // keep the suggested name
     expect(lastFrame()).toContain('when it runs')
     await press(stdin, '\r') // keep weekdays 9:00
-    await until(() => synced.length > 0)
-    expect(synced.at(-1)).toEqual(['triage-the-inbox'])
     const { loadRoutine } = await import('../src/routines/index.ts')
+    await until(async () => !!(await loadRoutine(home, 'triage-the-inbox')))
     expect(await loadRoutine(home, 'triage-the-inbox')).toMatchObject({
       project: 'meta/inbox',
       schedule: 'weekdays 9:00',
@@ -763,7 +755,7 @@ describe('conversations', () => {
       ),
     }
     const { lastFrame, stdin, unmount } = render(
-      <App config={cfg} load={async () => withRoutine} syncSchedule={async () => {}} />,
+      <App config={cfg} load={async () => withRoutine} />,
     )
     await tick()
     await press(stdin, 'c')
@@ -833,7 +825,7 @@ describe('conversations', () => {
       ),
     }
     const { lastFrame, stdin, unmount } = render(
-      <App config={cfg} load={async () => withReports} syncSchedule={async () => {}} />,
+      <App config={cfg} load={async () => withReports} />,
     )
     await tick()
     await press(stdin, 'c')

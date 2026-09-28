@@ -171,7 +171,7 @@ export function runCheck(
 }
 
 // One run: pick an account with room (skip if none), start the conversation in the project's
-// folder, and record it. Called by `hopper run` (from launchd) and by run-now in the app.
+// folder, and record it. Called by the app on schedule (autopilot.ts), by run-now, and by `hopper run`.
 export async function runRoutine(opts: {
   config: Config
   routine: Routine

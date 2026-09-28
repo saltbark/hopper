@@ -3,13 +3,17 @@ import { join } from 'node:path'
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 
+import { autopilot, AUTOPILOT_START, type AutopilotState } from '../autopilot.ts'
 import { DEFAULT_SOUND, newlyWaiting, type Chime } from '../chime.ts'
 import { refreshUsage, usageLines } from '../claude.ts'
+import { dispatchOnce } from '../commands.ts'
 import type { Account, Config } from '../config.ts'
 import { saveDraft } from '../drafts.ts'
 import { readItems, type OpenItem } from '../items.ts'
 import type { gather, Item, Snapshot } from '../model.ts'
 import { expandHome } from '../paths.ts'
+import { hopperPrompt } from '../prompts.ts'
+import { runRoutine } from '../routines/index.ts'
 import { parseProjectsDoc, type ProjectsDoc } from '../settings.ts'
 import type { EmbeddedSession } from './embed.ts'
 import { now, toDraft, type Editing } from './state.ts'
@@ -249,4 +253,62 @@ export function useTabTitle(
     },
     [suspendTerminal, setTitle],
   )
+}
+
+// Runs routines when they're due and starts queued drafts as they become ready, while Hopper is
+// open (autopilot.ts). Each snapshot is a chance; one pass at a time. Says what it started.
+export function useAutopilot(
+  config: Config,
+  snap: Snapshot | null,
+  refresh: (withAuth: boolean) => Promise<void>,
+  say: (text: string) => void,
+  on: boolean,
+) {
+  const state = useRef<AutopilotState>(AUTOPILOT_START)
+  const busy = useRef(false)
+  useEffect(() => {
+    if (!on || !snap || busy.current) return
+    busy.current = true
+    void (async () => {
+      try {
+        const out = await autopilot({
+          config,
+          snap,
+          now: new Date(),
+          state: state.current,
+          deps: {
+            run: (routine) =>
+              runRoutine({
+                config,
+                routine,
+                projects: snap.projects,
+                accounts: snap.accounts,
+                sessions: snap.items,
+                systemPrompt: hopperPrompt,
+              }),
+            dispatch: () => dispatchOnce(config, snap),
+          },
+        })
+        state.current = out.state
+        const said = [
+          ...out.ran.map(({ routine, outcome: o }) =>
+            o.status === 'started'
+              ? `ran ${routine}`
+              : o.status === 'passed'
+                ? `${routine}: check passed`
+                : `${routine} skipped: ${o.reason}`,
+          ),
+          ...(out.report?.started ?? []).map((x) => `started ${x.name}`),
+        ]
+        if (said.length) {
+          say(`On its own: ${said.join(' · ')}`)
+          void refresh(false)
+        }
+      } catch (e) {
+        say(`Autopilot: ${(e as Error).message}`)
+      } finally {
+        busy.current = false
+      }
+    })()
+  }, [config, snap, refresh, say, on])
 }

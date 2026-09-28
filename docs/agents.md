@@ -65,8 +65,9 @@ the chain depth set in Hopper's config, follow-ups become proposals instead.
 `hopper dispatch` starts every queued draft that is ready, on the first account on its route
 that is signed in, has room, and isn't already running its share. At night it also keeps to the
 night's budget (points of the weekly limit one night may use) and to a reserve kept for the day.
-launchd runs it every ten minutes. `hopper dispatch --json` says what started and why the rest
-wait.
+The open Hopper app runs it whenever something changes that could make a draft ready, and runs
+routines at their times; with the app closed, nothing starts. `hopper dispatch --json` says what
+started and why the rest wait.
 
 ## Routines
 
@@ -85,7 +86,8 @@ The prompt.
 ```
 
 - `schedule` in words: `daily 7:00`, `weekdays 7:00, 13:00`, `weekly mon 9:00`,
-  `monthly 1st 9:00`, `hourly`; blank for run-now only.
+  `monthly 1st 9:00`, `hourly`; blank for run-now only. Routines run only while the Hopper app
+  is open: at their time, or if it opens within an hour after.
 - `check` (optional) is a shell command run first, in the project's run folder. If it passes,
   the run is recorded and no conversation starts. If it fails, the conversation starts with its
   output.

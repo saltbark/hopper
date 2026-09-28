@@ -1,19 +1,19 @@
-import { appendFile, mkdir, open, rm, stat } from 'node:fs/promises'
+import { appendFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { readUsage, refreshUsage, UntrustedError, type Usage } from './claude.ts'
 import { parseWindow, type Account, type Config } from './config.ts'
 import { loadConversations, type ConversationMeta } from './conversations.ts'
 import type { Draft } from './drafts.ts'
-import { readIfThere, writeJson } from './fsutil.ts'
+import { readIfThere, tryLock, writeJson } from './fsutil.ts'
 import type { Project } from './home.ts'
 import type { AccountState, Item } from './model.ts'
 import { readResult } from './routines/index.ts'
 import { hasRoom, routeFor } from './routing.ts'
 import { startDraft } from './start.ts'
 
-// Up next: drafts queued to start on their own. `hopper dispatch` (launchd, every ten minutes,
-// and `g` in the app) starts each one that is ready, on an account with room, within the night's
+// Up next: drafts queued to start on their own. The open app (autopilot.ts), `g`, and
+// `hopper dispatch` starts each one that is ready, on an account with room, within the night's
 // budget. Everything it starts runs unattended.
 
 // ---------- when a draft is ready ----------
@@ -89,25 +89,6 @@ export type DispatchReport = { at: number; night: boolean; started: Started[]; w
 const firstLine = (d: Draft) =>
   (d.text.split('\n').find((l) => l.trim()) ?? '(empty)').trim().slice(0, 60)
 
-// Only one dispatch at a time (launchd and the app can overlap); a lock older than ten minutes
-// was left by a crash.
-async function lock(home: string): Promise<(() => Promise<void>) | null> {
-  await mkdir(join(home, 'state'), { recursive: true })
-  const path = join(home, 'state', 'dispatch.lock')
-  const stale = await stat(path).then(
-    (s) => Date.now() - s.mtimeMs > 10 * 60_000,
-    () => false,
-  )
-  if (stale) await rm(path, { force: true })
-  try {
-    const fh = await open(path, 'wx')
-    await fh.close()
-    return () => rm(path, { force: true })
-  } catch {
-    return null
-  }
-}
-
 export type DispatchDeps = {
   // Fresh usage for an account; by default asks Claude (/usage is free) and reads the cache.
   usage?: (account: Account, cwd: string) => Promise<Usage | null>
@@ -137,7 +118,8 @@ export async function dispatch(opts: {
   const queued = drafts.filter((d) => d.queue).sort((a, b) => a.created - b.created)
   if (!queued.length) return report
 
-  const unlock = await lock(home)
+  // Only one at a time: two Hopper windows can both be open.
+  const unlock = await tryLock(join(home, 'state', 'dispatch.lock'))
   if (!unlock) {
     for (const d of queued)
       report.waiting.push({

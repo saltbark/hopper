@@ -9,7 +9,6 @@ import { loadProjects } from './home.ts'
 import { gather, type Item, type Snapshot } from './model.ts'
 import {
   checkSchedule,
-  launchdStatus,
   loadRoutine,
   nextRun,
   parseRoutine,
@@ -245,21 +244,15 @@ export type RoutineCheck = {
   name: string
   ok: boolean
   problems: string[]
-  launchd: string | null
   next: string | null
 }
 
-export async function routineCheck(
-  config: Config,
-  name: string,
-  hopper: string,
-): Promise<RoutineCheck> {
+export async function routineCheck(config: Config, name: string): Promise<RoutineCheck> {
   const problems: string[] = []
-  const out = (launchd: string | null = null, next: string | null = null): RoutineCheck => ({
+  const out = (next: string | null = null): RoutineCheck => ({
     name,
     ok: !problems.length,
     problems,
-    launchd,
     next,
   })
   if (!ROUTINE_NAME.test(name)) problems.push('names are lowercase letters, digits and hyphens')
@@ -282,11 +275,8 @@ export async function routineCheck(
   if (r.model && !MODELS.includes(r.model as never)) problems.push(`unknown model ${r.model}`)
   if (r.effort && !EFFORTS.includes(r.effort as never)) problems.push(`unknown effort ${r.effort}`)
   if (!r.prompt.trim()) problems.push('the prompt is empty')
-  const status = await launchdStatus(config, r, { hopper })
-  if (status === 'missing' || status === 'stale' || status === 'not loaded')
-    problems.push(`launchd entry ${status}: hopper routines sync`)
   const next = r.enabled ? nextRun(r.schedule, new Date()) : null
-  return out(status, next ? next.toISOString() : null)
+  return out(next ? next.toISOString() : null)
 }
 
 const templatesDir = new URL('../templates/routines/', import.meta.url)

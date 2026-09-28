@@ -44,10 +44,13 @@ The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it befor
 - **Usage comes from `claude -p /usage`**, which is answered locally at no cost and refreshes the
   cache. Never read login tokens for it.
 - **Routines** (`src/routines/`): files in `<home>/routines/`, runs in `<home>/state/runs.jsonl`,
-  results in `<home>/routines/<name>/runs/`. launchd runs `hopper run <name>`; `syncLaunchd`
-  keeps `~/Library/LaunchAgents/com.saltbark.hopper.*` in step (tests set `HOPPER_LAUNCHD_DIR`
-  and `HOPPER_NO_LAUNCHCTL`). A run gets `--add-dir` on its routine folder so it can write its
-  result without asking. The model and routine of a conversation Hopper started are in
+  results in `<home>/routines/<name>/runs/`. **Nothing runs with Hopper closed**: the open app
+  runs a routine when its time has passed since its last run, catching up only within an hour
+  (`src/autopilot.ts`, `useAutopilot` in `hooks.ts`, after every poll). There is no launchd;
+  `removeLaunchd` takes out entries earlier versions made, when the app starts. Tests run with
+  `HOPPER_NO_AUTOPILOT` set (vitest.config.ts); App's `autopilot` prop turns it back on. A run
+  gets `--add-dir` on the routines folder so it can write its result, and what routines share,
+  without asking. The model and routine of a conversation Hopper started are in
   `<home>/state/conversations.json`; Claude Code doesn't report them. A routine's reports (`o`)
   are the files in its `runs/` folder (`listReports`), not the run log, so a report written some
   other way shows too; the log only adds which conversation wrote it.
@@ -62,9 +65,9 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
 - **Up next is drafts with `queue:`.** `src/dispatch.ts` decides what is ready (`after:` names
   drafts; a dependency is finished when its conversation is in Done) and on which account
   (route order, `max_running`, the reserve, and at night the budget measured from
-  `state/night.json`). One dispatch at a time (`state/dispatch.lock`). Its launchd entry is
-  `com.saltbark.hopper-dispatch`, outside the routines' `com.saltbark.hopper.` prefix, so
-  `syncLaunchd` leaves it alone.
+  `state/night.json`). One dispatch at a time (`state/dispatch.lock`). The open app dispatches
+  when `dispatchSignal` changes (a draft queued, a conversation moving, night falling), and every
+  five minutes while work is queued, for room freeing up on an account.
 - **`docs/agents.md` is the agents' guide**, copied to `<home>/CLAUDE.md` whenever it differs
   (`src/guide.ts`). A change to a command agents use (`src/commands.ts`) changes it too.
   Routine templates are `templates/routines/*.md`.

@@ -14,12 +14,11 @@ import {
   nextRun,
   parseRoutine,
   parseSchedule,
-  plistFor,
   readResult,
   runRoutine,
   saveRoutine,
   serializeRoutine,
-  syncLaunchd,
+  removeLaunchd,
   type Routine,
 } from '../src/routines/index.ts'
 import { fakeClaude } from './helpers.ts'
@@ -120,48 +119,21 @@ describe('results', () => {
 })
 
 describe('launchd', () => {
-  const opts = {
-    node: '/usr/local/bin/node',
-    hopper: '/x/bin/hopper.js',
-    configPath: '/c/config.toml',
-    logDir: '/h/state/logs',
-    path: '/usr/bin',
-  }
-  it('makes one calendar entry per time, and none for a paused or unscheduled routine', () => {
-    const xml = plistFor({ ...triage, schedule: 'weekly mon 9:30' }, opts)!
-    expect(xml).toContain('<string>com.saltbark.hopper.inbox-triage</string>')
-    expect(xml).toContain('<string>run</string>\n    <string>inbox-triage</string>')
-    expect(xml).toContain('<key>Hour</key><integer>9</integer>')
-    expect(xml).toContain('<key>Minute</key><integer>30</integer>')
-    expect(xml).toContain('<key>Weekday</key><integer>1</integer>')
-    expect(plistFor({ ...triage, enabled: false }, opts)).toBeNull()
-    expect(plistFor({ ...triage, schedule: '' }, opts)).toBeNull()
-  })
-  it('sync writes, rewrites and removes entries to match the routines', async () => {
+  it('entries earlier versions made are taken out, and nothing else', async () => {
     const agents = await mkdtemp(join(tmpdir(), 'hopper-agents-'))
-    const home = await mkdtemp(join(tmpdir(), 'hopper-home-'))
     process.env['HOPPER_LAUNCHD_DIR'] = agents
     process.env['HOPPER_NO_LAUNCHCTL'] = '1'
-    const config = {
-      path: '/c/config.toml',
-      accountsPath: '',
-      home,
-      accounts: [],
-      routes: [],
-      overnight: OVERNIGHT_DEFAULTS,
-    } as Config
-    expect(await syncLaunchd(config, [triage], { hopper: '/x/hopper.js' })).toEqual({
-      loaded: ['inbox-triage'],
-      removed: [],
-    })
-    expect(await syncLaunchd(config, [triage], { hopper: '/x/hopper.js' })).toEqual({
-      loaded: [],
-      removed: [],
-    })
-    expect(
-      await syncLaunchd(config, [{ ...triage, enabled: false }], { hopper: '/x/hopper.js' }),
-    ).toEqual({ loaded: [], removed: ['inbox-triage'] })
-    expect(await readdir(agents)).toEqual([])
+    for (const n of [
+      'com.saltbark.hopper.kf-weekly.plist',
+      'com.saltbark.hopper-dispatch.plist',
+      'com.other.thing.plist',
+    ])
+      await writeFile(join(agents, n), '<plist/>')
+    expect((await removeLaunchd()).sort()).toEqual([
+      'com.saltbark.hopper-dispatch',
+      'com.saltbark.hopper.kf-weekly',
+    ])
+    expect(await readdir(agents)).toEqual(['com.other.thing.plist'])
     delete process.env['HOPPER_LAUNCHD_DIR']
     delete process.env['HOPPER_NO_LAUNCHCTL']
   })

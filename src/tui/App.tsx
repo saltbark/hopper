@@ -4,10 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { playChime, type Chime } from '../chime.ts'
 import { prefixesOf, saveAccounts, type Config } from '../config.ts'
 import { draftSessionId, gather, inScope, OTHER, routineSessionId, type Item } from '../model.ts'
-import type { Routine } from '../routines/index.ts'
 import { buildRows } from '../settings.ts'
 import { activeRows, buildTree, type TreeRow } from '../tree.ts'
-import { defaultSync, makeActions } from './actions.ts'
+import { makeActions } from './actions.ts'
 import type { AppCtx } from './context.ts'
 import { rank, withFolders } from './fuzzy.ts'
 import {
@@ -17,6 +16,7 @@ import {
   useOpenConversations,
   useSettingsDoc,
   useProjectItems,
+  useAutopilot,
   useSnapshot,
   useTabTitle,
   useUsage,
@@ -61,17 +61,19 @@ export function App({
   config: initialConfig,
   load = gather,
   save = saveAccounts,
-  syncSchedule = defaultSync,
   chime = playChime,
   setTitle = noTitle,
+  // Routines on their schedule and queued drafts, while the app is open. Tests turn it off
+  // (HOPPER_NO_AUTOPILOT, in vitest.config.ts) unless they're about it.
+  autopilot = !process.env['HOPPER_NO_AUTOPILOT'],
 }: {
   config: Config
   load?: Loader
   save?: Saver
-  syncSchedule?: (config: Config, routines: Routine[]) => Promise<unknown>
   chime?: Chime
   // Writes the terminal tab's title; tests leave it out.
   setTitle?: (text: string) => void
+  autopilot?: boolean
 }) {
   const { exit, suspendTerminal: suspendInk } = useApp()
   const { columns, rows } = useWindowSize()
@@ -108,6 +110,7 @@ export function App({
   const { usageText, askUsage } = useUsage(config.home, snapRef, refresh)
   useDraftAutosave(editing, config.home)
   useFoldImported(snap, setFolded)
+  useAutopilot(config, snap, refresh, setMessage, autopilot)
   const suspendTerminal = useTabTitle(snap, setTitle, suspendInk)
   const settingsDoc = useSettingsDoc(!!settings, config.home)
   const settingRows = useMemo(
@@ -304,7 +307,6 @@ export function App({
     config,
     setConfig,
     save,
-    syncSchedule,
     chime,
     snap,
     snapRef,

@@ -66,13 +66,13 @@ then `esc`, `r`: name it and say when it runs (`daily 7:00`, `weekdays 7:00, 13:
 in the list; from a routine's row `s` runs it now, `S` changes the schedule, `P` pauses, `d`
 removes it, and ⏎ edits the prompt.
 Each run writes a result file under `<home>/routines/<name>/runs/`; a run that says nothing needs
-you goes straight to Done. macOS runs the schedule (`hopper run <name>` from launchd), so
-routines run with Hopper closed. A run is skipped when every account for its project is full.
+you goes straight to Done. Routines run only while Hopper is open: at its time, or when Hopper
+opens within an hour of it (later than that, it waits for its next time). A run is skipped when
+every account for its project is full.
 
     hopper routines          list them and when they next run
-    hopper routines sync     make the launchd schedule match the routine files
     hopper run <name>        one run, now
-    hopper routine check <name>        is the file valid, and is launchd running it
+    hopper routine check <name>        is the file valid
     hopper routine templates           the routines Hopper ships
     hopper routine install <template>  add one, paused (P in the app resumes it)
 
@@ -94,8 +94,9 @@ on a branch, never push to main or send anything, and to write a result file (`n
 `needs: nothing`). A draft can wait for others (`after:`), and a run may queue its own follow-ups
 up to `chain_depth` links; past that they're proposed. Proposed drafts (written by the groomer or
 a review) have their own group: `u` queues one, `U` queues them all for tonight. `hopper dispatch`
-starts whatever is ready; `hopper dispatch install` has launchd run it every ten minutes, and `g`
-runs it from the app. It keeps to `max_running` per account, to the night's budget (points of the
+starts whatever is ready. The open app does it on its own as soon as something changes that
+could make a draft ready (you queue one, a conversation finishes, the night begins), and every
+five minutes while work waits; `g` runs it now. Leave Hopper open for queued work to run. It keeps to `max_running` per account, to the night's budget (points of the
 weekly limit one night may use) and to a reserve kept for the day; all of these are under
 Overnight in settings.
 
