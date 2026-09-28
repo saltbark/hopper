@@ -65,8 +65,12 @@ then `esc`, `r`: name it and say when it runs (`daily 7:00`, `weekdays 7:00, 13:
 `weekly mon 9:00`, `monthly 1st 9:00`, or blank for run-now only). Routines have their own group
 in the list; from a routine's row `s` runs it now, `S` changes the schedule, `P` pauses, `d`
 removes it, and ⏎ edits the prompt.
-Each run writes a result file under `<home>/routines/<name>/runs/`; a run that says nothing needs
-you goes straight to Done. Routines run only while Hopper is open: at its time, or when Hopper
+Each run writes a report under `<home>/routines/<name>/runs/`. A run shows under running while
+it works; once it finishes it is filed with its routine rather than listed or put in Done, and
+`o` on the routine reads its reports (⏎ on one opens the conversation that wrote it). When the
+newest report says it needs you, the routine's own row turns the waiting colour and counts in
+the tab title until you open its reports. A run blocked on a question stays in waiting, since
+its conversation is where to answer. Routines run only while Hopper is open: at its time, or when Hopper
 opens within an hour of it (later than that, it waits for its next time). A run is skipped when
 every account for its project is full.
 

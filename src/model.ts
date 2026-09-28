@@ -25,12 +25,15 @@ import {
   type Run,
 } from './routines/index.ts'
 import { pickAccount } from './routing.ts'
+import { loadSeen } from './seen.ts'
 
 // Sessions whose cwd is under no project are grouped here, so outside work still shows.
 // The leading ~ sorts it after every real key in the tree.
 export const OTHER = '~elsewhere'
 
-export type Where = 'queue' | 'needs' | 'done' | 'live' | 'routine'
+// 'filed' is a routine's run once it has finished: it lives in its routine's reports, not in
+// the list or Done.
+export type Where = 'queue' | 'needs' | 'done' | 'live' | 'routine' | 'filed'
 
 // The queue is what's running. Everything else waits on me in Needs you (Claude's "done" means
 // it answered and is waiting) until I mark it done. Interactive terminals belong to neither.
@@ -65,6 +68,8 @@ export type Item = Session & {
   resultPath?: string
   // Started with nobody watching.
   unattended?: boolean
+  // For a routine: its newest report says it needs me, and I haven't opened its reports since.
+  attention?: boolean
   // The draft a conversation started from; for a draft, its own id.
   draft?: string
   // A draft's overnight fields (drafts.ts).
@@ -228,16 +233,28 @@ export async function gather(
   }
   const reports: Record<string, Report[]> = {}
   for (const r of routines) reports[r.name] = await listReports(config.home, r.name, runs)
-  // A run, or unattended conversation, that finished and says nothing needs me goes straight to
-  // Done.
+  // An unattended conversation that finished and says nothing needs me goes straight to Done.
+  // A routine's run shows while it works; once finished it is filed with its routine's reports,
+  // which say whether it needs me. Only a run blocked on a question stays in the list, because
+  // the conversation is the one place to answer it.
   for (const it of items) {
     if (!it.id || (!it.routine && !it.resultPath)) continue
     const path = it.resultPath ?? runs.find((r) => r.id === it.id)?.result
     const listed = path && it.routine ? reports[it.routine]?.find((x) => x.path === path) : null
     it.result = listed ?? (path ? await readResult(path) : null)
     if (path && !it.resultPath) it.resultPath = path
-    if (it.where === 'needs' && it.state === 'done' && it.result?.needs === 'nothing')
+    if (it.routine) {
+      if (it.where === 'done' || (it.where === 'needs' && it.state !== 'blocked'))
+        it.where = 'filed'
+    } else if (it.where === 'needs' && it.state === 'done' && it.result?.needs === 'nothing')
       it.where = 'done'
+  }
+  const seen = await loadSeen(config.home)
+  for (const it of items) {
+    if (it.kind !== 'routine') continue
+    const name = routines.find((r) => routineSessionId(r.name) === it.sessionId)?.name
+    const latest = name ? reports[name]?.[0] : undefined
+    if (name && latest?.needs === 'you' && seen[name] !== latest.path) it.attention = true
   }
   for (const d of drafts) {
     const it = items.find((x) => x.sessionId === draftSessionId(d.id))

@@ -248,7 +248,7 @@ describe('runRoutine', () => {
 })
 
 describe('runs in the list', () => {
-  it('a finished run that needs nothing goes straight to Done; one that needs you waits', async () => {
+  it('finished runs are filed with their routine, which says when its newest report needs you', async () => {
     const { gather } = await import('../src/model.ts')
     const { initHome } = await import('../src/home.ts')
     const home = await mkdtemp(join(tmpdir(), 'hopper-auto-'))
@@ -275,6 +275,15 @@ describe('runs in the list', () => {
         name: 'run 2',
         state: 'done',
       },
+      {
+        id: 'cccc3333',
+        cwd: inbox,
+        kind: 'background',
+        startedAt: 3,
+        sessionId: 's-3',
+        name: 'run 3',
+        state: 'blocked',
+      },
     ]
     await fakeClaude(
       `case "$1" in auth) echo '{"loggedIn":true}';; agents) echo '${JSON.stringify(sessions)}';; esac`,
@@ -293,8 +302,15 @@ describe('runs in the list', () => {
       routine: 'inbox-triage',
       startedAt: 2,
     })
-    const r1 = join(home, 'r1.md')
-    const r2 = join(home, 'r2.md')
+    await recordConversation(home, 'cccc3333', {
+      project: 'meta/inbox',
+      routine: 'inbox-triage',
+      startedAt: 3,
+    })
+    const reportsDir = join(home, 'routines', 'inbox-triage', 'runs')
+    await mkdir(reportsDir, { recursive: true })
+    const r1 = join(reportsDir, '2026-09-27-0700.md')
+    const r2 = join(reportsDir, '2026-09-28-0700.md')
     await writeFile(r1, 'needs: nothing\nAll quiet.\n')
     await writeFile(r2, 'needs: you\n2 replies to check.\n')
     await mkdir(join(home, 'state'), { recursive: true })
@@ -332,17 +348,25 @@ describe('runs in the list', () => {
     config = addAccount(config, { name: 'kf', label: 'kf', configDir: null })
     const snap = await gather(config, null, true)
     const where = (id: string) => snap.items.find((i) => i.id === id)?.where
-    expect(where('aaaa1111')).toBe('done')
-    expect(where('bbbb2222')).toBe('needs')
-    expect(snap.items.find((i) => i.id === 'bbbb2222')?.result).toEqual({
+    // Finished runs leave the list and Done; a run blocked on a question stays, to be answered.
+    expect(where('aaaa1111')).toBe('filed')
+    expect(where('bbbb2222')).toBe('filed')
+    expect(where('cccc3333')).toBe('needs')
+    expect(snap.items.find((i) => i.id === 'bbbb2222')?.result).toMatchObject({
       needs: 'you',
       summary: '2 replies to check.',
     })
+    // The routine's row says its newest report needs me, until I open its reports.
     expect(snap.items.find((i) => i.kind === 'routine')).toMatchObject({
       name: 'inbox-triage',
       where: 'routine',
       state: 'manual',
+      attention: true,
     })
+    const { markSeen } = await import('../src/seen.ts')
+    await markSeen(home, 'inbox-triage', r2)
+    const after = await gather(config, snap, false)
+    expect(after.items.find((i) => i.kind === 'routine')?.attention).toBeUndefined()
     delete process.env['HOPPER_CLAUDE']
   })
 })

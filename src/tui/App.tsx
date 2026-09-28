@@ -436,7 +436,13 @@ export function App({
     }
     const routine =
       r && snap
-        ? { routine: r, reports: routineReports, account: selectedItem?.account, now: snap.at }
+        ? {
+            routine: r,
+            reports: routineReports,
+            account: selectedItem?.account,
+            now: snap.at,
+            attention: selectedItem?.attention,
+          }
         : undefined
     return (
       <Frame

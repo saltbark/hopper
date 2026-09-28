@@ -30,6 +30,7 @@ import {
   type Routine,
 } from '../routines/index.ts'
 import { pickAccount } from '../routing.ts'
+import { markSeen } from '../seen.ts'
 import { startDraft } from '../start.ts'
 import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
@@ -292,6 +293,9 @@ export function makeActions(ctx: AppCtx) {
     if (!ctx.routineReports.length) return setMessage(`No reports from ${name} yet.`)
     ctx.setEmbedShown(false)
     ctx.setReports({ routine: name, sel: 0, open: null })
+    // Seen: the routine's row stops asking for me.
+    const latest = ctx.routineReports[0]
+    if (latest) void markSeen(config.home, name, latest.path).then(() => refresh(false))
   }
 
   // Opens one of the routine's reports for reading, in place of the list.

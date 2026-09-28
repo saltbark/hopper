@@ -104,4 +104,5 @@ and why not), conversations (group, project, model, account, state, result), rou
 runs, and the last dispatch. `hopper status --json` adds accounts and usage.
 
 Groups a conversation can be in: `waiting` (on the person), `draft`, `proposed`, `running`,
-`routines`, `next` (queued), `done`.
+`routines`, `next` (queued), `done`, and `filed`: a routine's run that has finished, which
+lives with its routine's reports rather than in the list.

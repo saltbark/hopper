@@ -31,6 +31,12 @@ describe('newlyWaiting', () => {
     const next = [item('a', 'needs'), item('b', 'done'), item('d', 'needs'), item('e', 'needs')]
     expect(newlyWaiting(prev, next, null)).toEqual([])
   })
+
+  it('counts a routine whose newest report starts needing you', () => {
+    const r = (attention: boolean) => ({ ...item('routine:x', 'routine'), attention }) as Item
+    expect(newlyWaiting([r(false)], [r(true)], null).map((i) => i.sessionId)).toEqual(['routine:x'])
+    expect(newlyWaiting([r(true)], [r(true)], null)).toEqual([])
+  })
 })
 
 describe('useChime', () => {

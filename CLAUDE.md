@@ -62,6 +62,10 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   prompt (`unattendedPrompt` in `src/prompts.ts`, `routineInstructions` for routines) says never
   to wait, to work on a branch, and where to write the result. `startDraft` (`src/start.ts`) is
   the one way a draft starts, from the app or the dispatcher; don't start one another way.
+- **A routine's finished runs are `filed`**, not listed or in Done (`gather` in `model.ts`):
+  they live in the routine's reports. Only a run `blocked` on a question stays in waiting. The
+  routine's row carries `attention` while its newest report says `needs: you` and isn't in
+  `state/seen.json`; `o` (showReports) marks it seen. Title count and chime include it.
 - **Up next is drafts with `queue:`.** `src/dispatch.ts` decides what is ready (`after:` names
   drafts; a dependency is finished when its conversation is in Done) and on which account
   (route order, `max_running`, the reserve, and at night the budget measured from

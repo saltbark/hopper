@@ -12,6 +12,8 @@ export type RoutineView = {
   reports: Report[] // newest first
   account?: string | undefined
   now: number
+  // Its newest report needs you and you haven't opened its reports since.
+  attention?: boolean | undefined
 }
 
 const PROMPT_LINES = 4
@@ -80,9 +82,15 @@ export function RoutineDetail({
         ))}
       <Text> </Text>
       <Heading
-        label={reports.length ? 'reports' : 'reports · none yet'}
+        label={
+          !reports.length
+            ? 'reports · none yet'
+            : view.attention
+              ? 'reports · the newest needs you · o'
+              : 'reports'
+        }
         width={width}
-        color={focused ? T.focus : T.dim}
+        color={focused ? T.focus : view.attention ? T.waiting : T.dim}
       />
       {slice.map((rep, i) => {
         const o = outcome(rep)

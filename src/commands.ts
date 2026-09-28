@@ -61,7 +61,7 @@ export async function listJson(config: Config, snap?: Snapshot) {
   for (const m of Object.values(meta))
     lastByProject.set(m.project, Math.max(lastByProject.get(m.project) ?? 0, m.startedAt))
   const iso = (t: number | undefined) => (t ? new Date(t).toISOString() : null)
-  const group = (i: Item) => (i.where === 'done' ? 'done' : groupOf(i))
+  const group = (i: Item) => (i.where === 'done' || i.where === 'filed' ? i.where : groupOf(i))
   const drafts = await Promise.all(
     s.drafts.map(async (d) => {
       const r = await readiness(d, { drafts: s.drafts, meta, items: s.items })
