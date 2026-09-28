@@ -223,7 +223,8 @@ export async function runRoutine(opts: {
     model,
     effort,
     // The result file sits outside the project; let the run write there without asking.
-    addDirs: [folder, ...extraDirs(project), ...lookAcross(r, projects)],
+    // The whole routines folder, so routines can share what they remember (mail-brief's ledger).
+    addDirs: [routinesDir(home), ...extraDirs(project), ...lookAcross(r, projects)],
     ...perms,
   })
   await recordConversation(home, id, {

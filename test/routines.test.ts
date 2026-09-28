@@ -196,7 +196,7 @@ describe('runRoutine', () => {
     const call = await readFile(log, 'utf8')
     expect(call).toContain('--bg --name ↻ inbox-triage')
     expect(call).toContain('--model haiku') // the routine's model beats the project's
-    expect(call).toMatch(/--add-dir \S*routines\/inbox-triage/)
+    expect(call).toMatch(/--add-dir \S*\/routines --/)
     expect(call).toContain('a scheduled run of the Hopper routine "inbox-triage"')
     const [run] = await listRuns(home, 'inbox-triage')
     expect(run).toMatchObject({ status: 'started', id: 'a1b2c3d4', account: 'kf', model: 'haiku' })

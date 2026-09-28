@@ -82,6 +82,11 @@ conversation starts with the output. The templates: `daily-brief` (Sonnet, morni
 `hopper-review` (Opus, weekly), `groomer` (Sonnet, evenings: proposes tonight's work),
 `decision-memos` (Opus: a memo with a recommendation per Decide item), `checks` (no model unless
 `just planning-check` fails), `drift-check` (Haiku) and `branch-review` (Sonnet, low effort).
+`mail-brief` (Sonnet, 6:30) and `mail-lookback` (Opus, Saturdays) read Gmail through the
+connector, so they run on the account that has it (`kf/meta`, which routes to kf): what needs a
+reply, what's been forgotten, opportunities, and people from long ago worth writing to. They
+share a small ledger in `routines/mail-brief/ledger.md` (names, dates, a few words; never
+message bodies) and never send, draft or change anything in Gmail.
 
 Overnight: `u` on a draft queues it (up next: when there's room; `u` again: tonight; again: off).
 Queued drafts run unattended: in auto permission mode, told never to wait for an answer, to work
