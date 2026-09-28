@@ -14,6 +14,8 @@ import { asText, GROUPS, groupOf, PANELS, typed, type Editing, type Panel } from
 
 type Handler = (input: string, key: Key) => void
 
+export const QUIT_PROMPT = 'Press x again to quit.'
+
 // Every key and mouse event, by what has the keyboard: the conversation, the input line, the
 // editor, find, or the board. Built from the current context on every render.
 export function makeInput(ctx: AppCtx, act: Actions): Handler {
@@ -109,7 +111,11 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
   const onForm: Handler = (input, key) => {
     const form = ctx.form!
     if (key.escape) return setForm(null)
-    if (form.kind === 'remove' || form.kind === 'routine-remove') {
+    if (
+      form.kind === 'remove' ||
+      form.kind === 'routine-remove' ||
+      form.kind === 'setting-remove'
+    ) {
       if (input === 'y') void act.submitForm(form)
       else setForm(null)
       return
@@ -161,6 +167,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
 
   // Stepped out of writing: decide. A routine's prompt has its own set.
   const onDecide = (e: Editing, input: string, key: Key) => {
+    if (input === '?') return ctx.setHelp(true)
     if (input === 'm') return setEditing({ ...e, model: nextOf(MODELS, e.model) })
     if (input === 'e') return setEditing({ ...e, effort: nextOf(EFFORTS, e.effort) })
     if (input === 'p') return setEditing({ ...e, stage: 'pick', query: '', pickSel: 0 })
@@ -220,6 +227,34 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     }
     if (key.backspace || key.delete) return ctx.setFind({ query: find.query.slice(0, -1), sel: 0 })
     if (typed(input, key)) ctx.setFind({ query: find.query + input.replace(/\s/g, ''), sel: 0 })
+  }
+
+  // ---- the settings screen ----
+  const onSettings: Handler = (input, key) => {
+    const rows = ctx.settingRows
+    const sel = Math.min(ctx.settings!.sel, Math.max(0, rows.length - 1))
+    const row = rows[sel]
+    const to = (i: number) => ctx.setSettings({ sel: Math.max(0, Math.min(rows.length - 1, i)) })
+    const section = (from: number, d: 1 | -1) => {
+      let i = from + d
+      while (i >= 0 && i < rows.length && rows[i]!.kind !== 'section') i += d
+      return i
+    }
+    if (key.escape) return ctx.setSettings(null)
+    if (input === 'J' || (key.shift && key.downArrow)) return to(section(sel, 1))
+    if (input === 'K' || (key.shift && key.upArrow))
+      return to(section(sel + 1, -1) === sel ? section(sel, -1) : section(sel + 1, -1))
+    if (input === 'j' || key.downArrow) return to(sel + 1)
+    if (input === 'k' || key.upArrow) return to(sel - 1)
+    if (!row) return
+    if (key.return) return act.settingsEdit(row)
+    if (input === 'd') return act.settingsReset(row)
+    if (input === 'o') return void act.settingsOpenFile(row.file)
+    if (input === 'a') {
+      const at = rows[section(sel + 1, -1)]
+      if (at?.kind === 'section') return act.settingsAdd(at)
+    }
+    if (input === 'x') return ctx.message === QUIT_PROMPT ? ctx.exit() : setMessage(QUIT_PROMPT)
   }
 
   // ---- the board: panels, lists and accounts ----
@@ -284,8 +319,9 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       return
     }
     if (key.tab) return act.go(PANELS[(PANELS.indexOf(focus) + 1) % PANELS.length] ?? 'projects')
-    const jump: Record<string, Panel> = { p: 'projects', q: 'work', v: 'done', c: 'accounts' }
-    if (jump[input]) return act.go(jump[input])
+    const jump: Record<string, Panel> = { p: 'projects', c: 'work', v: 'done', a: 'accounts' }
+    // In Accounts, a is its own key again: add an account.
+    if (jump[input] && !(input === 'a' && focus === 'accounts')) return act.go(jump[input])
     if (input === 'n') {
       // Straight to the first thing waiting on me.
       act.go('work')
@@ -294,16 +330,24 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (input === 'f') return ctx.setFind({ query: '', sel: 0 })
     if (input === 't') return act.newConversation()
     if (input === '?') return ctx.setHelp(true)
-    if (input === 'x') return ctx.exit()
+    if (input === 's') return ctx.setSettings({ sel: 0 })
+    // x sits next to z (fold), so quitting takes a second x straight after.
+    if (input === 'x') return ctx.message === QUIT_PROMPT ? ctx.exit() : setMessage(QUIT_PROMPT)
     if (input === 'R') return void ctx.refresh(true)
     if (input === 'T' && ctx.untrusted) return void act.trust()
 
     // ← and → move between columns: projects and accounts, the list, the open conversation.
+    // On the list, → is ⏎: it opens what's selected (or goes back into it), so ← → alone get
+    // from the tree into a conversation and back.
     if (key.rightArrow) {
       if (focus === 'projects' || focus === 'accounts') return act.go('work')
-      if ((focus === 'work' || focus === 'done') && ctx.embed && ctx.showingEmbed) {
-        ctx.setReturnTo(focus)
-        ctx.setFocus('session')
+      if (focus === 'work' || focus === 'done') {
+        const it = (focus === 'work' ? ctx.work : ctx.done)[ctx.at(focus)]
+        if (it) return act.open(it)
+        if (ctx.embed && ctx.showingEmbed) {
+          ctx.setReturnTo(focus)
+          ctx.setFocus('session')
+        }
       }
       return
     }
@@ -318,6 +362,38 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         [focus]: Math.max(0, Math.min(ctx.lists[focus] - 1, ctx.at(focus) + d)),
       }))
     }
+    // shift+↑↓ (or J K) jump: in Projects to the nearest folder, in the list to the next group.
+    const jumpTo = (d: 1 | -1) => {
+      const from = ctx.at(focus)
+      const marks =
+        focus === 'projects'
+          ? ctx.treeRows.map((r) => r.hasChildren)
+          : focus === 'work'
+            ? ctx.work.map((w, i) => i === 0 || groupOf(w) !== groupOf(ctx.work[i - 1]!))
+            : null
+      if (!marks) return
+      let i = from + d
+      while (i >= 0 && i < marks.length && !marks[i]) i += d
+      if (i < 0 || i >= marks.length) return
+      ctx.setEmbedShown(false)
+      setSel((s) => ({ ...s, [focus]: i }))
+    }
+    // option+↑↓ in Projects go a level up: ↑ to the parent folder, ↓ to the parent's next
+    // sibling. At the top level there is nothing higher, so they move between top-level rows.
+    const levelUp = (d: 1 | -1) => {
+      const rows = ctx.treeRows
+      const from = ctx.at('projects')
+      const target = Math.max(0, (rows[from]?.depth ?? 0) - 1)
+      let i = from + d
+      while (i >= 0 && i < rows.length && rows[i]!.depth > target) i += d
+      if (i < 0 || i >= rows.length) return
+      ctx.setEmbedShown(false)
+      setSel((s) => ({ ...s, projects: i }))
+    }
+    if (focus === 'projects' && key.meta && (key.upArrow || key.downArrow))
+      return levelUp(key.downArrow ? 1 : -1)
+    if (input === 'J' || (key.shift && key.downArrow)) return jumpTo(1)
+    if (input === 'K' || (key.shift && key.upArrow)) return jumpTo(-1)
     if (input === 'j' || key.downArrow) return step(1)
     if (input === 'k' || key.upArrow) return step(-1)
 
@@ -347,10 +423,11 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (key.ctrl && input === 'c') return ctx.exit()
     // A message stays until the next keypress, then the key hints come back.
     if (ctx.message && !ctx.editing) setMessage(null)
+    if (ctx.help) return ctx.setHelp(false)
     if (ctx.form) return onForm(input, key)
+    if (ctx.settings) return onSettings(input, key)
     if (ctx.editing) return onEditing(input, key)
     if (ctx.find) return onFind(input, key)
-    if (ctx.help) return ctx.setHelp(false)
     onBoard(input, key)
   }
 }

@@ -5,7 +5,7 @@ several projects and several Claude logins. It shows each login's sessions and u
 in Hopper's home folder, a queue of what's running, and what needs me. It dispatches and attaches;
 Claude Code does the work. Ink (React for the terminal) on Node, run from `dist/` so it opens fast.
 
-The plan is `../proj_sb-meta/planning/hopper/plan-v2.md`. Read it before changing behaviour.
+The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it before changing behaviour.
 
 ## Things that are easy to get wrong
 
@@ -22,7 +22,8 @@ The plan is `../proj_sb-meta/planning/hopper/plan-v2.md`. Read it before changin
 - **`claude auth status` exits 1 when signed out** and creates the config dir as a side effect.
   Never call claude for an account whose directory doesn't exist (`isSetUp`).
 - **A conversation is a Claude Code background session.** `t` starts one with `claude --bg`
-  in the project's folder, with `hopperPrompt` appended so Claude knows the project's `_open.md`,
+  in the project's run folder (`runIn`: a registry project's meta repo, a home project's home
+  folder, else its own), with `hopperPrompt` appended so Claude knows the project's `_open.md`,
   then attaches. Claude reports a session that has answered as `done`; to Hopper that means
   _needs you_, until it's marked done in `<home>/state/done.json`. `claude --bg` refuses
   untrusted folders (`UntrustedError`); trust is inherited, so Hopper trusts its home once.
@@ -39,15 +40,45 @@ The plan is `../proj_sb-meta/planning/hopper/plan-v2.md`. Read it before changin
   Hopper's own drag-select is only the fallback for programs that don't want the mouse.
 - **Usage comes from `claude -p /usage`**, which is answered locally at no cost and refreshes the
   cache. Never read login tokens for it.
-- **Routines** (`src/routines.ts`): files in `<home>/routines/`, runs in `<home>/state/runs.jsonl`,
+- **Routines** (`src/routines/`): files in `<home>/routines/`, runs in `<home>/state/runs.jsonl`,
   results in `<home>/routines/<name>/runs/`. launchd runs `hopper run <name>`; `syncLaunchd`
   keeps `~/Library/LaunchAgents/com.saltbark.hopper.*` in step (tests set `HOPPER_LAUNCHD_DIR`
   and `HOPPER_NO_LAUNCHCTL`). A run gets `--add-dir` on its routine folder so it can write its
   result without asking. The model and routine of a conversation Hopper started are in
   `<home>/state/conversations.json`; Claude Code doesn't report them.
+- **Registry projects are read, never copied.** A `[[source]]` in `projects.toml` imports a meta
+  repo's `paths.local` on every load (`loadSource` in `src/home.ts`); those projects carry
+  `meta`, their open file sits in the meta repo, and `hopperPrompt` defers to that repo's planning
+  rules rather than Hopper's own `## Open` shape. `extraDirs` gives the session `--add-dir` on the
+  planning folder. Paths go through `realpath`: Claude reports a session's physical cwd.
+- **Many projects share one run folder**, so a session's cwd can't say which project it is for.
+  The project Hopper recorded when it started it (`conversations.json`) wins; cwd matching is the
+  fallback, for sessions Hopper didn't start. `extraDirs` adds the project's own folder when it
+  resolves outside the run folder (it does, through the meta repo's `projects/` symlink).
 - **Keys are letters and esc.** `esc` is Hopper's even inside an embedded conversation; Claude's
-  interrupt is ctrl+c (passed through) or `i` from the list. No Ctrl or Cmd bindings. `esc` goes up a level; the top level is
+  interrupt is ctrl+c (passed through) or `i` from the list. No Ctrl or Cmd bindings. What the
+  keys do is described once, in `src/tui/keymap.ts` (the key bar and `?` both read it); a key
+  added or changed in `keys.ts` gets its line there too. `esc` goes up a level; the top level is
   a menu of single letters.
+
+## Where things are
+
+- `src/cli.tsx`: the `hopper` command (`init`, `status`, `login`, `run`, `routines`, and the TUI).
+- `src/tui/App.tsx`: composition only. State, the lists worked out from it, the layout, render.
+  Don't put behaviour back here.
+- `src/tui/actions.ts`: what the app does (`makeActions(ctx)`). `src/tui/keys.ts`: what each key
+  and mouse event does, one handler per mode (`makeInput(ctx, actions)`). Both take the `AppCtx`
+  from `src/tui/context.ts`, rebuilt every render.
+- `src/tui/hooks.ts`: polling (`useSnapshot`), usage, draft autosave, a project's open items.
+- `src/tui/panes/` (the columns, draft editor, picker, conversation, help, key bar) and
+  `src/tui/panels/` (rows, accounts, and `detail/` for the right panel). Row components are
+  memoized; keep their props stable.
+- `src/settings.ts`: the settings screen's model (every setting's value, set or default, and
+  `projects.toml` as a document to edit); `src/tui/settingsActions.ts` writes changes back, and
+  checks a `projects.toml` loads before keeping it; `src/tui/panes/SettingsPane.tsx` draws it. A
+  new setting in any of the three files gets a row in `buildRows`.
+- `src/fsutil.ts` (`readIfThere`, `writeAtomic`) and `src/frontmatter.ts`: use these for any
+  state file rather than writing fs code again. Tests share `test/helpers.ts` (`fakeClaude`).
 
 ## Its own rules
 
@@ -58,7 +89,9 @@ because it was nearby.
 
 The one exception: if this project is TypeScript, the shared toolchain conventions in
 `../proj_sb-meta/conventions/toolchain/` apply. Copy those lint, format, and test configs rather
-than forking them; `just adopt-toolchain hopper` does it. Nothing else in that repo governs this
+than forking them; `just adopt-toolchain saltbark/hopper` does it. Nothing else in that repo governs this
 one.
 
-Plans live in `../proj_sb-meta/planning/hopper/`.
+Plans live in `../proj_sb-meta/planning/saltbark/hopper/`.
+Read `_open.md` there before starting work: it is what's left, and its **Now** line says what's in
+flight. When something ships, move its line to `_done.md` in the same session.

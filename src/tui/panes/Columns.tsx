@@ -39,7 +39,7 @@ export function LeftColumn(props: {
     <Box flexDirection="column" width={width}>
       <Frame
         title="ACCOUNTS"
-        keyHint="c"
+        keyHint="a"
         {...(usageAge ? { meta: usageAge } : {})}
         width={width}
         height={accountsH}
@@ -111,7 +111,7 @@ export function MiddleColumn(props: {
     <Box flexDirection="column" width={width}>
       <Frame
         title="CONVERSATIONS"
-        keyHint="q"
+        keyHint="c"
         // The counts are on the group headings; the edge says what the list is narrowed to.
         meta={props.scope ?? 'all projects'}
         width={width}

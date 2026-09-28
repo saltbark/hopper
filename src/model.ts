@@ -204,6 +204,9 @@ export async function gather(
     if (m?.model) it.model = m.model
     if (m?.effort) it.effort = m.effort
     if (m?.routine) it.routine = m.routine
+    // Several projects can run from one folder (a meta repo), so the folder alone can't say
+    // which a conversation is for; the project Hopper started it in can.
+    if (m?.project && projects.some((p) => p.key === m.project)) it.key = m.project
   }
   const results: Record<string, Result | null> = {}
   for (const r of routines) {

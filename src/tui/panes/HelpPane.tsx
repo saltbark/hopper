@@ -1,51 +1,86 @@
-import { Text } from 'ink'
+import { Box, Text } from 'ink'
 
 import type { Config } from '../../config.ts'
 import { tildify } from '../../paths.ts'
+import {
+  ANYWHERE,
+  CONVERSATION_KEYS,
+  draftKeys,
+  hereKeys,
+  PANEL_KEYS,
+  routineKeys,
+  SETTINGS_KEYS,
+  WRITING_KEYS,
+  type Here,
+  type Hint,
+} from '../keymap.ts'
 import { Frame } from '../panels/primitives.tsx'
 import { T } from '../theme.ts'
 
-const LINES = [
-  'Hopper opens on Projects. Letters act on the panel you are in; esc goes back.',
-  '',
-  'anywhere       f find a project · t new conversation · p q v c jump to projects, the list, done,',
-  '               accounts · n first thing waiting on you · tab next panel · R refresh · ? this · x quit',
-  'projects       j/k move · ⏎ focus it (the list narrows to it) · z fold a folder',
-  'the list       j/k move · ⏎ open it here · m mark done · i send esc to its conversation',
-  '               w d r o u jump to waiting on you, drafts, running, routines, up next',
-  'done           ⏎ open · m bring it back',
-  'accounts       ⏎ sign in · a add · e prefixes it runs · 1 make it first · r rename · d remove · * make default',
-  '',
-  'a draft        ⏎ new line · arrows move, option+arrows by word, cmd+arrows to the ends',
-  '               shift with any of those selects · esc, then: s start · p move · y copy · x throw away',
-  '               · esc keep it · m model · e effort · r make it a routine',
-  'a routine      ⏎ opens its prompt; esc, then: s run now · S schedule · P pause · m model · e effort',
-  '               · p project · x remove · esc save. Each run is its own conversation and writes a',
-  '               result; runs that need nothing go straight to done.',
-  'a conversation every key goes to Claude, except esc, which comes back here and leaves it open.',
-  '               ctrl+c interrupts Claude. Claude’s own double-esc rewind isn’t available inside Hopper.',
-  '',
-  'mouse          the wheel scrolls what is under it; a click focuses a panel. In a conversation,',
-  '               drag to select and let go to copy. Elsewhere hold your terminal’s selection modifier.',
-  'arrows         ← → move between columns · accounts: u asks Claude for fresh usage',
-  '',
+const LABEL_W = 18
+
+function Section({ label, hints, hi }: { label: string; hints: Hint[]; hi?: boolean }) {
+  return (
+    <Box flexDirection="row">
+      <Box width={LABEL_W} flexShrink={0}>
+        <Text color={hi ? T.hi : T.dim} bold={!!hi}>
+          {label}
+        </Text>
+      </Box>
+      <Text color={T.text}>
+        {hints.map(([k, d], i) => (
+          <Text key={i}>
+            {i ? <Text color={T.faint}>{' · '}</Text> : null}
+            <Text bold={!!hi}>{k}</Text>
+            <Text color={T.dim}>{' ' + d}</Text>
+          </Text>
+        ))}
+      </Text>
+    </Box>
+  )
+}
+
+const NOTES = [
+  'Letters act on the panel you are in; esc goes back. Hopper opens on Projects.',
+  'Mouse: the wheel scrolls what is under it; a click focuses a panel. In a conversation, drag to',
+  'select and let go to copy; elsewhere hold your terminal’s selection modifier.',
+  'Claude’s own double-esc rewind isn’t available inside Hopper: esc is always Hopper’s.',
   'Ask Claude in a conversation to file items; it knows the project’s _open.md.',
 ]
 
+// Every key: first the ones for where you were when you pressed ?, then all of them.
 export function HelpPane({
   config,
+  here,
   width,
   height,
 }: {
   config: Config
+  here: Here
   width: number
   height: number
 }) {
+  const now = hereKeys(here)
   return (
     <Frame title="KEYS" meta="any key closes" width={width} height={height} focused>
-      {LINES.map((l, i) => (
-        <Text key={i} color={T.text}>
-          {l || ' '}
+      <Section label={`here · ${now.label}`} hints={now.hints} hi />
+      <Text> </Text>
+      <Section label="anywhere" hints={ANYWHERE} />
+      {PANEL_KEYS.map(([label, hints]) => (
+        <Section key={label} label={label} hints={hints} />
+      ))}
+      <Section label="writing a draft" hints={WRITING_KEYS} />
+      <Section label="then" hints={draftKeys({})} />
+      <Section
+        label="a routine"
+        hints={[['⏎', 'opens its prompt, then esc for'], ...routineKeys({})]}
+      />
+      <Section label="a conversation" hints={CONVERSATION_KEYS} />
+      <Section label="settings (s)" hints={SETTINGS_KEYS} />
+      <Text> </Text>
+      {NOTES.map((l, i) => (
+        <Text key={i} color={T.dim}>
+          {l}
         </Text>
       ))}
       <Text> </Text>

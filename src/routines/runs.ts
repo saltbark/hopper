@@ -6,7 +6,7 @@ import { startBackground, type Session } from '../claude.ts'
 import type { Config } from '../config.ts'
 import { recordConversation } from '../conversations.ts'
 import { readIfThere } from '../fsutil.ts'
-import type { Project } from '../home.ts'
+import { extraDirs, type Project } from '../home.ts'
 import type { AccountState } from '../model.ts'
 import { hasRoom, routeFor } from '../routing.ts'
 import { routinesDir, type Routine } from './files.ts'
@@ -150,14 +150,14 @@ export async function runRoutine(opts: {
   const when = at.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   const name = `↻ ${r.name} · ${when} ${at.toTimeString().slice(0, 5)}`
   const id = await startBackground(account, {
-    cwd: project.path,
+    cwd: project.runIn,
     name,
     prompt: r.prompt,
     systemPrompt: `${opts.systemPrompt(project)} ${routineInstructions(r, result, previous?.result)}`,
     model,
     effort,
     // The result file sits outside the project; let the run write there without asking.
-    addDirs: [join(routinesDir(home), r.name)],
+    addDirs: [join(routinesDir(home), r.name), ...extraDirs(project)],
   })
   await recordConversation(home, id, {
     project: project.key,

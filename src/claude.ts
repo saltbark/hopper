@@ -203,7 +203,8 @@ export function startBackground(
     addDirs?: string[] | undefined
   },
 ): Promise<string> {
-  const args = ['--bg', '--name', opts.name]
+  // Remote Control puts the session in the Claude app too, so it can be answered from the phone.
+  const args = ['--bg', '--name', opts.name, '--remote-control', opts.name]
   for (const d of opts.addDirs ?? []) args.push('--add-dir', d)
   if (opts.model) args.push('--model', opts.model)
   if (opts.effort) args.push('--effort', opts.effort)

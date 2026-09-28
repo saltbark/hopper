@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { Account, Config } from '../config.ts'
 import type { AccountState, Item, Snapshot } from '../model.ts'
 import type { Routine } from '../routines/index.ts'
+import type { Row } from '../settings.ts'
 import type { TreeRow } from '../tree.ts'
 import type { EmbeddedSession } from './embed.ts'
 import type { Editing, Find, Focus, Form, Panel, Sel } from './state.ts'
@@ -43,6 +44,11 @@ export type AppCtx = {
   setFolded: Set<globalThis.Set<string>>
   help: boolean
   setHelp: Set<boolean>
+  // The settings screen, and where its selection is.
+  settings: { sel: number } | null
+  setSettings: Set<{ sel: number } | null>
+  settingRows: Row[]
+  reloadSettings: () => Promise<void>
   message: string | null
   setMessage: Set<string | null>
   form: Form | null

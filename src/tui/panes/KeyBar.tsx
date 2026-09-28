@@ -1,6 +1,7 @@
 import { Box, Text } from 'ink'
 
-import { FORM_PROMPT, type Editing, type Find, type Focus, type Form } from '../state.ts'
+import { barKeys, hereKeys, type Hint, type Here } from '../keymap.ts'
+import { FORM_PROMPT, type Editing, type Find, type Form } from '../state.ts'
 import { T } from '../theme.ts'
 
 // A mode that changes what keys do says so at the left of the key bar.
@@ -8,13 +9,24 @@ const chip = (label: string) => (
   <Text backgroundColor={T.focus} color={T.onFill} bold>{` ${label} `}</Text>
 )
 
-const keys = (list: [string, string][]) =>
+const keys = (list: Hint[]) =>
   list.map(([k, d], i) => (
     <Text key={i}>
       <Text color={T.text}>{k}</Text>
-      <Text color={T.dim}>{` ${d}    `}</Text>
+      <Text color={T.dim}>{` ${d}   `}</Text>
     </Text>
   ))
+
+const hintText = (list: Hint[]) => list.map(([k, d]) => `${k} ${d}`).join(' · ')
+
+// After the keys for where you are, a few that work from anywhere. The line truncates from the
+// end; ? sits at the right with the panel's name, so it never does.
+const GLOBAL: Hint[] = [
+  ['f', 'find'],
+  ['t', 'new conversation'],
+  ['n', 'next waiting'],
+  ['x x', 'quit'],
+]
 
 const note = (message: string | null, hint: string) =>
   message ? (
@@ -24,14 +36,19 @@ const note = (message: string | null, hint: string) =>
   )
 
 function FormBar({ form }: { form: Form }) {
-  const removing = form.kind === 'remove' || form.kind === 'routine-remove'
+  const removing =
+    form.kind === 'remove' || form.kind === 'routine-remove' || form.kind === 'setting-remove'
   const label = removing
     ? 'remove'
     : form.kind === 'add-name' || form.kind === 'add-dir'
       ? 'add account'
       : form.kind === 'routine-name'
         ? 'new routine'
-        : form.name
+        : form.kind === 'setting-add-source'
+          ? 'add source'
+          : form.kind === 'setting-add-project'
+            ? 'add project'
+            : form.name
   return (
     <Text wrap="truncate-end">
       {chip(label)}
@@ -39,7 +56,9 @@ function FormBar({ form }: { form: Form }) {
         <Text color={T.text}>
           {form.kind === 'remove'
             ? `  Remove ${form.name} from Hopper? Its login and sessions stay.  `
-            : `  Remove the routine ${form.name}? Its schedule stops; past runs stay.  `}
+            : form.kind === 'setting-remove'
+              ? `  Remove ${form.name} from projects.toml?  `
+              : `  Remove the routine ${form.name}? Its schedule stops; past runs stay.  `}
           <Text bold color={T.hi}>
             y
           </Text>
@@ -57,15 +76,12 @@ function FormBar({ form }: { form: Form }) {
   )
 }
 
-function editingHint(e: Editing): string {
-  if (e.stage === 'write') {
-    return 'type · ⏎ new line · arrows move (option: by word) · shift selects · esc when you want to decide'
-  }
+function editingHint(e: Editing, here: Here): string {
   if (e.stage === 'pick') return 'type to filter · ↑↓ choose · tab or ⏎ picks · esc back'
-  if (e.routine) {
-    return `s run now · S schedule (${e.routine.schedule || 'none'}) · P ${e.routine.enabled ? 'pause' : 'resume'} · m model (${e.model ?? 'default'}) · e effort · p project · x remove · esc save · any other key edits the prompt`
-  }
-  return `s start it · r make it a routine · m model (${e.model ?? 'default'}) · e effort (${e.effort ?? 'default'}) · p move · y copy · x throw away · esc keep as draft · any other key keeps writing`
+  const hint = hintText(hereKeys(here).hints)
+  return e.stage === 'write'
+    ? `type · ${hint}`
+    : `${hint} · any other key ${e.routine ? 'edits the prompt' : 'keeps writing'}`
 }
 
 // The bottom line: what the keys do right now, or the last message.
@@ -73,18 +89,27 @@ export function KeyBar(props: {
   form: Form | null
   editing: Editing | null
   find: Find | null
-  focus: Focus
+  here: Here
   message: string | null
   error: string | null
 }) {
-  const { form, editing, find, focus, message, error } = props
+  const { form, editing, find, here, message, error } = props
+  const { focus } = here
   if (form) return <FormBar form={form} />
   if (editing) {
     return (
       <Text wrap="truncate-end">
         {chip(editing.routine ? 'routine' : 'draft')}
         <Text color={T.text}>{` ${editing.project}`}</Text>
-        {note(message, editingHint(editing))}
+        {note(message, editingHint(editing, here))}
+      </Text>
+    )
+  }
+  if (here.setting !== undefined) {
+    return (
+      <Text wrap="truncate-end">
+        {chip('settings')}{' '}
+        {message ? <Text color={T.waiting}>{' ' + message}</Text> : keys(barKeys(here))}
       </Text>
     )
   }
@@ -102,12 +127,16 @@ export function KeyBar(props: {
     return (
       <Text wrap="truncate-end">
         {chip('claude')}
-        {note(message, 'keys go to Claude · esc comes back to Hopper · ctrl+c interrupts Claude')}
+        {note(
+          message,
+          `keys go to Claude · ${hintText(hereKeys(here).hints)} · esc then ? all keys`,
+        )}
       </Text>
     )
   }
-  // Only keys that work anywhere: the panel's own are on its title and in the right panel.
-  // The focused panel is named at the right, so it is known even without colour.
+  // The focused panel's keys for what is selected, then the global ones it doesn't already name.
+  // The panel is named at the right, so it is known even without colour.
+  const local = barKeys(here)
   return (
     <Box justifyContent="space-between">
       <Text wrap="truncate-end">
@@ -115,20 +144,18 @@ export function KeyBar(props: {
         {message ? (
           <Text color={T.waiting}>{message}</Text>
         ) : (
-          keys([
-            ['f', 'find'],
-            ['t', 'new conversation'],
-            ['n', 'next waiting'],
-            ['R', 'refresh'],
-            ['?', 'all keys'],
-            ['esc', 'back'],
-            ['x', 'quit'],
-          ])
+          <>
+            {keys(local)}
+            {local.length ? <Text color={T.faint}>{'│  '}</Text> : null}
+            {keys(GLOBAL.filter(([k]) => !local.some(([l]) => l === k)))}
+          </>
         )}
       </Text>
       <Box flexShrink={0}>
         <Text>
           {error ? <Text color={T.blocked}>{'  ' + error}</Text> : null}
+          <Text color={T.text}>{'  ?'}</Text>
+          <Text color={T.dim}> all keys</Text>
           <Text color={T.faint}>{'  ' + (focus === 'work' ? 'conversations' : focus) + ' '}</Text>
         </Text>
       </Box>

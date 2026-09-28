@@ -163,7 +163,13 @@ describe('runRoutine', () => {
       counts: { queue: 0, needs: 0, done: 0, live: 0 },
     })
     const projects = [
-      { key: 'meta/inbox', path: home, openFile: join(home, '_open.md'), model: 'sonnet' },
+      {
+        key: 'meta/inbox',
+        path: home,
+        runIn: home,
+        openFile: join(home, '_open.md'),
+        model: 'sonnet',
+      },
     ]
     return { home, log, config, state, projects }
   }

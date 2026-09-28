@@ -28,14 +28,14 @@ export type Config = {
 }
 
 export const DEFAULT_CONFIG = `# Hopper settings. The home folder holds Hopper's own state: the project list, the queue order,
-# conversations marked done, ideas and its log. It is not a git repo.
+# conversations marked done and its log. It is not a git repo.
 home = "~/Dropbox/Workspace/hopper"
 
 # Claude accounts and which prefixes they run are in accounts.toml, next to this file. Hopper
-# writes it; manage them from the app (c), or edit it by hand.
+# writes it; manage them from the app (a), or edit it by hand.
 `
 
-const ACCOUNTS_HEADER = `# Written by Hopper. Manage from the app (c from the menu), or edit by hand.
+const ACCOUNTS_HEADER = `# Written by Hopper. Manage from the app (a, for Accounts), or edit by hand.
 # config_dir = "default" is the login Claude Code uses with CLAUDE_CONFIG_DIR unset.
 # A route sends work under a prefix to the first of its accounts that is signed in and has room.
 
@@ -44,6 +44,9 @@ const ACCOUNTS_HEADER = `# Written by Hopper. Manage from the app (c from the me
 const NAME = /^[a-z0-9][a-z0-9-]{0,11}$/
 
 export class ConfigError extends Error {}
+
+// Accounts are kept in alphabetical order, so every list of them reads the same.
+const byName = (a: Account, b: Account) => a.name.localeCompare(b.name)
 
 function tomlError(path: string, e: unknown): ConfigError {
   return new ConfigError(`${tildify(path)}: ${(e as Error).message}`)
@@ -95,6 +98,7 @@ export function parseAccounts(
       configDir: dir === 'default' ? null : expandHome(dir),
     })
   }
+  accounts.sort(byName)
   if (accounts.filter((a) => a.configDir === null).length > 1) {
     throw new ConfigError(`${where}: only one account can use config_dir = "default"`)
   }
@@ -169,7 +173,7 @@ export function addAccount(config: Config, account: Account): Config {
     throw new ConfigError(
       `${clash.name} already uses ${account.configDir === null ? 'the default login' : tildify(account.configDir)}.`,
     )
-  return { ...config, accounts: [...config.accounts, account] }
+  return { ...config, accounts: [...config.accounts, account].sort(byName) }
 }
 
 export function removeAccount(config: Config, name: string): Config {

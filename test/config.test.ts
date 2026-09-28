@@ -132,3 +132,17 @@ describe('the default account', () => {
     expect(() => setDefaultAccount(c, 'nope')).toThrow(/No account/)
   })
 })
+
+describe('account order', () => {
+  it('keeps accounts alphabetical, as read and as added', async () => {
+    const { addAccount, parseAccounts } = await import('../src/config.ts')
+    const read = parseAccounts(
+      '[[account]]\nname = "sb"\nconfig_dir = "~/.claude-sb"\n[[account]]\nname = "kf"\n',
+      '/c/accounts.toml',
+    )
+    expect(read.accounts.map((a) => a.name)).toEqual(['kf', 'sb'])
+    const config = { path: '', accountsPath: '', home: '', ...read }
+    const added = addAccount(config, { name: 'gt', label: 'gt', configDir: '/tmp/gt' })
+    expect(added.accounts.map((a) => a.name)).toEqual(['gt', 'kf', 'sb'])
+  })
+})

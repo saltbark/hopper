@@ -192,7 +192,7 @@ async function run(name: string | undefined) {
     projects: snap.projects,
     accounts: snap.accounts,
     sessions: snap.items,
-    systemPrompt: (p) => hopperPrompt(p.key, p.openFile),
+    systemPrompt: hopperPrompt,
   })
   const at = new Date().toISOString()
   if (out.status === 'started') console.log(`${at} ${name}: started ${out.id} on ${out.account}`)

@@ -17,7 +17,30 @@ const d = {
 describe('drafts', () => {
   it('round-trip, blank lines and all', () => {
     expect(parseDraft('abc-1', serializeDraft(d))).toEqual(d)
-    expect(parseDraft('x', 'no front matter')).toBeNull()
+  })
+  it('a file with no front matter is an inbox draft dated by the file', () => {
+    expect(parseDraft('x', 'from the phone\n', 42)).toEqual({
+      id: 'x',
+      project: 'meta/inbox',
+      text: 'from the phone\n',
+      created: 42,
+      updated: 42,
+    })
+    expect(parseDraft('x', '  \n')).toBeNull()
+    expect(parseDraft('x', '---\r\nproject: kf/console\r\n---\r\nhi', 7)).toMatchObject({
+      project: 'kf/console',
+      text: 'hi',
+      created: 7,
+    })
+  })
+  it('lists a dropped-in note', async () => {
+    const { writeFile, mkdir } = await import('node:fs/promises')
+    const home = await mkdtemp(join(tmpdir(), 'hopper-drafts-'))
+    await mkdir(join(home, 'drafts'))
+    await writeFile(join(home, 'drafts', 'Note 1.md'), 'weekly digest idea')
+    const [only] = await listDrafts(home)
+    expect(only).toMatchObject({ id: 'Note 1', project: 'meta/inbox', text: 'weekly digest idea' })
+    expect(only?.updated).toBeGreaterThan(0)
   })
   it('list newest first, and delete', async () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-drafts-'))

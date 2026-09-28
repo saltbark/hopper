@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { mkdtemp, readFile } from 'node:fs/promises'
+import { appendFile, mkdtemp, readFile, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -9,7 +9,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import type { Session } from '../src/claude.ts'
 import { addAccount, setPrefixes, type Config } from '../src/config.ts'
 import { initHome, loadProjects } from '../src/home.ts'
-import { toItems, type Snapshot } from '../src/model.ts'
+import { draftSession, toItems, type Snapshot } from '../src/model.ts'
 import { App } from '../src/tui/App.tsx'
 import { fakeClaude } from './helpers.ts'
 
@@ -24,8 +24,18 @@ config = addAccount(config, { name: 'kf', label: 'Knowledge Futures', configDir:
 config = addAccount(config, { name: 'sb', label: 'Saltbark', configDir: '/tmp/hopper-test-sb' })
 config = setPrefixes(setPrefixes(config, 'kf', ['kf/']), 'sb', ['sb/', 'meta/'])
 const projects = [
-  { key: 'meta/inbox', path: '/h/projects/meta/inbox', openFile: '' },
-  { key: 'meta/ideas', path: '/h/projects/meta/ideas', openFile: '' },
+  {
+    key: 'meta/inbox',
+    path: '/h/projects/meta/inbox',
+    runIn: '/h/projects/meta/inbox',
+    openFile: '',
+  },
+  {
+    key: 'meta/ideas',
+    path: '/h/projects/meta/ideas',
+    runIn: '/h/projects/meta/ideas',
+    openFile: '',
+  },
 ]
 const now = Date.now()
 const session = (over: Partial<Session>): Session => ({
@@ -109,6 +119,27 @@ describe('App', () => {
     unmount()
   })
 
+  it('K jumps up to the nearest folder, and x quits only when pressed twice', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App config={config} load={async () => snapshot} />,
+    )
+    await tick()
+    await press(stdin, 'j')
+    await press(stdin, 'j') // meta/inbox
+    await press(stdin, 'K') // up to meta
+    await press(stdin, '\u001b[1;3B') // option+↓: past meta's children to elsewhere, the next top row
+    await press(stdin, '\u001b\u001b[A') // option+↑ (the other form terminals send): back to meta
+    await press(stdin, 'j') // meta/ideas
+    await press(stdin, '\u001b[1;3A') // option+↑ from a child: its parent
+    await press(stdin, '\r')
+    expect(lastFrame()).toContain('── meta ─╮')
+    await press(stdin, 'x')
+    expect(lastFrame()).toContain('Press x again to quit.')
+    await press(stdin, 'j') // anything else lets it go
+    expect(lastFrame()).not.toContain('Press x again to quit.')
+    unmount()
+  })
+
   it('j and enter focus a project; esc goes back to Projects, then clears the focus', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,
@@ -117,14 +148,14 @@ describe('App', () => {
     await press(stdin, 'j') // meta/ideas, straight away: Projects already has focus
     await press(stdin, '\r')
     expect(focusOf(lastFrame())).toBe('conversations')
-    expect(lastFrame()).toContain('(q) ─ meta/ideas')
+    expect(lastFrame()).toContain('(c) ─ meta/ideas')
     expect(lastFrame()).toContain('Nothing going on.')
     await press(stdin, '\u001b')
     expect(focusOf(lastFrame())).toBe('projects')
-    expect(lastFrame()).toContain('(q) ─ meta/ideas')
+    expect(lastFrame()).toContain('(c) ─ meta/ideas')
     await press(stdin, '\u001b')
     expect(focusOf(lastFrame())).toBe('projects')
-    expect(lastFrame()).toContain('(q) ─ all proje')
+    expect(lastFrame()).toContain('(c) ─ all proje')
     expect(lastFrame()).toContain('Sort t')
     unmount()
   })
@@ -155,6 +186,25 @@ describe('App', () => {
     unmount()
   })
 
+  it('→ on the list does what ⏎ does: opens what is selected', async () => {
+    const d = {
+      id: 'd1',
+      project: 'meta/inbox',
+      text: 'a waiting draft',
+      created: now,
+      updated: now,
+    }
+    const item = { ...draftSession(d, projects, 'kf'), where: 'needs' as const, key: 'meta/inbox' }
+    const snap = { ...snapshot, drafts: [d], items: [item] }
+    const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
+    await tick()
+    await press(stdin, '\u001b[C') // projects → the list
+    await press(stdin, '\u001b[C') // → opens the draft, as ⏎ would
+    expect(lastFrame()).toContain(' draft ')
+    expect(lastFrame()).toContain('a waiting draft')
+    unmount()
+  })
+
   it('f finds a project by a few letters and focuses it', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,
@@ -167,7 +217,7 @@ describe('App', () => {
     expect(lastFrame()).toContain(' 1 found ─╮')
     await press(stdin, '\r')
     expect(focusOf(lastFrame())).toBe('conversations')
-    expect(lastFrame()).toContain('(q) ─ meta/ideas')
+    expect(lastFrame()).toContain('(c) ─ meta/ideas')
     unmount()
   })
 
@@ -188,7 +238,7 @@ describe('App', () => {
       <App config={config} load={async () => snapshot} save={async (c) => void saved.push(c)} />,
     )
     await tick()
-    await press(stdin, 'c')
+    await press(stdin, 'a')
     expect(lastFrame()).toContain('kf/ as choice 1')
     await press(stdin, 'e')
     expect(lastFrame()).toContain('prefixes it runs')
@@ -215,7 +265,7 @@ describe('App', () => {
       <App config={config} load={async () => snapshot} save={async (c) => void saved.push(c)} />,
     )
     await tick()
-    await press(stdin, 'c')
+    await press(stdin, 'a')
     await press(stdin, 'e')
     await press(stdin, ' Not A Prefix')
     await press(stdin, '\r')
@@ -245,6 +295,7 @@ describe('conversations', () => {
   const setup = async (opts: { untrusted?: boolean } = {}) => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
     await initHome(home)
+    await appendFile(join(home, 'projects.toml'), '\n[[project]]\nkey = "kf/console"\n')
     const log = join(home, 'calls.log')
     process.env['HOPPER_CLAUDE'] = bin
     process.env['HOPPER_FAKE_LOG'] = log
@@ -279,7 +330,10 @@ describe('conversations', () => {
     await until(() => (lastFrame() ?? '').includes('fake claude screen'))
     const inbox = projects.find((p) => p.key === 'meta/inbox')!
     const logged = await readFile(log, 'utf8')
-    expect(logged).toContain(`${inbox.path}|--bg --name meta/inbox · backups for the home folder`)
+    // It runs from the home folder, not the project's own; the fake logs the physical cwd.
+    expect(logged).toContain(
+      `${await realpath(inbox.runIn)}|--bg --name meta/inbox · backups for the home folder`,
+    )
     // The first message goes to Claude as written, new lines and all.
     expect(logged).toContain('backups for the home folder\nnightly, somewhere off this machine')
     expect(logged).toContain('|attach abc12345')
@@ -454,7 +508,7 @@ describe('conversations', () => {
       <App config={cfg} load={async () => withRoutine} syncSchedule={async () => {}} />,
     )
     await tick()
-    await press(stdin, 'q')
+    await press(stdin, 'c')
     expect(lastFrame()).toContain('ROUTINES')
     await press(stdin, '\r')
     expect(lastFrame()).toContain('ROUTINE triage')
@@ -480,9 +534,9 @@ describe('conversations', () => {
     await press(stdin, '\u001b')
     await press(stdin, 'p')
     expect(lastFrame()).toContain('MOVE TO PROJECT')
-    await press(stdin, 'ide')
+    await press(stdin, 'con')
     await press(stdin, '\r')
-    expect(lastFrame()).toContain(' draft  meta/ideas')
+    expect(lastFrame()).toContain(' draft  kf/console')
     done()
     unmount()
   })

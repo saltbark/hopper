@@ -15,9 +15,19 @@ const s = (over: Partial<Session>): Session => ({
   ...over,
 })
 const projects = [
-  { key: 'meta/inbox', path: '/h/projects/meta/inbox', openFile: '' },
-  { key: 'sb/generaltext', path: '/w/gt', openFile: '' },
-  { key: 'sb/generaltext/apps/crum', path: '/w/gt/apps/crum', openFile: '' },
+  {
+    key: 'meta/inbox',
+    path: '/h/projects/meta/inbox',
+    runIn: '/h/projects/meta/inbox',
+    openFile: '',
+  },
+  { key: 'sb/generaltext', path: '/w/gt', runIn: '/w/gt', openFile: '' },
+  {
+    key: 'sb/generaltext/apps/crum',
+    path: '/w/gt/apps/crum',
+    runIn: '/w/gt/apps/crum',
+    openFile: '',
+  },
 ]
 
 describe('classify', () => {

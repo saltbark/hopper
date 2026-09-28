@@ -4,12 +4,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { prefixesOf, saveAccounts, type Config } from '../config.ts'
 import { draftSessionId, gather, inScope, OTHER, routineSessionId, type Item } from '../model.ts'
 import type { Routine } from '../routines/index.ts'
+import { buildRows } from '../settings.ts'
 import { buildTree, type TreeRow } from '../tree.ts'
 import { defaultSync, makeActions } from './actions.ts'
 import type { AppCtx } from './context.ts'
 import type { EmbeddedSession } from './embed.ts'
 import { rank, withFolders } from './fuzzy.ts'
-import { useDraftAutosave, useProjectItems, useSnapshot, useUsage, type Loader } from './hooks.ts'
+import {
+  useDraftAutosave,
+  useFoldImported,
+  useSettingsDoc,
+  useProjectItems,
+  useSnapshot,
+  useUsage,
+  type Loader,
+} from './hooks.ts'
+import type { Here } from './keymap.ts'
 import { makeInput } from './keys.ts'
 import { Detail, detailTitle } from './panels/detail/index.tsx'
 import { accountColor, Frame } from './panels/primitives.tsx'
@@ -19,6 +29,7 @@ import { HelpPane } from './panes/HelpPane.tsx'
 import { KeyBar } from './panes/KeyBar.tsx'
 import { PickPane } from './panes/PickPane.tsx'
 import { SessionPane } from './panes/SessionPane.tsx'
+import { SettingsPane } from './panes/SettingsPane.tsx'
 import {
   blankState,
   groupOf,
@@ -68,6 +79,7 @@ export function App({
   const [scope, setScope] = useState<string | null>(null)
   const [folded, setFolded] = useState<Set<string>>(() => new Set())
   const [help, setHelp] = useState(false)
+  const [settings, setSettings] = useState<{ sel: number } | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [form, setForm] = useState<Form | null>(null)
   const [find, setFind] = useState<Find | null>(null)
@@ -78,6 +90,12 @@ export function App({
   const { snap, snapRef, error, refresh } = useSnapshot(config, load)
   const { usageText, askUsage } = useUsage(config.home, snapRef, refresh)
   useDraftAutosave(editing, config.home)
+  useFoldImported(snap, setFolded)
+  const settingsDoc = useSettingsDoc(!!settings, config.home)
+  const settingRows = useMemo(
+    () => buildRows(config, settingsDoc.doc, snap?.projects ?? [], settingsDoc.missing),
+    [config, settingsDoc.doc, settingsDoc.missing, snap],
+  )
   useEffect(() => () => embed?.close(), [embed])
 
   // ---- derived ----
@@ -146,6 +164,18 @@ export function App({
   const scopeProject = scope && projectKeys.includes(scope) ? scope : null
   const showingEmbed =
     !!embed && (focus === 'session' || embedShown || selectedItem?.id === embed.id)
+  // What the key bar and the help screen describe.
+  const here: Here = {
+    focus,
+    row: selectedRow,
+    item: selectedItem,
+    scope,
+    embedOpen: !!embed && !!selectedItem?.id && selectedItem.id === embed.id,
+    summaryShown: !showingEmbed,
+    untrusted: !!untrusted,
+    editing,
+    setting: settings ? (settingRows[settings.sel] ?? null) : undefined,
+  }
 
   // The project whose open items show on the right: the highlighted one, else the selected
   // conversation's, else the scope.
@@ -163,7 +193,9 @@ export function App({
   // Left: accounts over projects. Middle: the list over done. Right: whatever is focused. No
   // status line on top: every panel says its own state, so the body runs down to the key bar.
   const W = columns
-  const H = Math.max(12, rows - 1)
+  // Every row: Ink 7 writes a frame exactly the terminal's height without a trailing newline, so
+  // it neither scrolls nor repaints. Only a taller frame makes it clear the screen.
+  const H = Math.max(12, rows)
   const bodyH = H - 1
   const leftW = Math.max(32, Math.min(46, Math.round(W * 0.24)))
   const midW = Math.max(36, Math.min(64, Math.round(W * 0.3)))
@@ -208,6 +240,10 @@ export function App({
     setFolded,
     help,
     setHelp,
+    settings,
+    setSettings,
+    settingRows,
+    reloadSettings: settingsDoc.reload,
     message,
     setMessage,
     form,
@@ -314,7 +350,16 @@ export function App({
   return (
     <Box flexDirection="column" width={W} height={H}>
       {help ? (
-        <HelpPane config={config} width={W} height={bodyH} />
+        <HelpPane config={config} here={here} width={W} height={bodyH} />
+      ) : settings ? (
+        <SettingsPane
+          config={config}
+          rows={settingRows}
+          sel={Math.min(settings.sel, Math.max(0, settingRows.length - 1))}
+          error={settingsDoc.error}
+          width={W}
+          height={bodyH}
+        />
       ) : (
         <Box flexDirection="row" height={bodyH}>
           <LeftColumn
@@ -352,7 +397,7 @@ export function App({
         form={form}
         editing={editing}
         find={find}
-        focus={focus}
+        here={here}
         message={message}
         error={error}
       />

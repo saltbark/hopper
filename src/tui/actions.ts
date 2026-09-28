@@ -16,6 +16,7 @@ import { recordConversation } from '../conversations.ts'
 import { loadDone, saveDone } from '../done.ts'
 import { deleteDraft, newDraftId, saveDraft, type Draft } from '../drafts.ts'
 import { when } from '../format.ts'
+import { extraDirs } from '../home.ts'
 import { draftSessionId, inScope, routineSessionId, type Item } from '../model.ts'
 import { expandHome, isWithin, tildify } from '../paths.ts'
 import { hopperPrompt } from '../prompts.ts'
@@ -34,6 +35,7 @@ import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
 import { EmbeddedSession } from './embed.ts'
 import { MOUSE_OFF, MOUSE_ON } from './mouse.ts'
+import { makeSettingsActions } from './settingsActions.ts'
 import {
   newEditing,
   now,
@@ -158,12 +160,13 @@ export function makeActions(ctx: AppCtx) {
       await mkdir(project.path, { recursive: true })
       const name = `${project.key} · ${(text.split('\n')[0] ?? '').slice(0, 48)}`
       const id = await startBackground(account, {
-        cwd: project.path,
+        cwd: project.runIn,
         name,
         prompt: text,
-        systemPrompt: hopperPrompt(project.key, project.openFile),
+        systemPrompt: hopperPrompt(project),
         model: e.model,
         effort: e.effort,
+        addDirs: extraDirs(project),
       })
       // Claude Code doesn't report the model per session, so Hopper keeps it.
       await recordConversation(config.home, id, {
@@ -174,7 +177,7 @@ export function makeActions(ctx: AppCtx) {
       })
       await deleteDraft(config.home, e.id)
       await refresh(false)
-      openEmbedded(account, id, name, 'work', project.path)
+      openEmbedded(account, id, name, 'work', project.runIn)
     } catch (err) {
       if (err instanceof UntrustedError) {
         const dir = trustDir(config, err.dir)
@@ -285,13 +288,13 @@ export function makeActions(ctx: AppCtx) {
         projects: snap?.projects ?? [],
         accounts: snap?.accounts ?? [],
         sessions: snap?.items ?? [],
-        systemPrompt: (p) => hopperPrompt(p.key, p.openFile),
+        systemPrompt: hopperPrompt,
       })
       if (out.status === 'skipped') return setMessage(`Skipped ${r.name}: ${out.reason}.`)
       await refresh(false)
       const account = config.accounts.find((a) => a.name === out.account)
       const project = snap?.projects.find((p) => p.key === r.project)
-      if (account && project) openEmbedded(account, out.id, `↻ ${r.name}`, 'work', project.path)
+      if (account && project) openEmbedded(account, out.id, `↻ ${r.name}`, 'work', project.runIn)
     } catch (err) {
       if (err instanceof UntrustedError) {
         setMessage(
@@ -388,7 +391,7 @@ export function makeActions(ctx: AppCtx) {
       }
       const next = await commit((c) => addAccount(c, account), `added ${f.name}`)
       if (next) {
-        setSel((s) => ({ ...s, accounts: next.accounts.length - 1 }))
+        setSel((s) => ({ ...s, accounts: next.accounts.findIndex((a) => a.name === account.name) }))
         await signIn(account)
       }
     } else if (f.kind === 'prefixes') {
@@ -407,8 +410,13 @@ export function makeActions(ctx: AppCtx) {
     }
   }
 
+  const settings = makeSettingsActions(ctx, commit)
   const submitForm = (f: Form) =>
-    f.kind.startsWith('routine-') ? submitRoutineForm(f) : submitAccountForm(f)
+    f.kind.startsWith('setting')
+      ? settings.submitSettingsForm(f)
+      : f.kind.startsWith('routine-')
+        ? submitRoutineForm(f)
+        : submitAccountForm(f)
 
   return {
     go,
@@ -424,6 +432,7 @@ export function makeActions(ctx: AppCtx) {
     commit,
     signIn,
     submitForm,
+    ...settings,
   }
 }
 

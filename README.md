@@ -34,6 +34,21 @@ Models: in a draft, after `esc`, `m` picks the model and `e` the effort. Project
 in `projects.toml` (`model = "haiku"`, `effort = "low"`). The list shows what each conversation
 started with.
 
+Projects from a meta repo: a `[[source]]` in `projects.toml` lists every project that repo's
+`paths.local` has on this machine, under a prefix, read fresh each time. Its open items are the
+meta repo's `planning/<key>/_open.md`, and conversations are told to follow that repo's planning
+rules. The meta repo itself is `<prefix>/meta`. A `[[project]]` with an imported key adds to it.
+Conversations run from the meta repo, so its `CLAUDE.md` and conventions apply, and reach the
+code through its `projects/` symlink; `run_in = "project"` on the source runs them in each
+project's own folder instead. Projects in the home folder (`meta/`) run from the home folder; any
+`[[project]]` can set `run_in`.
+
+    [[source]]
+    prefix = "kf"
+    repo = "~/Dropbox/Workspace/proj_kf/proj_kf-meta"
+    strip = "kf"    # registry key kf/console lists as kf/console, not kf/kf/console
+    # run_in = "project"   # run in each project's folder, not the meta repo
+
 Routines: a prompt that runs on a schedule, each run its own conversation. Write it as a draft,
 then `esc`, `r`: name it and say when it runs (`daily 7:00`, `weekdays 7:00, 13:00`,
 `weekly mon 9:00`, `monthly 1st 9:00`, or blank for run-now only). Routines have their own group
@@ -48,10 +63,21 @@ routines run with Hopper closed. A run is skipped when every account for its pro
 
 Accounts: the default account (`*` in the Accounts panel) runs anything no prefix names.
 
-Keys: `p` `q` `v` `c` jump to projects, the list, done, accounts; `n` the first thing waiting on
-you; `?` help; `x` quit.
+Keys: `p` `c` `v` `a` jump to projects, conversations, done, accounts; `n` the first thing waiting on
+you; `J` `K` (or shift+↑↓) the nearest folder in Projects, the next group in the list;
+option+↑↓ in Projects go up a level (↑ the parent, ↓ the parent's next sibling); on the list →
+opens a conversation like ⏎ and ← comes back, so the arrows alone get around; `x` twice
+quits. The bottom line shows the keys for what is selected that nothing on screen already
+shows; `?` shows them all, starting there.
 
-Accounts: in the app, `c` then `a` adds a Claude account (a short name, its config directory,
+Settings: `s` shows every setting in `config.toml`, `accounts.toml` and `projects.toml` in one
+place, what each is now, whether it's set or a default, and what it does. `⏎` edits one (or
+moves a choice on), `d` puts it back to its default or removes an entry, `a` adds an account,
+source or project, `o` opens the file itself in `$EDITOR`. The files stay the truth; writes from
+the screen keep a file's header comment but not comments further down. It also says when no
+account runs a prefix, so conversations there wouldn't start.
+
+Accounts: in the app, `a` then `a` again adds a Claude account (a short name, its config directory,
 then Claude's own sign-in). `e` sets the prefixes it runs (`kf/, meta/`, or `*` for everything).
 When several accounts run a prefix, work goes to the first one that is signed in and has room;
 `1` makes an account first choice.

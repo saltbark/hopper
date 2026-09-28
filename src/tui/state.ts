@@ -62,6 +62,10 @@ export type Form =
   | { kind: 'routine-name'; value: string; editing: Editing }
   | { kind: 'routine-schedule'; value: string; editing: Editing; name: string }
   | { kind: 'routine-remove'; name: string }
+  | { kind: 'setting'; name: string; value: string; id: string }
+  | { kind: 'setting-remove'; name: string; id: string }
+  | { kind: 'setting-add-source'; value: string }
+  | { kind: 'setting-add-project'; value: string }
 
 export const FORM_PROMPT: Record<Form['kind'], string> = {
   'add-name': 'short name for this account',
@@ -73,6 +77,11 @@ export const FORM_PROMPT: Record<Form['kind'], string> = {
   'routine-schedule':
     'when it runs: daily 7:00 · weekdays 7:00, 13:00 · weekly mon 9:00 · monthly 1st 9:00 · blank for run-now only',
   'routine-remove': '',
+  setting: 'new value (blank for the default)',
+  'setting-remove': '',
+  'setting-add-source': 'prefix and meta repo folder, like: kf ~/Workspace/kf-meta',
+  'setting-add-project':
+    'project key: one a source lists, to set things for it, or a new meta/ key for the home folder',
 }
 
 // Finding a project by typing part of its name.

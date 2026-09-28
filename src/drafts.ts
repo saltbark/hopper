@@ -1,4 +1,4 @@
-import { readdir, rm } from 'node:fs/promises'
+import { readdir, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { parseFrontmatter, serializeFrontmatter, timeField } from './frontmatter.ts'
@@ -15,6 +15,8 @@ export type Draft = {
   model?: string
   effort?: string
 }
+
+const INBOX = 'meta/inbox'
 
 const dir = (home: string) => join(home, 'drafts')
 const file = (home: string, id: string) => join(dir(home), `${id}.md`)
@@ -34,16 +36,21 @@ export const serializeDraft = (d: Draft): string =>
     d.text,
   )
 
-export function parseDraft(id: string, text: string): Draft | null {
-  const parsed = parseFrontmatter(text)
-  const f = parsed?.fields
-  if (!parsed || !f?.['project']) return null
+// A file with no front matter is a note dropped in from elsewhere (the phone, through Dropbox):
+// it files to meta/inbox and takes its times from the file. It gets front matter on first save.
+export function parseDraft(id: string, text: string, fileTime = 0): Draft | null {
+  const parsed = parseFrontmatter(text.replace(/\r\n/g, '\n'))
+  if (!parsed) {
+    if (!text.trim()) return null
+    return { id, project: INBOX, text, created: fileTime, updated: fileTime }
+  }
+  const f = parsed.fields
   const draft: Draft = {
     id,
-    project: f['project'],
+    project: f['project'] || INBOX,
     text: parsed.body,
-    created: timeField(f['created']),
-    updated: timeField(f['updated']),
+    created: timeField(f['created']) || fileTime,
+    updated: timeField(f['updated']) || fileTime,
   }
   if (f['model']) draft.model = f['model']
   if (f['effort']) draft.effort = f['effort']
@@ -55,7 +62,16 @@ export async function listDrafts(home: string): Promise<Draft[]> {
   const drafts = await Promise.all(
     names
       .filter((n) => n.endsWith('.md'))
-      .map(async (n) => parseDraft(n.slice(0, -3), (await readIfThere(join(dir(home), n))) ?? '')),
+      .map(async (n) => {
+        const path = join(dir(home), n)
+        const text = await readIfThere(path)
+        if (text === null) return null
+        const mtime = await stat(path).then(
+          (s) => s.mtimeMs,
+          () => 0,
+        )
+        return parseDraft(n.slice(0, -3), text, mtime)
+      }),
   )
   return drafts.filter((d): d is Draft => !!d).sort((a, b) => b.updated - a.updated)
 }

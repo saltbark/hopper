@@ -38,7 +38,7 @@ export function pickAccount(config: Config, key: string, states: AccountState[])
     return {
       account: undefined,
       route,
-      reason: `no account runs ${key}; add a prefix to one (c, then e)`,
+      reason: `no account runs ${key}; make an account the default or give one the prefix (s for settings)`,
     }
   const candidates = route.accounts
     .map((n) => ({

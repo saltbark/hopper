@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { readFile, stat } from 'node:fs/promises'
+import { join } from 'node:path'
+
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 
 import { refreshUsage, usageLines } from '../claude.ts'
 import type { Account, Config } from '../config.ts'
 import { saveDraft } from '../drafts.ts'
 import { readItems, type OpenItem } from '../items.ts'
 import type { gather, Snapshot } from '../model.ts'
+import { expandHome } from '../paths.ts'
+import { parseProjectsDoc, type ProjectsDoc } from '../settings.ts'
 import { now, toDraft, type Editing } from './state.ts'
 
 export type Loader = typeof gather
@@ -107,6 +112,54 @@ export function useUsage(
 
 // A draft saves itself a moment after you stop typing, so nothing written is lost. Routines
 // save when you step out (esc) instead.
+// A meta repo's registry runs to dozens of projects, so the top folder each one lands in starts
+// collapsed. Once per folder: after that, folding is the person's.
+export function useFoldImported(
+  snap: Snapshot | null,
+  setFolded: Dispatch<SetStateAction<Set<string>>>,
+) {
+  const seen = useRef(new Set<string>())
+  useEffect(() => {
+    const tops = (snap?.projects ?? []).filter((p) => p.meta).map((p) => p.key.split('/')[0] ?? '')
+    const fresh = [...new Set(tops)].filter((t) => t && !seen.current.has(t))
+    if (!fresh.length) return
+    for (const t of fresh) seen.current.add(t)
+    setFolded((f) => new Set([...f, ...fresh]))
+  }, [snap, setFolded])
+}
+
+type SettingsDoc = { doc: ProjectsDoc | null; missing: string[]; error: string | null }
+
+async function loadSettingsDoc(home: string): Promise<SettingsDoc> {
+  try {
+    const doc = parseProjectsDoc(await readFile(join(home, 'projects.toml'), 'utf8'))
+    const missing: string[] = []
+    for (const s of doc.source) {
+      const repo = typeof s['repo'] === 'string' ? s['repo'] : ''
+      if (!(await stat(expandHome(repo)).catch(() => null))) missing.push(String(s['prefix']))
+    }
+    return { doc, missing, error: null }
+  } catch (e) {
+    return { doc: null, missing: [], error: `projects.toml: ${(e as Error).message}` }
+  }
+}
+
+// projects.toml as the settings screen shows it, read when the screen opens and after each
+// change; and which sources' repos aren't on this machine.
+export function useSettingsDoc(open: boolean, home: string) {
+  const [state, setState] = useState<SettingsDoc>({ doc: null, missing: [], error: null })
+  useEffect(() => {
+    if (!open) return
+    let live = true
+    void loadSettingsDoc(home).then((r) => live && setState(r))
+    return () => {
+      live = false
+    }
+  }, [open, home])
+  const reload = useCallback(async () => setState(await loadSettingsDoc(home)), [home])
+  return { ...state, reload }
+}
+
 export function useDraftAutosave(editing: Editing | null, home: string) {
   useEffect(() => {
     if (!editing || editing.routine || !editing.text.trim()) return
