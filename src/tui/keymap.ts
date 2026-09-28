@@ -30,7 +30,10 @@ export const ANYWHERE: Hint[] = [
   ['f', 'find a project'],
   ['tab', 'new conversation'],
   ['n', 'next waiting on you'],
-  ['p c v a', 'projects, conversations, done, accounts'],
+  ['p', 'projects'],
+  ['c', 'conversations'],
+  ['v', 'done'],
+  ['a', 'accounts'],
   ['← →', 'between columns'],
   [',', 'settings'],
   ['R', 'refresh'],
@@ -44,22 +47,22 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
     'projects',
     [
       ['j k', 'move'],
-      ['J K', 'nearest folder (or shift+↑↓)'],
-      ['option+↑↓', 'up a level: the parent, the next one after it'],
-      ['⏎', 'focus it (the list narrows to it)'],
+      ['J K', 'nearest folder (shift+↑↓)'],
+      ['option+↑↓', 'up a level, then the next'],
+      ['⏎', 'narrow the list to it'],
       ['tab', 'new conversation here'],
       ['z', 'fold a folder'],
-      ['esc', 'show every project again'],
+      ['esc', 'every project again'],
     ],
   ],
   [
     'the list',
     [
       ['j k', 'move'],
-      ['J K', 'next group (or shift+↑↓)'],
-      ['⏎ →', 'open it here, or go back into it'],
+      ['J K', 'next group (shift+↑↓)'],
+      ['⏎ →', 'open it, or go back in'],
       ['d', 'mark done'],
-      ['i', 'send esc to its conversation'],
+      ['i', 'interrupt (sends esc)'],
     ],
   ],
   [
@@ -73,9 +76,9 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
     'accounts',
     [
       ['⏎', 'sign in'],
-      ['a', 'add (once you are in Accounts)'],
+      ['a', 'add one'],
       ['e', 'prefixes it runs'],
-      ['1', 'make it first on them'],
+      ['1', 'first on its prefixes'],
       ['*', 'make it the default'],
       ['u', 'fresh usage'],
       ['r', 'rename'],
@@ -107,9 +110,18 @@ function settingKeys(row: Row | null): Hint[] {
 }
 
 export const CONVERSATION_KEYS: Hint[] = [
-  ['← ctrl+]', 'back to Hopper, leaving it open (⏎ goes back in)'],
-  ['esc', "Claude's"],
+  ['← ctrl+]', 'back to Hopper (it stays open)'],
+  ['esc', "Claude's (menus, rewind)"],
   ['ctrl+c', 'interrupt Claude'],
+]
+
+// For the help screen only.
+export const MOUSE_KEYS: Hint[] = [
+  ['wheel', 'scrolls what is under it'],
+  ['click', 'focuses a panel'],
+  ['click click', 'in the list: select, then open'],
+  ['drag', 'in a conversation: copy'],
+  ['modifier+drag', "copy elsewhere (your terminal's)"],
 ]
 
 export const WRITING_KEYS: Hint[] = [
