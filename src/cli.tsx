@@ -24,6 +24,7 @@ import { hopperPrompt } from './prompts.ts'
 import { listRoutines, loadRoutine, nextRun, runRoutine, syncLaunchd } from './routines/index.ts'
 import { App } from './tui/App.tsx'
 import { MOUSE_OFF, MOUSE_ON } from './tui/mouse.ts'
+import { TITLE_RESTORE, TITLE_SAVE, titleSeq } from './tui/title.ts'
 
 const HELP = `hopper: toss work in the hopper, hop from item to item.
 
@@ -153,7 +154,9 @@ async function tui() {
     console.error('hopper needs a terminal. For text output: hopper status')
     process.exit(1)
   }
-  const app = render(<App config={config} />, {
+  process.stdout.write(TITLE_SAVE)
+  const setTitle = (text: string) => process.stdout.write(titleSeq(text))
+  const app = render(<App config={config} setTitle={setTitle} />, {
     alternateScreen: true,
     exitOnCtrlC: true,
     // Redraw only the lines that changed; a full repaint per keystroke flickers.
@@ -164,11 +167,11 @@ async function tui() {
   })
   // Real mouse events, so the wheel scrolls what's under it instead of sending arrow keys.
   process.stdout.write(MOUSE_ON)
-  process.on('exit', () => process.stdout.write(MOUSE_OFF))
+  process.on('exit', () => process.stdout.write(MOUSE_OFF + TITLE_RESTORE))
   try {
     await app.waitUntilExit()
   } finally {
-    process.stdout.write(MOUSE_OFF)
+    process.stdout.write(MOUSE_OFF + TITLE_RESTORE)
   }
 }
 
