@@ -185,7 +185,7 @@ export function makeActions(ctx: AppCtx) {
       if (err instanceof UntrustedError) {
         const dir = trustDir(config, err.dir)
         ctx.setUntrusted({ dir, draft: e })
-        setMessage(`${tildify(dir)} isn't trusted. T trusts it and starts.`)
+        setMessage(`Untrusted folder. T trusts it and starts: ${tildify(dir)}`)
       } else setMessage(`${(err as Error).message}. Draft kept.`)
       void refresh(false)
     }
@@ -298,7 +298,7 @@ export function makeActions(ctx: AppCtx) {
     } catch (err) {
       if (err instanceof UntrustedError) {
         setMessage(
-          `${tildify(trustDir(config, err.dir))} isn't trusted. Start a conversation there (tab) to trust it.`,
+          `Untrusted folder. Start a conversation there (tab) to trust it: ${tildify(trustDir(config, err.dir))}`,
         )
       } else setMessage((err as Error).message)
     }
