@@ -113,10 +113,10 @@ function Spinner({ color, bg }: { color: string; bg?: string | undefined }) {
 
 // The glyph that leads a row and says what the item is doing.
 export function Mark({ state, kind, bg }: { state: string; kind?: string; bg?: string }) {
-  const { mark, color } = stateMark(state, kind)
+  const { mark, color, bold } = stateMark(state, kind)
   if (mark === 'spin') return <Spinner color={color} bg={bg} />
   return (
-    <Text color={color} backgroundColor={bg}>
+    <Text color={color} backgroundColor={bg} bold={bold}>
       {mark}
     </Text>
   )

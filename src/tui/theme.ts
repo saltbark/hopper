@@ -56,13 +56,17 @@ export const ANSI = [
 export const tone = (pct: number) => (pct >= 90 ? T.blocked : pct >= 75 ? T.waiting : T.running)
 
 // What an item is doing, as the glyph that leads its row.
-export function stateMark(state: string, kind?: string): { mark: string; color: string } {
+export function stateMark(
+  state: string,
+  kind?: string,
+): { mark: string; color: string; bold?: boolean } {
   if (kind === 'draft' || state === 'draft') return { mark: '◇', color: T.draft }
   if (kind === 'routine')
     return state === 'paused' ? { mark: '○', color: T.dim } : { mark: '↻', color: T.focus }
-  if (state === 'blocked' || state === 'failed' || state === 'stopped')
-    return { mark: '▲', color: T.blocked }
-  if (state === 'done') return { mark: '◆', color: T.waiting }
+  // Waiting on you: a question is your turn, not a fault, so only a failure is red.
+  if (state === 'blocked') return { mark: '?', color: T.waiting, bold: true }
+  if (state === 'failed' || state === 'stopped') return { mark: '✕', color: T.blocked }
+  if (state === 'done') return { mark: '✓', color: T.waiting }
   if (state === 'queued') return { mark: '○', color: T.dim }
   return { mark: 'spin', color: T.running }
 }
