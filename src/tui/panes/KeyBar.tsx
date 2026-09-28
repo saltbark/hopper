@@ -23,7 +23,7 @@ const hintText = (list: Hint[]) => list.map(([k, d]) => `${k} ${d}`).join(' · '
 // end; ? sits at the right with the panel's name, so it never does.
 const GLOBAL: Hint[] = [
   ['f', 'find'],
-  ['t', 'new conversation'],
+  ['tab', 'new conversation'],
   ['n', 'next waiting'],
   ['x x', 'quit'],
 ]
@@ -119,7 +119,9 @@ export function KeyBar(props: {
         {chip('find')}
         <Text color={T.hi}>{'  ' + find.query}</Text>
         <Text inverse> </Text>
-        <Text color={T.dim}>{'  ⏎ focuses it · ↑↓ choose · esc cancel'}</Text>
+        <Text color={T.dim}>
+          {'  ⏎ focuses it · tab new conversation there · ↑↓ choose · esc cancel'}
+        </Text>
       </Text>
     )
   }

@@ -22,7 +22,7 @@ export function ProjectDetail({ project, width }: { project: ProjectView; width:
       <Keys
         keys={[
           ['⏎', 'focus it'],
-          ['t', 'new conversation here'],
+          ['tab', 'new conversation here'],
           ['z', 'fold'],
         ]}
       />

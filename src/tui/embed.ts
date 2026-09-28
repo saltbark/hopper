@@ -56,8 +56,9 @@ export function paletteHex(n: number): string {
 const rgbHex = (v: number) => '#' + v.toString(16).padStart(6, '0')
 
 // Ink hands keys over already parsed; this turns them back into what a terminal would send.
+// shift+enter and option+enter go as ESC CR, which Claude reads as a new line, not a send.
 export function keyToBytes(input: string, key: Key): string {
-  if (key.return) return '\r'
+  if (key.return) return key.shift || key.meta ? '\x1b\r' : '\r'
   if (key.escape) return '\x1b'
   if (key.tab) return key.shift ? '\x1b[Z' : '\t'
   if (key.backspace || key.delete) return '\x7f'
@@ -86,6 +87,9 @@ export class EmbeddedSession {
   private listeners = new Set<() => void>()
   // Set once the attach process ends: writing to it after that is an error.
   private exited = false
+  // Whether the program shows the terminal's cursor (DECTCEM, `CSI ? 25 h/l`). Claude puts the
+  // real cursor where you type, so Hopper has to draw it; the headless terminal doesn't say.
+  private cursorShown = true
 
   constructor(
     readonly account: Account,
@@ -103,6 +107,13 @@ export class EmbeddedSession {
       if (b64 && b64 !== '?') this.events.onCopy?.(Buffer.from(b64, 'base64').toString('utf8'))
       return true
     })
+    // Watch the cursor being shown and hidden, then let the terminal handle the rest as usual.
+    const cursorMode = (on: boolean) => (params: (number | number[])[]) => {
+      if (params.includes(25)) this.cursorShown = on
+      return false
+    }
+    this.term.parser.registerCsiHandler({ prefix: '?', final: 'h' }, cursorMode(true))
+    this.term.parser.registerCsiHandler({ prefix: '?', final: 'l' }, cursorMode(false))
   }
 
   start(cwd?: string): void {
@@ -213,6 +224,15 @@ export class EmbeddedSession {
     this.rows = rows
     this.term.resize(cols, rows)
     this.pty?.resize(cols, rows)
+  }
+
+  // Where the cursor is on the visible screen (0-based), or null while the program hides it.
+  cursor(): { col: number; row: number } | null {
+    if (this.closed || !this.cursorShown) return null
+    const b = this.term.buffer.active
+    const row = b.baseY + b.cursorY - b.viewportY
+    if (row < 0 || row >= this.rows) return null
+    return { col: Math.min(b.cursorX, this.cols - 1), row }
   }
 
   // The visible screen as rows of styled runs, ready to draw.

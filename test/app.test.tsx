@@ -205,6 +205,27 @@ describe('App', () => {
     unmount()
   })
 
+  it('a click on the details of something not open opens it, as ⏎ would', async () => {
+    const d = {
+      id: 'd1',
+      project: 'meta/inbox',
+      text: 'a waiting draft',
+      created: now,
+      updated: now,
+    }
+    const item = { ...draftSession(d, projects, 'kf'), where: 'needs' as const, key: 'meta/inbox' }
+    const snap = { ...snapshot, drafts: [d], items: [item] }
+    const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
+    await tick()
+    await press(stdin, '\u001b[C') // projects → the list; the draft's details are on the right
+    expect(lastFrame()).not.toContain('NEW CONVERSATION')
+    // At 100 columns the right panel starts at column 69.
+    await press(stdin, '\u001b[<0;80;6M')
+    expect(lastFrame()).toContain('NEW CONVERSATION')
+    expect(lastFrame()).toContain('a waiting draft')
+    unmount()
+  })
+
   it('f finds a project by a few letters and focuses it', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,
@@ -218,6 +239,21 @@ describe('App', () => {
     await press(stdin, '\r')
     expect(focusOf(lastFrame())).toBe('conversations')
     expect(lastFrame()).toContain('(c) ─ meta/ideas')
+    unmount()
+  })
+
+  it('tab in find starts a conversation in the project found, without focusing it', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App config={config} load={async () => snapshot} />,
+    )
+    await tick()
+    await press(stdin, 'f')
+    await press(stdin, 'ide')
+    await press(stdin, '\t')
+    expect(lastFrame()).toContain('NEW CONVERSATION')
+    expect(lastFrame()).toContain('meta/ideas')
+    // The list wasn't narrowed to it.
+    expect(lastFrame()).toContain('all proje')
     unmount()
   })
 
@@ -313,11 +349,11 @@ describe('conversations', () => {
     delete process.env['HOPPER_FAKE_UNTRUSTED']
   }
 
-  it('t opens a draft where enter is a new line; esc then s starts it and opens it', async () => {
+  it('tab opens a draft where enter is a new line; esc then s starts it and opens it', async () => {
     const { cfg, snap, projects, log } = await setup()
     const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
     await tick()
-    await press(stdin, 't')
+    await press(stdin, '\t')
     expect(lastFrame()).toContain('NEW CONVERSATION')
     expect(lastFrame()).toContain(' draft  meta/inbox')
     await press(stdin, 'backups for the home folder')
@@ -371,7 +407,7 @@ describe('conversations', () => {
     const { home, cfg } = await setup()
     const { lastFrame, stdin, unmount } = render(<App config={cfg} />) // the real loader: drafts come from disk
     await tick()
-    await press(stdin, 't')
+    await press(stdin, '\t')
     await press(stdin, 'maybe a weekly digest')
     await press(stdin, '\u001b')
     await press(stdin, '\u001b')
@@ -396,7 +432,7 @@ describe('conversations', () => {
     const { cfg, snap } = await setup()
     const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
     await tick()
-    await press(stdin, 't')
+    await press(stdin, '\t')
     await press(stdin, 'hello world')
     for (let i = 0; i < 5; i++) await press(stdin, '\u001b[D') // ← five times: before "world"
     await press(stdin, 'big ')
@@ -416,7 +452,7 @@ describe('conversations', () => {
     const { home, cfg, snap, log } = await setup()
     const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
     await tick()
-    await press(stdin, 't')
+    await press(stdin, '\t')
     await press(stdin, 'sort the inbox')
     await press(stdin, '\u001b')
     await press(stdin, 'm') // haiku
@@ -447,7 +483,7 @@ describe('conversations', () => {
       />,
     )
     await tick()
-    await press(stdin, 't')
+    await press(stdin, '\t')
     await press(stdin, 'triage the inbox')
     await press(stdin, '\u001b')
     expect(lastFrame()).toContain('r make it a routine')
@@ -529,7 +565,7 @@ describe('conversations', () => {
     const { cfg, snap } = await setup()
     const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
     await tick()
-    await press(stdin, 't')
+    await press(stdin, '\t')
     await press(stdin, 'an idea')
     await press(stdin, '\u001b')
     await press(stdin, 'p')
@@ -545,7 +581,7 @@ describe('conversations', () => {
     const { home, cfg, snap } = await setup({ untrusted: true })
     const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
     await tick()
-    await press(stdin, 't')
+    await press(stdin, '\t')
     await press(stdin, 'hello')
     await press(stdin, '\u001b')
     await press(stdin, 's')

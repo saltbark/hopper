@@ -77,12 +77,13 @@ export function makeActions(ctx: AppCtx) {
     go('work')
   }
 
-  // Where a new conversation goes: the project under the cursor, else the scope, else the inbox.
-  const newConversation = () => {
+  // Where a new conversation goes: the project it's asked for (from find), else the one under
+  // the cursor, else the scope, else the inbox.
+  const newConversation = (at?: string) => {
     const row = ctx.selectedRow
     const here =
       ctx.focus === 'projects' && row && ctx.projectKeys.includes(row.key) ? row.key : null
-    const key = here ?? ctx.scopeProject ?? 'meta/inbox'
+    const key = at ?? here ?? ctx.scopeProject ?? 'meta/inbox'
     const project = snap?.projects.find((p) => p.key === key)
     setEditing(
       newEditing({
@@ -298,7 +299,7 @@ export function makeActions(ctx: AppCtx) {
     } catch (err) {
       if (err instanceof UntrustedError) {
         setMessage(
-          `Claude hasn't been told to trust ${tildify(trustDir(config, err.dir))}. Start any conversation there once (t) to trust it.`,
+          `Claude hasn't been told to trust ${tildify(trustDir(config, err.dir))}. Start any conversation there once (tab) to trust it.`,
         )
       } else setMessage((err as Error).message)
     }

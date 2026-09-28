@@ -32,6 +32,8 @@ describe('keyToBytes', () => {
   it('sends what a terminal would', () => {
     expect(keyToBytes('a', key())).toBe('a')
     expect(keyToBytes('', key({ return: true }))).toBe('\r')
+    expect(keyToBytes('', key({ return: true, shift: true }))).toBe('\x1b\r')
+    expect(keyToBytes('', key({ return: true, meta: true }))).toBe('\x1b\r')
     expect(keyToBytes('', key({ escape: true }))).toBe('\x1b')
     expect(keyToBytes('', key({ delete: true }))).toBe('\x7f')
     expect(keyToBytes('', key({ leftArrow: true }))).toBe('\x1b[D')
@@ -84,6 +86,22 @@ describe('EmbeddedSession', () => {
         .join('\n'),
     ).toContain('got hi')
     expect(changes).toBeGreaterThan(0)
+    s.close()
+    delete process.env['HOPPER_CLAUDE']
+  }, 30_000)
+
+  it('knows where the cursor is, and when the program hides it', async () => {
+    process.env['HOPPER_CLAUDE'] = await fake(
+      'printf "one\\ntwo"; sleep 0.5; printf "\\033[?25l"; sleep 0.5; printf "\\033[?25h"; sleep 2',
+    )
+    const s = new EmbeddedSession(account, 'abc', 'test', 40, 6, { onLeave: () => {} })
+    s.start()
+    for (let i = 0; i < 160 && !s.cursor()?.col; i++) await new Promise((r) => setTimeout(r, 20))
+    expect(s.cursor()).toEqual({ col: 3, row: 1 })
+    for (let i = 0; i < 160 && s.cursor(); i++) await new Promise((r) => setTimeout(r, 20))
+    expect(s.cursor()).toBeNull()
+    for (let i = 0; i < 160 && !s.cursor(); i++) await new Promise((r) => setTimeout(r, 20))
+    expect(s.cursor()).toEqual({ col: 3, row: 1 })
     s.close()
     delete process.env['HOPPER_CLAUDE']
   }, 30_000)

@@ -38,6 +38,13 @@ function withSelection(rows: Seg[][], selection: Sel): Seg[][] {
   )
 }
 
+// The cursor as one cell drawn the other way round, padding the row out to reach it.
+export function withCursor(segs: Seg[], col: number): Seg[] {
+  const len = segs.reduce((n, s) => n + s.text.length, 0)
+  const row = len > col ? segs : [...segs, { text: ' '.repeat(col + 1 - len) }]
+  return highlightRow(row, col, col + 1)
+}
+
 // The embedded conversation. It redraws itself when Claude writes, so a busy conversation
 // doesn't redraw the rest of Hopper with it.
 export function SessionPane(props: {
@@ -51,7 +58,13 @@ export function SessionPane(props: {
   const [, redraw] = useState(0)
   useEffect(() => session.subscribe(() => redraw((n) => n + 1)), [session])
   const screen = session.screen()
-  const rows = selection ? withSelection(screen, selection) : screen
+  // Claude uses the terminal's own cursor for where you type; draw it while you're typing here.
+  const cursor = focused && !selection ? session.cursor() : null
+  const rows = selection
+    ? withSelection(screen, selection)
+    : cursor
+      ? screen.map((r, y) => (y === cursor.row ? withCursor(r, cursor.col) : r))
+      : screen
   return (
     <Frame
       title="CONVERSATION"

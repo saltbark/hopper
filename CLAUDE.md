@@ -21,7 +21,7 @@ The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it befor
   prefix to an ordered list of accounts; the first signed-in one with room runs the work.
 - **`claude auth status` exits 1 when signed out** and creates the config dir as a side effect.
   Never call claude for an account whose directory doesn't exist (`isSetUp`).
-- **A conversation is a Claude Code background session.** `t` starts one with `claude --bg`
+- **A conversation is a Claude Code background session.** `tab` starts one with `claude --bg`
   in the project's run folder (`runIn`: a registry project's meta repo, a home project's home
   folder, else its own), with `hopperPrompt` appended so Claude knows the project's `_open.md`,
   then attaches. Claude reports a session that has answered as `done`; to Hopper that means

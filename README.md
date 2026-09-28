@@ -11,11 +11,11 @@ hopper status             # what Hopper sees, as text
 hopper                    # the app
 ```
 
-Everyday: Hopper opens on Projects. `f` and a few letters finds a project; ⏎ focuses it. The
+Everyday: Hopper opens on Projects. `f` and a few letters finds a project; ⏎ focuses it, `tab` starts a conversation there. The
 middle column is one list of every conversation that isn't done, grouped: waiting on you, drafts,
 running, up next (`w` `d` `r` `u` jump to each). Done sits below it.
 
-`t` starts a new conversation as a draft: a real text box (arrows, option+arrows by word,
+`tab` starts a new conversation as a draft: a real text box (arrows, option+arrows by word,
 shift to select, ⏎ for new lines), saved as you type. `esc`, then `s` starts it, `p` moves it,
 `y` copies it, `x` throws it away, or `esc` keeps it.
 

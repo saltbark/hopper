@@ -30,7 +30,7 @@ describe('hereKeys', () => {
     const row = { key: 'sb', hasChildren: true, folded: true } as Here['row']
     expect(keysOf({ focus: 'projects', row, scope: 'sb' })).toEqual([
       '⏎',
-      't',
+      'tab',
       'z',
       'J K',
       'opt+↑↓',

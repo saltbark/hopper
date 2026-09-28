@@ -10,7 +10,7 @@ import { backspace, insert, move, type EditorState, type Move } from './editor.t
 import { keyToBytes } from './embed.ts'
 import { rank } from './fuzzy.ts'
 import { parseMouse, type MouseEvent } from './mouse.ts'
-import { asText, GROUPS, groupOf, PANELS, typed, type Editing, type Panel } from './state.ts'
+import { asText, GROUPS, groupOf, typed, type Editing, type Panel } from './state.ts'
 
 type Handler = (input: string, key: Key) => void
 
@@ -44,6 +44,11 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       }
       const button = ev.kind === 'press' || ev.kind === 'drag' || ev.kind === 'release'
       if (embed && ctx.showingEmbed && button && (panel === 'right' || pick?.active)) {
+        // A click in the conversation also gives it the keyboard, as a click on any panel does.
+        if (ev.kind === 'press' && focus !== 'session' && !ctx.editing && !ctx.form && !ctx.find) {
+          ctx.setReturnTo(focus)
+          ctx.setFocus('session')
+        }
         // Claude asks for the mouse and does its own selection; give it the events.
         if (embed.mouseWanted()) {
           embed.forwardMouse(
@@ -54,11 +59,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
           continue
         }
         // Otherwise Hopper selects: drag inside the conversation, let go to copy.
-        if (ev.kind === 'press') {
-          ctx.setPick({ a: cellAt, b: cellAt, active: true })
-          if (focus !== 'session') ctx.setReturnTo(focus)
-          ctx.setFocus('session')
-        } else if (ev.kind === 'drag' && pick?.active) ctx.setPick({ ...pick, b: cellAt })
+        if (ev.kind === 'press') ctx.setPick({ a: cellAt, b: cellAt, active: true })
+        else if (ev.kind === 'drag' && pick?.active) ctx.setPick({ ...pick, b: cellAt })
         else if (ev.kind === 'release' && pick?.active) {
           if (cellAt.col === pick.a.col && cellAt.row === pick.a.row) ctx.setPick(null)
           else {
@@ -83,10 +85,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         }))
       } else if (ev.kind === 'press' && !ctx.editing && !ctx.form && !ctx.find) {
         if (panel !== 'right') act.go(panel)
-        else if (ctx.showingEmbed) {
-          if (focus !== 'session') ctx.setReturnTo(focus)
-          ctx.setFocus('session')
-        }
+        // The details of a conversation that isn't open: a click opens it, as ⏎ would.
+        else if (!ctx.showingEmbed && ctx.selectedItem) act.open(ctx.selectedItem)
       }
     }
   }
@@ -220,10 +220,17 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (key.escape) return ctx.setFind(null)
     if (key.upArrow) return ctx.setFind({ ...find, sel: Math.max(0, find.sel - 1) })
     if (key.downArrow) return ctx.setFind({ ...find, sel: Math.min(rows.length - 1, find.sel + 1) })
-    if (key.return || key.tab) {
-      const row = rows[Math.min(find.sel, rows.length - 1)]
+    const row = rows[Math.min(find.sel, rows.length - 1)]
+    if (key.return) {
       ctx.setFind(null)
       return row ? act.focusProject(row.key) : setMessage('No project matches.')
+    }
+    // tab starts a conversation there straight away, leaving the list as it was.
+    if (key.tab) {
+      if (!row) return setMessage('No project matches.')
+      if (!row.isProject) return setMessage(`${row.key} is a folder. Pick a project in it.`)
+      ctx.setFind(null)
+      return act.newConversation(row.key)
     }
     if (key.backspace || key.delete) return ctx.setFind({ query: find.query.slice(0, -1), sel: 0 })
     if (typed(input, key)) ctx.setFind({ query: find.query + input.replace(/\s/g, ''), sel: 0 })
@@ -318,7 +325,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       if (ctx.scope) ctx.setScope(null)
       return
     }
-    if (key.tab) return act.go(PANELS[(PANELS.indexOf(focus) + 1) % PANELS.length] ?? 'projects')
+    if (key.tab) return act.newConversation()
     const jump: Record<string, Panel> = { p: 'projects', c: 'work', v: 'done', a: 'accounts' }
     // In Accounts, a is its own key again: add an account.
     if (jump[input] && !(input === 'a' && focus === 'accounts')) return act.go(jump[input])
@@ -328,7 +335,6 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       return setSel((s) => ({ ...s, work: 0 }))
     }
     if (input === 'f') return ctx.setFind({ query: '', sel: 0 })
-    if (input === 't') return act.newConversation()
     if (input === '?') return ctx.setHelp(true)
     if (input === 's') return ctx.setSettings({ sel: 0 })
     // x sits next to z (fold), so quitting takes a second x straight after.

@@ -158,6 +158,9 @@ async function tui() {
     exitOnCtrlC: true,
     // Redraw only the lines that changed; a full repaint per keystroke flickers.
     incrementalRendering: true,
+    // Where the terminal supports it, keys arrive unambiguous, so shift+enter isn't just enter
+    // and can reach an embedded conversation as a new line. Ink turns it off around suspends.
+    kittyKeyboard: { mode: 'auto', flags: ['disambiguateEscapeCodes'] },
   })
   // Real mouse events, so the wheel scrolls what's under it instead of sending arrow keys.
   process.stdout.write(MOUSE_ON)

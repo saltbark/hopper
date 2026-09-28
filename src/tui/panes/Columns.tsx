@@ -130,7 +130,7 @@ export function MiddleColumn(props: {
           />
         ) : (
           <Text color={T.dim}>
-            {props.loaded ? ' Nothing going on. t starts a conversation.' : ' Loading…'}
+            {props.loaded ? ' Nothing going on. tab starts a conversation.' : ' Loading…'}
           </Text>
         )}
       </Frame>

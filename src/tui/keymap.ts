@@ -28,10 +28,9 @@ export type Here = {
 export const ANYWHERE: Hint[] = [
   ['?', 'all keys'],
   ['f', 'find a project'],
-  ['t', 'new conversation'],
+  ['tab', 'new conversation'],
   ['n', 'next waiting on you'],
   ['p c v a', 'projects, conversations, done, accounts'],
-  ['tab', 'next panel'],
   ['← →', 'between columns'],
   ['s', 'settings'],
   ['R', 'refresh'],
@@ -50,7 +49,7 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
       ['J K', 'nearest folder (or shift+↑↓)'],
       ['option+↑↓', 'up a level: the parent, the next one after it'],
       ['⏎', 'focus it (the list narrows to it)'],
-      ['t', 'new conversation here'],
+      ['tab', 'new conversation here'],
       ['z', 'fold a folder'],
       ['esc', 'show every project again'],
     ],
@@ -171,7 +170,7 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   if (h.focus === 'projects') {
     const hints: Hint[] = [
       ['⏎', 'focus'],
-      ['t', 'new here'],
+      ['tab', 'new here'],
     ]
     if (h.row?.hasChildren) hints.push(['z', h.row.folded ? 'unfold' : 'fold'])
     hints.push(['J K', 'folders'], ['opt+↑↓', 'levels'])
@@ -195,7 +194,7 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
 
 // Keys each summary on the right lists itself (panels/detail/), so the key bar leaves them out.
 function summaryKeys(h: Here): Set<string> {
-  if (h.focus === 'projects') return new Set(['⏎', 't', 'z'])
+  if (h.focus === 'projects') return new Set(['⏎', 'tab', 'z'])
   if (h.focus === 'accounts') return new Set(PANEL_KEYS[3]![1].map(([k]) => k))
   if (h.item?.kind === 'routine') return new Set(['⏎', 's'])
   if (h.item?.kind === 'draft') return new Set(['⏎'])
