@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react'
 
+import type { Chime } from '../chime.ts'
 import type { Account, Config } from '../config.ts'
 import type { AccountState, Item, Snapshot } from '../model.ts'
 import type { Routine } from '../routines/index.ts'
@@ -17,6 +18,7 @@ export type AppCtx = {
   setConfig: Set<Config>
   save: (config: Config) => Promise<void>
   syncSchedule: (config: Config, routines: Routine[]) => Promise<unknown>
+  chime: Chime
   snap: Snapshot | null
   snapRef: { current: Snapshot | null }
   refresh: (withAuth: boolean) => Promise<void>

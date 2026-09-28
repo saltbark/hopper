@@ -3,11 +3,12 @@ import { join } from 'node:path'
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 
+import { DEFAULT_SOUND, newlyWaiting, type Chime } from '../chime.ts'
 import { refreshUsage, usageLines } from '../claude.ts'
 import type { Account, Config } from '../config.ts'
 import { saveDraft } from '../drafts.ts'
 import { readItems, type OpenItem } from '../items.ts'
-import type { gather, Snapshot } from '../model.ts'
+import type { gather, Item, Snapshot } from '../model.ts'
 import { expandHome } from '../paths.ts'
 import { parseProjectsDoc, type ProjectsDoc } from '../settings.ts'
 import { now, toDraft, type Editing } from './state.ts'
@@ -182,4 +183,28 @@ export function useProjectItems(snap: Snapshot | null, key: string | null) {
     }
   }, [key, snap])
   return items && items.key === key ? items.items : undefined
+}
+
+// One sound for each look that finds a conversation, running last time, now waiting on me. Not
+// for the one on screen: I'm already looking at it. Only a new look rings, so `onScreen` is read
+// as it was then rather than watched.
+export function useChime(
+  snap: Snapshot | null,
+  sound: string | undefined,
+  onScreen: string | null,
+  chime: Chime,
+) {
+  const prev = useRef<Item[] | null>(null)
+  const latest = useRef({ sound, onScreen, chime })
+  // Declared first, so it has run by the time the effect below reads it.
+  useEffect(() => {
+    latest.current = { sound, onScreen, chime }
+  })
+  useEffect(() => {
+    if (!snap) return
+    const now = latest.current
+    const fresh = newlyWaiting(prev.current, snap.items, now.onScreen)
+    prev.current = snap.items
+    if (fresh.length) now.chime(now.sound ?? DEFAULT_SOUND)
+  }, [snap])
 }

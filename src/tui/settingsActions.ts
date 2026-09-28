@@ -2,13 +2,16 @@ import { spawn } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { DEFAULT_SOUND } from '../chime.ts'
 import {
   loadConfig,
   parsePrefixList,
   prefixesOf,
   relabel,
   setDefaultAccount,
+  parseSettings,
   setPrefixes,
+  setSetting,
   type Config,
 } from '../config.ts'
 import { writeAtomic } from '../fsutil.ts'
@@ -65,6 +68,24 @@ export function makeSettingsActions(ctx: AppCtx, commit: Commit) {
     await ctx.refresh(false)
   }
 
+  // config.toml keeps its comments: only the one line changes.
+  const writeConfig = async (key: string, value: string | null) => {
+    try {
+      const next = setSetting(await readFile(config.path, 'utf8'), key, value)
+      parseSettings(next, config.path)
+      await writeAtomic(config.path, next)
+      const loaded = await loadConfig(config.path)
+      if (loaded) ctx.setConfig(loaded)
+      if (key === 'sound') {
+        const sound = value ?? DEFAULT_SOUND
+        ctx.chime(sound)
+        setMessage(sound === 'off' ? 'No sound.' : `Sound: ${sound}`)
+      } else setMessage(`${key} saved`)
+    } catch (e) {
+      setMessage(`Not saved: ${(e as Error).message}`)
+    }
+  }
+
   // The prefixes an account runs, other than the default's "".
   const ownPrefixes = (c: Config, name: string) =>
     prefixesOf(c, name)
@@ -77,6 +98,7 @@ export function makeSettingsActions(ctx: AppCtx, commit: Commit) {
     const t = row.target
     if (row.edit.type === 'readonly')
       return setMessage(`${row.label} is changed in the file: o opens it.`)
+    if (t.file === 'config') return writeConfig(t.field, value)
     if (t.file === 'accounts') {
       const name = t.account
       if (t.field === 'label')

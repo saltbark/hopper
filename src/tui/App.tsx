@@ -1,6 +1,7 @@
 import { Box, useApp, useInput, useWindowSize } from 'ink'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { playChime, type Chime } from '../chime.ts'
 import { prefixesOf, saveAccounts, type Config } from '../config.ts'
 import { draftSessionId, gather, inScope, OTHER, routineSessionId, type Item } from '../model.ts'
 import type { Routine } from '../routines/index.ts'
@@ -11,6 +12,7 @@ import type { AppCtx } from './context.ts'
 import type { EmbeddedSession } from './embed.ts'
 import { rank, withFolders } from './fuzzy.ts'
 import {
+  useChime,
   useDraftAutosave,
   useFoldImported,
   useSettingsDoc,
@@ -55,11 +57,13 @@ export function App({
   load = gather,
   save = saveAccounts,
   syncSchedule = defaultSync,
+  chime = playChime,
 }: {
   config: Config
   load?: Loader
   save?: Saver
   syncSchedule?: (config: Config, routines: Routine[]) => Promise<unknown>
+  chime?: Chime
 }) {
   const { exit, suspendTerminal } = useApp()
   const { columns, rows } = useWindowSize()
@@ -252,12 +256,17 @@ export function App({
   const sessionCols = rightW - 2
   const sessionRows = bodyH - 2
   useEffect(() => embed?.resize(sessionCols, sessionRows), [embed, sessionCols, sessionRows])
+  // The conversation in the right panel, which doesn't need a sound to say it's waiting.
+  const onScreen =
+    embed && showingEmbed ? (snap?.items.find((i) => i.id === embed.id)?.sessionId ?? null) : null
+  useChime(snap, config.sound, onScreen, chime)
 
   const ctx: AppCtx = {
     config,
     setConfig,
     save,
     syncSchedule,
+    chime,
     snap,
     snapRef,
     refresh,

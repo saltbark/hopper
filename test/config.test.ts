@@ -13,6 +13,7 @@ import {
   removeAccount,
   serializeAccounts,
   setPrefixes,
+  setSetting,
   suggestName,
   type Config,
 } from '../src/config.ts'
@@ -36,6 +37,19 @@ describe('settings', () => {
   })
   it('reports TOML errors with the path', () => {
     expect(() => parseSettings('home = ', '/c.toml')).toThrow(/c\.toml/)
+  })
+  it('reads the sound, which is optional', () => {
+    expect(parseSettings('home = "/h"\nsound = "Pop"', '/c.toml').sound).toBe('Pop')
+    expect(parseSettings('home = "/h"', '/c.toml').sound).toBeUndefined()
+    expect(() => parseSettings('home = "/h"\nsound = 3', '/c.toml')).toThrow(/sound/)
+  })
+  it('sets one line and keeps the comments', () => {
+    const text = '# Hopper settings.\nhome = "/h"\n\n# The sound.\n'
+    const set = setSetting(text, 'sound', 'Pop')
+    expect(set).toBe('# Hopper settings.\nhome = "/h"\n\n# The sound.\nsound = "Pop"\n')
+    expect(setSetting(set, 'sound', 'off')).toContain('sound = "off"\n')
+    expect(setSetting(set, 'sound', null)).toBe('# Hopper settings.\nhome = "/h"\n\n# The sound.\n')
+    expect(setSetting(text, 'sound', null)).toBe(text)
   })
 })
 

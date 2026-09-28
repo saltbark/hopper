@@ -4,6 +4,7 @@
 
 import { parse, stringify } from 'smol-toml'
 
+import { DEFAULT_SOUND, SOUNDS } from './chime.ts'
 import { defaultAccount, prefixesOf, showPrefix, type Config } from './config.ts'
 import { EFFORTS, MODELS } from './conversations.ts'
 import type { Project } from './home.ts'
@@ -70,7 +71,7 @@ export const removeEntry = (doc: ProjectsDoc, table: TableName, index: number): 
 // ---------- rows ----------
 
 export type Target =
-  | { file: 'config'; field: 'home' }
+  | { file: 'config'; field: 'home' | 'sound' }
   | { file: 'accounts'; account: string; field: 'label' | 'prefixes' | 'default' }
   | { file: 'projects'; table: TableName; index: number; field: string }
 
@@ -100,6 +101,8 @@ export type Row =
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const modelOptions = MODELS.map((m) => m ?? '')
 const effortOptions = EFFORTS.map((m) => m ?? '')
+// '' is the default sound, so it isn't listed again under its name.
+const soundOptions = ['', ...SOUNDS.filter((s) => s !== DEFAULT_SOUND)]
 
 export function buildRows(
   config: Config,
@@ -127,6 +130,18 @@ export function buildRows(
     file: 'config',
     edit: { type: 'readonly' },
     target: { file: 'config', field: 'home' },
+  })
+  rows.push({
+    kind: 'setting',
+    id: 'general.sound',
+    label: 'sound',
+    value: config.sound ?? DEFAULT_SOUND,
+    raw: config.sound ?? '',
+    isSet: !!config.sound,
+    help: 'Played when a conversation stops running and waits on you, unless it is the one open on the right. A macOS sound, bell for the terminal’s own, or off. ⏎ plays the next one.',
+    file: 'config',
+    edit: { type: 'choice', options: soundOptions },
+    target: { file: 'config', field: 'sound' },
   })
 
   rows.push({

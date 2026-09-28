@@ -23,6 +23,8 @@ export type Config = {
   path: string
   accountsPath: string
   home: string
+  // config.toml's sound, when set; see chime.ts.
+  sound?: string
   accounts: Account[]
   routes: Route[]
 }
@@ -30,6 +32,10 @@ export type Config = {
 export const DEFAULT_CONFIG = `# Hopper settings. The home folder holds Hopper's own state: the project list, the queue order,
 # conversations marked done and its log. It is not a git repo.
 home = "~/Dropbox/Workspace/hopper"
+
+# Played when a conversation stops running and waits on you: a macOS sound (Glass, Ping, Pop,
+# Tink, Hero, Submarine, ...), "bell" for the terminal's own, or "off". Glass when not set.
+# sound = "Glass"
 
 # Claude accounts and which prefixes they run are in accounts.toml, next to this file. Hopper
 # writes it; manage them from the app (a), or edit it by hand.
@@ -52,7 +58,7 @@ function tomlError(path: string, e: unknown): ConfigError {
   return new ConfigError(`${tildify(path)}: ${(e as Error).message}`)
 }
 
-export function parseSettings(text: string, path: string): { home: string } {
+export function parseSettings(text: string, path: string): { home: string; sound?: string } {
   let raw: Record<string, unknown>
   try {
     raw = parse(text) as Record<string, unknown>
@@ -62,7 +68,18 @@ export function parseSettings(text: string, path: string): { home: string } {
   const home = raw['home']
   if (typeof home !== 'string' || !home)
     throw new ConfigError(`${tildify(path)}: "home" must be a path`)
-  return { home: expandHome(home) }
+  const sound = raw['sound']
+  if (sound !== undefined && (typeof sound !== 'string' || !sound))
+    throw new ConfigError(`${tildify(path)}: "sound" must be a sound's name, "bell" or "off"`)
+  return { home: expandHome(home), ...(sound ? { sound } : {}) }
+}
+
+// Sets one top-level string in config.toml's text, keeping its comments; null takes it out.
+export function setSetting(text: string, key: string, value: string | null): string {
+  const line = new RegExp(`^${key}\\s*=.*\\n?`, 'm')
+  const next = value === null ? '' : `${key} = ${JSON.stringify(value)}\n`
+  if (line.test(text)) return text.replace(line, next)
+  return value === null ? text : text.replace(/\n*$/, '\n') + next
 }
 
 export function parseAccounts(
