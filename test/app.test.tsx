@@ -127,7 +127,7 @@ describe('App', () => {
     const { unmount } = render(
       <App config={config} load={async () => snapshot} setTitle={(t) => titles.push(t)} />,
     )
-    await tick()
+    await until(() => titles.at(-1) === 'Hopper (1)')
     expect(titles.at(0)).toBe('Hopper')
     expect(titles.at(-1)).toBe('Hopper (1)')
     unmount()
