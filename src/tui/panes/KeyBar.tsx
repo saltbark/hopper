@@ -142,7 +142,10 @@ export function KeyBar(props: {
   }
   // The focused panel's keys for what is selected, then the global ones it doesn't already name.
   // The panel is named at the right, so it is known even without colour.
+  // A routine's reports keep the keyboard to themselves, so none of the global keys apply.
   const local = barKeys(here)
+  const global = here.reports ? [] : GLOBAL.filter(([k]) => !local.some(([l]) => l === k))
+  const where = here.reports ? hereKeys(here).label : focus === 'work' ? 'conversations' : focus
   return (
     <Box justifyContent="space-between">
       <Text wrap="truncate-end">
@@ -152,8 +155,8 @@ export function KeyBar(props: {
         ) : (
           <>
             {keys(local)}
-            {local.length ? <Text color={T.faint}>{'│  '}</Text> : null}
-            {keys(GLOBAL.filter(([k]) => !local.some(([l]) => l === k)))}
+            {local.length && global.length ? <Text color={T.faint}>{'│  '}</Text> : null}
+            {keys(global)}
           </>
         )}
       </Text>
@@ -162,7 +165,7 @@ export function KeyBar(props: {
           {error ? <Text color={T.blocked}>{'  ' + error}</Text> : null}
           <Text color={T.text}>{'  ?'}</Text>
           <Text color={T.dim}> all keys</Text>
-          <Text color={T.faint}>{'  ' + (focus === 'work' ? 'conversations' : focus) + ' '}</Text>
+          <Text color={T.faint}>{'  ' + where + ' '}</Text>
         </Text>
       </Box>
     </Box>

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { appendFile, mkdir } from 'node:fs/promises'
+import { appendFile, mkdir, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { startBackground, type Session } from '../claude.ts'
@@ -78,6 +78,44 @@ export async function readResult(path: string | undefined): Promise<Result | nul
       .map((l) => l.trim())
       .find((l) => l && !l.startsWith('#')) ?? ''
   return { needs: needs ?? null, summary }
+}
+
+// A report a routine left in its runs folder, with the run that wrote it when Hopper started
+// that run (a report written by hand, or by a run no longer in the log, has none).
+export type Report = Result & {
+  path: string
+  at: number
+  id?: string | undefined // the conversation that wrote it
+  account?: string | undefined
+}
+
+// The stamp resultPath writes, back to a time.
+const unstamp = (file: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})/.exec(file)
+  return m ? new Date(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!).getTime() : null
+}
+
+export const REPORTS_KEPT = 50
+
+// A routine's reports, newest first, up to REPORTS_KEPT. The files are the list rather than the
+// run log, so a report from a routine run some other way shows too.
+export async function listReports(home: string, name: string, runs: Run[]): Promise<Report[]> {
+  const dir = join(routinesDir(home), name, 'runs')
+  const files = (await readdir(dir).catch(() => [] as string[])).filter((f) => f.endsWith('.md'))
+  const dated = await Promise.all(
+    files.map(async (f) => {
+      const path = join(dir, f)
+      return { path, at: unstamp(f) ?? (await stat(path).catch(() => null))?.mtimeMs ?? 0 }
+    }),
+  )
+  dated.sort((a, b) => b.at - a.at || b.path.localeCompare(a.path))
+  return Promise.all(
+    dated.slice(0, REPORTS_KEPT).map(async ({ path, at }) => {
+      const run = runs.find((r) => r.result === path)
+      const result = (await readResult(path)) ?? { needs: null, summary: '' }
+      return { ...result, path, at, id: run?.id, account: run?.account }
+    }),
+  )
 }
 
 // What a run is told on top of the project prompt: where its result goes and what to put there.

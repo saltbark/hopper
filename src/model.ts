@@ -13,10 +13,12 @@ import { listDrafts, type Draft } from './drafts.ts'
 import { loadProjects, readOpenCount, type Project } from './home.ts'
 import { isWithin } from './paths.ts'
 import {
+  listReports,
   listRoutines,
   listRuns,
   nextRun,
   readResult,
+  type Report,
   type Result,
   type Routine,
   type Run,
@@ -75,8 +77,8 @@ export type Snapshot = {
   drafts: Draft[]
   routines: Routine[]
   runs: Run[]
-  // What the latest runs of each routine said, by result file.
-  results: Record<string, Result | null>
+  // Each routine's reports, by routine name, newest first.
+  reports: Record<string, Report[]>
   projects: Project[]
   projectsError: string | null
   openCounts: Map<string, number | null>
@@ -208,17 +210,14 @@ export async function gather(
     // which a conversation is for; the project Hopper started it in can.
     if (m?.project && projects.some((p) => p.key === m.project)) it.key = m.project
   }
-  const results: Record<string, Result | null> = {}
-  for (const r of routines) {
-    for (const run of runs.filter((x) => x.routine === r.name && x.result).slice(0, 12)) {
-      results[run.result!] = await readResult(run.result)
-    }
-  }
+  const reports: Record<string, Report[]> = {}
+  for (const r of routines) reports[r.name] = await listReports(config.home, r.name, runs)
   // A run that finished and says nothing needs me goes straight to Done.
   for (const it of items) {
     if (!it.routine || !it.id) continue
     const run = runs.find((r) => r.id === it.id)
-    it.result = run?.result ? (results[run.result] ?? (await readResult(run.result))) : null
+    const listed = run?.result ? reports[it.routine]?.find((x) => x.path === run.result) : null
+    it.result = listed ?? (run?.result ? await readResult(run.result) : null)
     if (it.where === 'needs' && it.state === 'done' && it.result?.needs === 'nothing')
       it.where = 'done'
   }
@@ -244,7 +243,7 @@ export async function gather(
     drafts,
     routines,
     runs,
-    results,
+    reports,
     projects,
     projectsError,
     openCounts,

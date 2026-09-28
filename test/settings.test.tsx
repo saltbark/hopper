@@ -96,7 +96,7 @@ describe('the settings screen', () => {
       drafts: [],
       routines: [],
       runs: [],
-      results: {},
+      reports: {},
       projects,
       projectsError: null,
       openCounts: new Map(),

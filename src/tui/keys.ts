@@ -2,7 +2,7 @@ import type { Key } from 'ink'
 
 import { preferFirst, prefixesOf, setDefaultAccount, showPrefix, suggestName } from '../config.ts'
 import { EFFORTS, MODELS, nextOf } from '../conversations.ts'
-import type { Item } from '../model.ts'
+import { routineSessionId, type Item } from '../model.ts'
 import type { Actions } from './actions.ts'
 import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
@@ -10,7 +10,9 @@ import { backspace, insert, move, type EditorState, type Move } from './editor.t
 import { keyToBytes } from './embed.ts'
 import { rank } from './fuzzy.ts'
 import { parseMouse, type MouseEvent } from './mouse.ts'
+import { reportRows } from './panels/detail/RoutineDetail.tsx'
 import { itemLines } from './panels/ItemRows.tsx'
+import { reportMaxScroll, reportRoom } from './panes/ReportPane.tsx'
 import { workItemAt } from './panes/WorkRows.tsx'
 import { asText, groupOf, typed, type Editing, type Hover, type Panel } from './state.ts'
 
@@ -38,6 +40,22 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     ctx.setHelp(null)
   }
 
+  // The report row under the pointer in a routine's details, laid out as RoutineDetail lays it
+  // out: the frame's top edge, then its lines.
+  const reportAt = (y: number): { routine: string; index: number } | null => {
+    const it = ctx.selectedItem
+    const r =
+      it?.kind === 'routine'
+        ? ctx.snap?.routines.find((x) => routineSessionId(x.name) === it.sessionId)
+        : undefined
+    if (!r || ctx.reports?.open) return null
+    const { rightW, bodyH } = ctx.layout
+    const view = { routine: r, reports: ctx.routineReports, account: it?.account, now: 0 }
+    const { top, start, slice } = reportRows(view, rightW - 4, bodyH - 2, ctx.reports?.sel)
+    const line = y - 2 - top
+    return line >= 0 && line < slice.length ? { routine: r.name, index: start + line } : null
+  }
+
   const onMouse = (events: MouseEvent[]) => {
     const { leftW, midW, bandH, workH, doneH, sessionCols, sessionRows } = ctx.layout
     const { embed, pick, focus } = ctx
@@ -59,6 +77,9 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
             : ev.y <= bandH + workH
               ? 'work'
               : 'done'
+      // A routine's reports hand the keyboard back when the wheel or a click is anywhere else.
+      if (ctx.reports && panel !== 'right' && (ev.kind === 'press' || ev.kind.startsWith('wheel')))
+        ctx.setReports(null)
       // The conversation's own cells: its top edge carries the title.
       const cellAt = {
         col: Math.max(0, Math.min(sessionCols - 1, ev.x - (leftW + midW) - 2)),
@@ -116,7 +137,15 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       if (ev.kind === 'wheel-up' || ev.kind === 'wheel-down') {
         const up = ev.kind === 'wheel-up'
         if (panel === 'right') {
-          if (embed && ctx.showingEmbed) embed.wheel(up, ev.x - (leftW + midW) - 1, ev.y - 1)
+          const rs = ctx.reports
+          if (rs?.open) {
+            const max = reportMaxScroll(rs.open.text, ctx.layout.rightW, ctx.layout.bodyH)
+            const scroll = Math.max(0, Math.min(max, rs.open.scroll + (up ? -3 : 3)))
+            ctx.setReports({ ...rs, open: { ...rs.open, scroll } })
+          } else if (rs) {
+            const sel = Math.max(0, Math.min(ctx.routineReports.length - 1, rs.sel + (up ? -1 : 1)))
+            ctx.setReports({ ...rs, sel })
+          } else if (embed && ctx.showingEmbed) embed.wheel(up, ev.x - (leftW + midW) - 1, ev.y - 1)
           continue
         }
         // The rows move under the pointer; the next movement lights the new one.
@@ -139,8 +168,13 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
             act.go(h.panel)
           }
         } else if (panel !== 'right') act.go(panel)
-        // The details of a conversation that isn't open: a click opens it, as ⏎ would.
-        else if (!ctx.showingEmbed && ctx.selectedItem) act.open(ctx.selectedItem)
+        // In a routine's details a click on a report reads it. The details of anything else
+        // that isn't open: a click opens it, as ⏎ would.
+        else if (!ctx.showingEmbed && ctx.selectedItem) {
+          const rep = reportAt(ev.y)
+          if (rep) void act.readReport(rep.routine, rep.index)
+          else if (!ctx.reports) act.open(ctx.selectedItem)
+        }
       }
     }
   }
@@ -280,6 +314,49 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (input === 'x') return ctx.message === QUIT_PROMPT ? ctx.exit() : setMessage(QUIT_PROMPT)
   }
 
+  // ---- a routine's reports, in the right panel ----
+  // The list: j k and the arrows move, ⏎ or → reads one. Reading: they scroll, J K go to the
+  // next older and newer report. esc or ← goes back a level each time; c opens the conversation
+  // that wrote the report, while Claude still has it.
+  const onReports: Handler = (input, key) => {
+    const rs = ctx.reports!
+    const list = ctx.routineReports
+    const last = list.length - 1
+    if (input === 'c') return act.reportConversation(list[rs.sel])
+    if (input === '?') return ctx.setHelp({ scroll: 0 })
+    const open = rs.open
+    if (!open) {
+      if (key.escape || key.leftArrow) return ctx.setReports(null)
+      if (input === 'j' || key.downArrow)
+        return ctx.setReports({ ...rs, sel: Math.min(last, rs.sel + 1) })
+      if (input === 'k' || key.upArrow)
+        return ctx.setReports({ ...rs, sel: Math.max(0, rs.sel - 1) })
+      if (key.return || key.rightArrow) return void act.readReport(rs.routine, rs.sel)
+      return
+    }
+    const { rightW, bodyH } = ctx.layout
+    const max = reportMaxScroll(open.text, rightW, bodyH)
+    const page = Math.max(1, reportRoom(bodyH) - 2)
+    const scroll = (by: number) =>
+      ctx.setReports({
+        ...rs,
+        open: { ...open, scroll: Math.max(0, Math.min(max, open.scroll + by)) },
+      })
+    if (key.escape || key.leftArrow) return ctx.setReports({ ...rs, open: null })
+    if (input === 'J' || (key.shift && key.downArrow))
+      return void act.readReport(rs.routine, Math.min(last, rs.sel + 1))
+    if (input === 'K' || (key.shift && key.upArrow))
+      return void act.readReport(rs.routine, Math.max(0, rs.sel - 1))
+    if (input === 'j' || key.downArrow) return scroll(1)
+    if (input === 'k' || key.upArrow) return scroll(-1)
+    if (input === ' ' || key.pageDown) return scroll(page)
+    if (key.pageUp) return scroll(-page)
+    if (input === 'y') {
+      copyToClipboard(open.text)
+      return setMessage('Report copied.')
+    }
+  }
+
   // ---- the board: panels, lists and accounts ----
   // A draft's and a routine's keys work on its row, without opening it: ⏎ is the only way into
   // the editor. They come before the board's letters, so p and s mean the row's here.
@@ -312,6 +389,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
           const said = `${enabled ? 'Resumed' : 'Paused'} ${r.name}.`
           return act.saveEdit({ ...e, routine: { ...r, enabled } }, said)
         },
+        o: () => act.showReports(r.name),
         d: () => setForm({ kind: 'routine-remove', name: r.name }),
       }
     }
@@ -490,6 +568,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (ctx.settings) return onSettings(input, key)
     if (ctx.editing) return onEditing(input, key)
     if (ctx.find) return onFind(input, key)
+    if (ctx.reports) return onReports(input, key)
     onBoard(input, key)
   }
 }

@@ -16,6 +16,7 @@ import { recordConversation } from '../conversations.ts'
 import { loadDone, saveDone } from '../done.ts'
 import { deleteDraft, newDraftId, saveDraft, type Draft } from '../drafts.ts'
 import { when } from '../format.ts'
+import { readIfThere } from '../fsutil.ts'
 import { extraDirs } from '../home.ts'
 import { draftSessionId, inScope, routineSessionId, type Item } from '../model.ts'
 import { expandHome, isWithin, tildify } from '../paths.ts'
@@ -28,6 +29,7 @@ import {
   runRoutine,
   saveRoutine,
   syncLaunchd,
+  type Report,
   type Routine,
 } from '../routines/index.ts'
 import { pickAccount } from '../routing.ts'
@@ -296,6 +298,32 @@ export function makeActions(ctx: AppCtx) {
     openEmbedded(account, item.id, item.name, ctx.listFocus, item.cwd, item.key)
   }
 
+  // o on a routine: its reports take the keyboard in the right panel, the newest selected.
+  const showReports = (name: string) => {
+    if (!ctx.routineReports.length) return setMessage(`No reports from ${name} yet.`)
+    ctx.setEmbedShown(false)
+    ctx.setReports({ routine: name, sel: 0, open: null })
+  }
+
+  // Opens one of the routine's reports for reading, in place of the list.
+  const readReport = async (routine: string, i: number) => {
+    const rep = ctx.routineReports[i]
+    if (!rep) return
+    const text = await readIfThere(rep.path).catch(() => null)
+    if (text === null) return setMessage('That report is gone.')
+    ctx.setEmbedShown(false)
+    ctx.setReports({ routine, sel: i, open: { path: rep.path, text, scroll: 0 } })
+  }
+
+  // The conversation that wrote a report, while Claude still has it.
+  const reportConversation = (rep: Report | undefined) => {
+    const item = rep?.id ? snap?.items.find((i) => i.id === rep.id) : undefined
+    if (!item)
+      return setMessage(rep?.id ? 'Its conversation is gone.' : 'No conversation Hopper knows of.')
+    ctx.setReports(null)
+    open(item)
+  }
+
   // Routines: saved on esc, and launchd kept in step every time one changes.
   const saveAndSync = async (r: Routine) => {
     await saveRoutine(config.home, r)
@@ -484,6 +512,9 @@ export function makeActions(ctx: AppCtx) {
     markDone,
     enter,
     open,
+    showReports,
+    readReport,
+    reportConversation,
     keepRoutine,
     editingOf,
     saveEdit,

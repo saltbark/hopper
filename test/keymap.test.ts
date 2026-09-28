@@ -32,6 +32,18 @@ describe('hereKeys', () => {
     ])
     expect(hereKeys({ ...base, focus: 'projects', row }).hints).toContainEqual(['z', 'unfold'])
   })
+  it("offers a report's conversation only while Claude still has it", () => {
+    const list = hereKeys({ ...base, reports: { reading: false, conversation: false } })
+    expect(list.label).toBe('routine reports')
+    expect(list.hints.map(([k]) => k)).toEqual(['j k ↑↓', '⏎ →', 'esc ←'])
+    const reading = hereKeys({ ...base, reports: { reading: true, conversation: true } })
+    expect(reading.label).toBe('a report')
+    expect(reading.hints).toContainEqual(['c', 'its conversation'])
+    // The reports keep the keyboard, so the bar shows their keys and nothing else.
+    expect(barKeys({ ...base, reports: { reading: true, conversation: true } })).toEqual(
+      reading.hints,
+    )
+  })
   it('knows a conversation, a draft on the list, and writing one', () => {
     expect(hereKeys({ ...base, focus: 'session' }).label).toBe('a conversation')
     const draft = { kind: 'draft', model: 'opus' } as Item

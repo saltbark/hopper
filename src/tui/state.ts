@@ -97,6 +97,14 @@ export type Find = { query: string; sel: number }
 // Text selected in the conversation with the mouse, in its own cells.
 export type Sel = { a: { col: number; row: number }; b: { col: number; row: number } }
 
+// A routine's reports with the keyboard in the right panel: which is selected, and the one open
+// for reading, scrolled this far. The routine stays selected on the list underneath.
+export type Reports = {
+  routine: string
+  sel: number
+  open: { path: string; text: string; scroll: number } | null
+}
+
 // A blank editor for a new draft.
 export const newEditing = (
   fields: Pick<Editing, 'id' | 'project' | 'text' | 'created'> & Partial<Editing>,

@@ -3,11 +3,11 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { Chime } from '../chime.ts'
 import type { Account, Config } from '../config.ts'
 import type { AccountState, Item, Snapshot } from '../model.ts'
-import type { Routine } from '../routines/index.ts'
+import type { Report, Routine } from '../routines/index.ts'
 import type { Row } from '../settings.ts'
 import type { TreeRow } from '../tree.ts'
 import type { EmbeddedSession } from './embed.ts'
-import type { Editing, Find, Focus, Form, Hover, Panel, Sel } from './state.ts'
+import type { Editing, Find, Focus, Form, Hover, Panel, Reports, Sel } from './state.ts'
 
 type Set<T> = Dispatch<SetStateAction<T>>
 
@@ -70,6 +70,10 @@ export type AppCtx = {
   setEditing: Set<Editing | null>
   untrusted: { dir: string; draft: Editing } | null
   setUntrusted: Set<{ dir: string; draft: Editing } | null>
+  // A routine's reports, when they have the keyboard, and the selected routine's reports.
+  reports: Reports | null
+  setReports: Set<Reports | null>
+  routineReports: Report[]
   // A row to select on the list once it shows up there: a draft or routine just saved.
   setFollow: Set<string | null>
 
@@ -90,6 +94,8 @@ export type AppCtx = {
     leftW: number
     midW: number
     rightW: number
+    // Everything above the key bar.
+    bodyH: number
     // The band of accounts and projects across the top of the left two columns, then the list.
     bandH: number
     doneH: number

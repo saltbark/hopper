@@ -48,7 +48,9 @@ The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it befor
   keeps `~/Library/LaunchAgents/com.saltbark.hopper.*` in step (tests set `HOPPER_LAUNCHD_DIR`
   and `HOPPER_NO_LAUNCHCTL`). A run gets `--add-dir` on its routine folder so it can write its
   result without asking. The model and routine of a conversation Hopper started are in
-  `<home>/state/conversations.json`; Claude Code doesn't report them.
+  `<home>/state/conversations.json`; Claude Code doesn't report them. A routine's reports (`o`)
+  are the files in its `runs/` folder (`listReports`), not the run log, so a report written some
+  other way shows too; the log only adds which conversation wrote it.
 - **Registry projects are read, never copied.** A `[[source]]` in `projects.toml` imports a meta
   repo's `paths.local` on every load (`loadSource` in `src/home.ts`); those projects carry
   `meta`, their open file sits in the meta repo, and `hopperPrompt` defers to that repo's planning
