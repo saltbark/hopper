@@ -195,8 +195,9 @@ export function makeActions(ctx: AppCtx) {
     ctx.setFocus('session')
   }
 
-  // Starting hands the draft to Claude Code as a background session in the project's folder,
-  // then opens it, so it's the normal Claude conversation from here on.
+  // Starting hands the draft to Claude Code as a background session in the project's folder. It
+  // isn't opened: starting takes a moment, and by then you're often elsewhere, maybe starting the
+  // next one. It shows in the list as running; ⏎ on it opens it.
   const start = async (e: Editing) => {
     const text = e.text.trim()
     if (!text) return setMessage('Draft is empty.')
@@ -229,7 +230,7 @@ export function makeActions(ctx: AppCtx) {
       })
       await deleteDraft(config.home, e.id)
       await refresh(false)
-      openEmbedded(account, id, name, 'work', project.runIn)
+      setMessage(`Started on ${account.name}: ${name}`)
     } catch (err) {
       if (err instanceof UntrustedError) {
         const dir = trustDir(config, err.dir)
@@ -321,7 +322,8 @@ export function makeActions(ctx: AppCtx) {
     }
   }
 
-  // Run now: the testing loop. Saves the prompt, runs it, and opens the run.
+  // Run now: the testing loop. Saves the prompt and runs it; like a started draft, the run shows
+  // in the list rather than opening.
   const runNow = async (e: Editing) => {
     if (!e.routine) return
     const r = toRoutine(e, e.routine.name, e.routine.schedule, e.routine.enabled)
@@ -338,9 +340,7 @@ export function makeActions(ctx: AppCtx) {
       })
       if (out.status === 'skipped') return setMessage(`Skipped ${r.name}: ${out.reason}.`)
       await refresh(false)
-      const account = config.accounts.find((a) => a.name === out.account)
-      const project = snap?.projects.find((p) => p.key === r.project)
-      if (account && project) openEmbedded(account, out.id, `↻ ${r.name}`, 'work', project.runIn)
+      setMessage(`Running ${r.name} on ${out.account}.`)
     } catch (err) {
       if (err instanceof UntrustedError) {
         setMessage(

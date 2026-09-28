@@ -401,12 +401,17 @@ describe('conversations', () => {
     const cfg: Config = { ...setPrefixes(config, 'kf', ['kf/', 'meta/']), home }
     const snap: Snapshot = { ...snapshot, projects, items: [] }
     // The signed-in accounts above, with the drafts as they are on disk: esc leaves a draft on
-    // the list, and the list's keys act on it there.
+    // the list, and the list's keys act on it there. A conversation the fake has started shows
+    // as running, as it would in claude agents.
     const live = async (): Promise<Snapshot> => {
       const { listDrafts } = await import('../src/drafts.ts')
       const drafts = await listDrafts(home)
+      const started = (await readFile(log, 'utf8').catch(() => '')).includes('--bg')
       const items = toItems(
-        drafts.map((d) => draftSession(d, projects, 'kf')),
+        [
+          ...drafts.map((d) => draftSession(d, projects, 'kf')),
+          ...(started ? [session({ name: 'started', cwd: projects[0]!.runIn })] : []),
+        ],
         projects,
       )
       for (const it of items) {
@@ -440,6 +445,11 @@ describe('conversations', () => {
     expect(lastFrame()).toContain('s  start it')
     expect(lastFrame()).toContain('nightly, somewhere')
     await press(stdin, 's')
+    // Starting doesn't open it or take the keyboard: it shows as running, and ⏎ opens it.
+    await until(() => (lastFrame() ?? '').includes('Started on'))
+    expect(await readFile(log, 'utf8')).not.toContain('|attach')
+    expect(lastFrame()).not.toContain('fake claude screen')
+    await press(stdin, '\r')
     await until(() => (lastFrame() ?? '').includes('fake claude screen'))
     const inbox = projects.find((p) => p.key === 'meta/inbox')!
     const logged = await readFile(log, 'utf8')
@@ -572,15 +582,15 @@ describe('conversations', () => {
     await until(() => (lastFrame() ?? '').includes('effort (low)'))
     expect(lastFrame()).toContain('haiku · low')
     await press(stdin, 's')
-    await until(async () => (await readFile(log, 'utf8').catch(() => '')).includes('attach'))
+    await until(() => (lastFrame() ?? '').includes('Started on'))
     const logged = await readFile(log, 'utf8')
     expect(logged).toContain('--model haiku --effort low')
+    expect(logged).not.toContain('|attach')
     const { loadConversations } = await import('../src/conversations.ts')
     expect((await loadConversations(home))['abc12345']).toMatchObject({
       model: 'haiku',
       effort: 'low',
     })
-    await press(stdin, '\u001d')
     done()
     unmount()
   })
@@ -662,13 +672,14 @@ describe('conversations', () => {
     expect(lastFrame()).toContain('ROUTINES')
     expect(lastFrame()).toContain('s  run now')
     await press(stdin, 's')
-    await until(() => (lastFrame() ?? '').includes('fake claude screen'))
+    // Like a started draft, the run shows in the list rather than opening.
+    await until(() => (lastFrame() ?? '').includes('Running triage'))
     const logged = await readFile(log, 'utf8')
+    expect(logged).not.toContain('|attach')
     expect(logged).toContain('--bg --name ↻ triage')
     expect(logged).toContain('--model haiku')
     const { listRuns } = await import('../src/routines/index.ts')
     expect((await listRuns(home, 'triage'))[0]).toMatchObject({ status: 'started', id: 'abc12345' })
-    await press(stdin, '\u001d')
     done()
     unmount()
   })
