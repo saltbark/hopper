@@ -29,6 +29,29 @@ export const T = {
 // Accounts are told apart by colour; soft enough to sit next to the state colours.
 export const ACCOUNT_COLORS = ['#7eaaea', '#c69ce8', '#6fcac3', '#e5c06a'] as const
 
+// The 16 basic terminal colours, for the conversation drawn in the right panel. Claude sends
+// some of its colours as these rather than as hex, and xterm's stock values (#00cd00 and the
+// like) shout next to everything else; these are Hopper's state colours, a step brighter for the
+// bright half. Order: black, red, green, yellow, blue, magenta, cyan, white, then bright of each.
+export const ANSI = [
+  T.onFill,
+  T.blocked,
+  T.running,
+  T.waiting,
+  '#7eaaea',
+  T.draft,
+  T.focus,
+  T.text,
+  T.dim,
+  '#f29a90',
+  '#a3dcae',
+  '#eed28f',
+  '#a3c3f0',
+  '#d8b9ef',
+  '#96d8d3',
+  T.hi,
+] as const
+
 // Meters: calm until a limit gets close.
 export const tone = (pct: number) => (pct >= 90 ? T.blocked : pct >= 75 ? T.waiting : T.running)
 

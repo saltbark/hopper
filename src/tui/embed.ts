@@ -4,6 +4,7 @@ import { spawn, type IPty } from 'node-pty'
 
 import { envFor } from '../claude.ts'
 import type { Account } from '../config.ts'
+import { ANSI, T } from './theme.ts'
 
 // A Claude Code conversation shown inside Hopper. `claude attach` runs in a pseudo-terminal, its
 // output feeds a headless terminal emulator, and the emulator's screen is drawn into a panel.
@@ -25,27 +26,9 @@ export type Seg = {
 // on the conversation and hands the keyboard back, leaving the conversation live, as esc used to.
 const AGENTS_SCREEN = /enter to return · space to reply/
 
-// The 16 basic colours as xterm draws them, then the 6×6×6 cube and the grey ramp.
-const BASIC = [
-  '#000000',
-  '#cd0000',
-  '#00cd00',
-  '#cdcd00',
-  '#0000ee',
-  '#cd00cd',
-  '#00cdcd',
-  '#e5e5e5',
-  '#7f7f7f',
-  '#ff0000',
-  '#00ff00',
-  '#ffff00',
-  '#5c5cff',
-  '#ff00ff',
-  '#00ffff',
-  '#ffffff',
-]
+// The 16 basic colours are Hopper's own (`ANSI`), then the 6×6×6 cube and the grey ramp.
 export function paletteHex(n: number): string {
-  if (n < 16) return BASIC[n] ?? '#ffffff'
+  if (n < 16) return ANSI[n] ?? T.hi
   if (n >= 232) {
     const v = 8 + (n - 232) * 10
     return '#' + v.toString(16).padStart(2, '0').repeat(3)

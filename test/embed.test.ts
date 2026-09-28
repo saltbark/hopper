@@ -4,6 +4,7 @@ import xterm from '@xterm/headless'
 import { describe, expect, it } from 'vitest'
 
 import { atEmptyPrompt, EmbeddedSession, keyToBytes, paletteHex } from '../src/tui/embed.ts'
+import { T } from '../src/tui/theme.ts'
 import { fakeClaude } from './helpers.ts'
 
 const key = (over: Record<string, boolean> = {}) =>
@@ -48,7 +49,7 @@ describe('keyToBytes', () => {
 
 describe('paletteHex', () => {
   it('covers the basic colours, the cube and the greys', () => {
-    expect(paletteHex(1)).toBe('#cd0000')
+    expect(paletteHex(2)).toBe(T.running)
     expect(paletteHex(16)).toBe('#000000')
     expect(paletteHex(231)).toBe('#ffffff')
     expect(paletteHex(232)).toBe('#080808')
@@ -107,7 +108,7 @@ describe('EmbeddedSession', () => {
       await new Promise((r) => setTimeout(r, 50))
     await new Promise((r) => setTimeout(r, 200))
     const first = s.screen()[0]!
-    expect(first[0]).toMatchObject({ text: 'green', fg: '#cd0000'.replace('cd0000', '00cd00') })
+    expect(first[0]).toMatchObject({ text: 'green', fg: T.running })
     expect(first.map((x) => x.text).join('')).toMatch(/^green plain/)
     s.send('hi\r')
     await new Promise((r) => setTimeout(r, 500))
