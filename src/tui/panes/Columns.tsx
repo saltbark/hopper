@@ -64,7 +64,7 @@ export function Band(props: {
             ))}
           </>
         ) : (
-          <Text color={T.dim}> No Claude accounts yet. c, then a, adds one.</Text>
+          <Text color={T.dim}> No accounts. c then a adds one.</Text>
         )}
       </Frame>
       <Frame
@@ -150,7 +150,7 @@ export function ListColumn(props: {
           focused={focus === 'done'}
           width={width}
           height={doneH}
-          empty="Nothing marked done yet."
+          empty="Nothing done."
           color={color}
           done
         />

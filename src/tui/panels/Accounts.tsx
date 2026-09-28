@@ -59,7 +59,7 @@ export const AccountRow = memo(function AccountRow(props: {
       {on ? <Text color={T.dim}> · ⏎ signs in</Text> : null}
     </Text>
   ) : !u ? (
-    <Text color={T.dim}>no usage yet · u asks Claude</Text>
+    <Text color={T.dim}>no usage · u fetches it</Text>
   ) : (
     <>
       {limit(u.fiveHour)}

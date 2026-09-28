@@ -41,7 +41,7 @@ function Section({ label, hints, hi }: { label: string; hints: Hint[]; hi?: bool
 }
 
 const NOTES = [
-  'Letters act on the panel you are in; esc goes back. Hopper opens on Projects.',
+  'Letters act on the focused panel; esc goes back.',
   'Mouse: the wheel scrolls what is under it; a click focuses a panel. In a conversation, drag to',
   'select and let go to copy; elsewhere hold your terminal’s selection modifier.',
   'In a conversation esc is Claude’s (its menus, its rewind); ← at its empty prompt, or ctrl+], steps back.',

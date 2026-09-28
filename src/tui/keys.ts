@@ -152,6 +152,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (key.return) return put(insert(ed, '\n'))
     // On a Mac, Backspace arrives as delete; Option+Backspace removes a word.
     if (key.backspace || key.delete) return put(backspace(ed, key.meta))
+    // Terminal.app without "Use Option as Meta key" sends Option+Backspace as a plain delete.
+    if (key.ctrl && input === 'w') return put(backspace(ed, true))
     if (key.leftArrow) return to(key.meta ? 'wordLeft' : key.ctrl ? 'home' : 'left')
     if (key.rightArrow) return to(key.meta ? 'wordRight' : key.ctrl ? 'end' : 'right')
     if (key.upArrow) return to(key.meta ? 'top' : 'up')
@@ -186,7 +188,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     }
     if (input === 's') return void act.start(e)
     if (input === 'r') {
-      if (!e.text.trim()) return setMessage('Write the prompt first.')
+      if (!e.text.trim()) return setMessage('Prompt is empty.')
       const suggested = (e.text.toLowerCase().match(/[a-z0-9]+/g) ?? [])
         .slice(0, 3)
         .join('-')
@@ -195,12 +197,12 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     }
     if (input === 'y') {
       copyToClipboard(e.text)
-      return setMessage('Copied the draft.')
+      return setMessage('Draft copied.')
     }
     if (input === 'x') {
       setEditing(null)
       void deleteDraft(ctx.config.home, e.id).then(() => ctx.refresh(false))
-      return setMessage('Draft thrown away.')
+      return setMessage('Draft deleted.')
     }
     if (key.escape || input === 'k') return void act.keepDraft(e)
     setEditing({ ...e, stage: 'write' })
@@ -269,8 +271,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     const list = panel === 'work' ? ctx.work : ctx.done
     const it = list[ctx.at(panel)]
     if (input === 'i') {
-      if (!ctx.embed || ctx.embed.id !== it?.id)
-        return setMessage('Open the conversation first (⏎).')
+      if (!ctx.embed || ctx.embed.id !== it?.id) return setMessage('Open it first (⏎).')
       ctx.embed.send('\x1b')
       return setMessage('Sent esc to Claude.')
     }
@@ -280,7 +281,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     const g = GROUPS.find((x) => x.key === input)
     if (!g) return
     const first = ctx.work.findIndex((w) => groupOf(w) === g.id)
-    if (first < 0) return setMessage(`Nothing in ${g.label} yet.`)
+    if (first < 0) return setMessage(`Nothing in ${g.label}.`)
     setSel((s) => ({ ...s, work: first }))
   }
 
@@ -312,7 +313,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       )
     }
     if (input === 'u') {
-      setMessage(`Asking Claude for ${a.name}’s usage…`)
+      setMessage(`Fetching ${a.name} usage…`)
       return void ctx.askUsage(a)
     }
     if (input === 'd') return setForm({ kind: 'remove', name: a.name })

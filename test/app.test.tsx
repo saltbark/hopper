@@ -283,7 +283,7 @@ describe('App', () => {
     await tick()
     await press(stdin, 'v')
     expect(focusOf(lastFrame())).toBe('done')
-    expect(lastFrame()).toContain('Nothing marked done yet.')
+    expect(lastFrame()).toContain('Nothing done.')
     unmount()
   })
 
@@ -453,7 +453,7 @@ describe('conversations', () => {
     await press(stdin, 'maybe a weekly digest')
     await press(stdin, '\u001b')
     await press(stdin, '\u001b')
-    expect(lastFrame()).toContain('Kept as a draft')
+    expect(lastFrame()).toContain('Draft kept')
     await until(() => (lastFrame() ?? '').includes('DRAFTS 1'))
     expect(lastFrame()).toContain('DRAFTS 1')
     const { listDrafts } = await import('../src/drafts.ts')
@@ -486,6 +486,10 @@ describe('conversations', () => {
     await press(stdin, '\u001bb') // option+← (as Mac terminals send it): back a word
     await press(stdin, 'out ')
     expect(lastFrame()).toContain('hello big out there')
+    await press(stdin, '\u001b\u007f') // option+backspace (option as meta): a word
+    expect(lastFrame()).toContain('hello big there')
+    await press(stdin, '\u0017') // ctrl+w: a word, whatever the terminal's option setting
+    expect(lastFrame()).toContain('hello there')
     done()
     unmount()
   })

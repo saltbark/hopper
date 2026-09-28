@@ -111,8 +111,8 @@ export function makeActions(ctx: AppCtx) {
 
   const keepDraft = async (e: Editing) => {
     setEditing(null)
-    if (!e.text.trim()) return setMessage('Nothing written, so nothing kept.')
-    setMessage('Kept as a draft. It waits in Needs you; ⏎ on it keeps writing.')
+    if (!e.text.trim()) return setMessage('Empty, so not kept.')
+    setMessage('Draft kept.')
     await saveDraft(config.home, toDraft(e, now()))
     void refresh(false)
   }
@@ -131,9 +131,7 @@ export function makeActions(ctx: AppCtx) {
       onLeave: () => {
         ctx.setEmbed((cur) => (cur === session ? null : cur))
         ctx.setFocus(from)
-        setMessage(
-          'Back in Hopper. The conversation carries on, and waits in Needs you when Claude does.',
-        )
+        setMessage(null)
         void refresh(false)
       },
       onStepBack: () => {
@@ -152,7 +150,7 @@ export function makeActions(ctx: AppCtx) {
   // then opens it, so it's the normal Claude conversation from here on.
   const start = async (e: Editing) => {
     const text = e.text.trim()
-    if (!text) return setMessage('Write something first.')
+    if (!text) return setMessage('Draft is empty.')
     const project = snap?.projects.find((p) => p.key === e.project)
     if (!project) return setMessage(`No project ${e.project}.`)
     const pick = pickAccount(config, project.key, snap?.accounts ?? [])
@@ -187,10 +185,8 @@ export function makeActions(ctx: AppCtx) {
       if (err instanceof UntrustedError) {
         const dir = trustDir(config, err.dir)
         ctx.setUntrusted({ dir, draft: e })
-        setMessage(
-          `T opens Claude once in this folder so you can trust it; then it starts. ${tildify(dir)}`,
-        )
-      } else setMessage(`${(err as Error).message}. Your draft is kept.`)
+        setMessage(`${tildify(dir)} isn't trusted. T trusts it and starts.`)
+      } else setMessage(`${(err as Error).message}. Draft kept.`)
       void refresh(false)
     }
   }
@@ -250,8 +246,7 @@ export function makeActions(ctx: AppCtx) {
       return d ? reopenDraft(d) : undefined
     }
     const account = config.accounts.find((a) => a.name === item.account)
-    if (!item.id || !account)
-      return setMessage('That is an interactive terminal. Switch to it directly.')
+    if (!item.id || !account) return setMessage('Interactive session: switch to its terminal.')
     // Already open in the panel: just go back in.
     if (ctx.embed && ctx.embed.id === item.id) {
       ctx.setReturnTo(ctx.listFocus)
@@ -303,7 +298,7 @@ export function makeActions(ctx: AppCtx) {
     } catch (err) {
       if (err instanceof UntrustedError) {
         setMessage(
-          `Claude hasn't been told to trust ${tildify(trustDir(config, err.dir))}. Start any conversation there once (tab) to trust it.`,
+          `${tildify(trustDir(config, err.dir))} isn't trusted. Start a conversation there (tab) to trust it.`,
         )
       } else setMessage((err as Error).message)
     }
@@ -327,9 +322,7 @@ export function makeActions(ctx: AppCtx) {
     await ctx.suspendTerminal(async () => {
       process.stdout.write(MOUSE_OFF)
       if (account.configDir) await mkdir(account.configDir, { recursive: true })
-      process.stdout.write(
-        `\nSigning in ${account.name} (${account.label}). Hopper comes back when this finishes.\n\n`,
-      )
+      process.stdout.write(`\nSigning in ${account.name} (${account.label})…\n\n`)
       await runInteractive(account, ['auth', 'login'])
       process.stdout.write(MOUSE_ON)
     })
@@ -364,16 +357,14 @@ export function makeActions(ctx: AppCtx) {
       // A draft that became a routine is no longer a draft.
       if (!e.routine) await deleteDraft(config.home, e.id)
       await ctx.syncSchedule(config, await listRoutines(config.home))
-      setMessage(
-        `${f.name} · ${schedule || 'no schedule'} · ${whenNext(schedule)}. ⏎ on it edits; s runs it now.`,
-      )
+      setMessage(`${f.name} · ${schedule || 'no schedule'} · ${whenNext(schedule)}`)
       return void refresh(false)
     }
     if (f.kind === 'routine-remove') {
       setForm(null)
       await deleteRoutine(config.home, f.name)
       await ctx.syncSchedule(config, await listRoutines(config.home))
-      setMessage(`Removed the routine ${f.name}. Its past runs stay in Done.`)
+      setMessage(`Removed ${f.name}. Its runs stay in Done.`)
       return void refresh(false)
     }
   }

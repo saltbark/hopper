@@ -70,7 +70,7 @@ export function AccountDetail({ account, width }: { account: AccountView; width:
           </Text>
         ))
       ) : (
-        <Text color={T.dim}>u asks Claude for the latest numbers</Text>
+        <Text color={T.dim}>u refreshes usage</Text>
       )}
       {u ? <Text color={T.dim}>{`as of ${ago(u.fetchedAt, now)} ago`}</Text> : null}
       <Text> </Text>

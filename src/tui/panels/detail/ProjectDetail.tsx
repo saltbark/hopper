@@ -33,9 +33,7 @@ export function ProjectDetail({ project, width }: { project: ProjectView; width:
           <OpenItems items={project.items} max={12} width={width} />
         </>
       ) : (
-        <Text color={T.dim}>
-          {project.path ? 'No open items yet. In a conversation, ask Claude to file one.' : ''}
-        </Text>
+        <Text color={T.dim}>{project.path ? 'No open items.' : ''}</Text>
       )}
     </>
   )

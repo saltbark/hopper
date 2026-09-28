@@ -65,7 +65,7 @@ export function DraftPane({
     >
       {editing.text ? null : (
         <Text dimColor wrap="truncate-end">
-          Take your time. ⏎ is a new line. When it's ready: esc, then s starts the conversation.
+          ⏎ new line · esc then s starts
         </Text>
       )}
       {shown.map(row)}

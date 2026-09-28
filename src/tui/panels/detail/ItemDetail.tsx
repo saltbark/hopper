@@ -24,7 +24,7 @@ export function DraftDetail({
       {title(item.name)}
       <Text>
         <Mark state="draft" />
-        <Text color={T.draft}> a draft, not started</Text>
+        <Text color={T.draft}> draft</Text>
         <Text color={T.dim}>{` · last edit ${ago(item.startedAt)} ago`}</Text>
       </Text>
       <Text> </Text>
@@ -36,7 +36,7 @@ export function DraftDetail({
       ))}
       <Text> </Text>
       <Keys keys={[['⏎', 'keep writing']]} />
-      <Text color={T.dim}>then esc, s starts the conversation</Text>
+      <Text color={T.dim}>esc then s starts</Text>
     </>
   )
 }
@@ -82,7 +82,7 @@ export function ConversationDetail(props: {
           }
         />
       ) : (
-        <Text color={T.dim}>An interactive terminal: switch to it directly.</Text>
+        <Text color={T.dim}>Interactive session: switch to its terminal.</Text>
       )}
       {openItems?.length ? (
         <>

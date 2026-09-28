@@ -118,6 +118,7 @@ export const CONVERSATION_KEYS: Hint[] = [
 export const WRITING_KEYS: Hint[] = [
   ['⏎', 'new line'],
   ['option+arrows', 'by word'],
+  ['option+⌫ ctrl+w', 'delete a word'],
   ['cmd+arrows', 'to the ends'],
   ['shift', 'selects'],
   ['esc', 'decide'],
