@@ -91,16 +91,22 @@ describe('EmbeddedSession', () => {
   }, 30_000)
 
   it('knows where the cursor is, and when the program hides it', async () => {
+    // Each step waits for a line from Hopper, so the test sets the pace, not the clock.
     process.env['HOPPER_CLAUDE'] = await fake(
-      'printf "one\\ntwo"; sleep 0.5; printf "\\033[?25l"; sleep 0.5; printf "\\033[?25h"; sleep 2',
+      'stty -echo; printf "one\\ntwo"; read -r a; printf "\\033[?25l"; read -r b; printf "\\033[?25h"; sleep 5',
     )
     const s = new EmbeddedSession(account, 'abc', 'test', 40, 6, { onLeave: () => {} })
     s.start()
-    for (let i = 0; i < 160 && !s.cursor()?.col; i++) await new Promise((r) => setTimeout(r, 20))
+    const wait = async (ok: () => boolean) => {
+      for (let i = 0; i < 300 && !ok(); i++) await new Promise((r) => setTimeout(r, 50))
+    }
+    await wait(() => s.cursor()?.col === 3)
     expect(s.cursor()).toEqual({ col: 3, row: 1 })
-    for (let i = 0; i < 160 && s.cursor(); i++) await new Promise((r) => setTimeout(r, 20))
+    s.send('\r')
+    await wait(() => !s.cursor())
     expect(s.cursor()).toBeNull()
-    for (let i = 0; i < 160 && !s.cursor(); i++) await new Promise((r) => setTimeout(r, 20))
+    s.send('\r')
+    await wait(() => !!s.cursor())
     expect(s.cursor()).toEqual({ col: 3, row: 1 })
     s.close()
     delete process.env['HOPPER_CLAUDE']
