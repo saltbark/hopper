@@ -98,9 +98,13 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
           return line && 'row' in line ? { panel, index: line.index } : null
         }
         if (panel !== 'accounts') return null
-        const { start, slice } = accountLines(ctx.accountStates, ctx.at('accounts'), bandH)
-        const line = ev.y - 3
-        return line >= 0 && line < slice.length ? { panel, index: start + line } : null
+        const { start, slice, perAccount } = accountLines(
+          ctx.accountStates,
+          ctx.at('accounts'),
+          bandH,
+        )
+        const line = Math.floor((ev.y - 3) / perAccount)
+        return ev.y >= 3 && line < slice.length ? { panel, index: start + line } : null
       }
       if (ev.kind === 'move') {
         // Claude asks for every movement too, for its own hover.
