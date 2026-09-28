@@ -16,6 +16,8 @@ export type Routine = {
   effort?: string
   enabled: boolean
   prompt: string
+  // A shell command run first, in the project's run folder. If it passes, no conversation starts.
+  check?: string
 }
 
 export const ROUTINE_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/
@@ -31,6 +33,7 @@ export const serializeRoutine = (r: Routine): string =>
       model: r.model,
       effort: r.effort,
       enabled: String(r.enabled),
+      check: r.check,
     },
     `${r.prompt.replace(/\s*$/, '')}\n`,
   )
@@ -48,6 +51,7 @@ export function parseRoutine(name: string, text: string): Routine | null {
   }
   if (f['model']) r.model = f['model']
   if (f['effort']) r.effort = f['effort']
+  if (f['check']) r.check = f['check']
   return r
 }
 

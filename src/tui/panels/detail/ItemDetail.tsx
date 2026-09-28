@@ -11,6 +11,16 @@ import { stateMark, T } from '../../theme.ts'
 import { Heading, Keys, Mark } from '../primitives.tsx'
 import { OpenItems, row, stateWords, title } from './parts.tsx'
 
+// What kind of draft it is, in a few words.
+const draftWords = (d: Draft | undefined) =>
+  d?.queue === 'night'
+    ? 'queued for tonight · runs unattended'
+    : d?.queue === 'now'
+      ? 'queued · starts when there is room, unattended'
+      : d?.proposed
+        ? 'proposed · u queues it'
+        : 'draft'
+
 // A draft as it sits on the list: its settings, its keys, then its text, read only. ⏎ is the
 // only way back into writing it.
 export function DraftDetail({
@@ -28,13 +38,20 @@ export function DraftDetail({
     <>
       {title(item.name)}
       <Text>
-        <Mark state="draft" />
-        <Text color={T.draft}> draft</Text>
+        <Mark state={item.state} kind="draft" />
+        <Text color={T.draft}>{' ' + draftWords(draft)}</Text>
         <Text color={T.dim}>{` · last edit ${ago(item.startedAt)} ago`}</Text>
       </Text>
       <Text> </Text>
       {row('project', item.key)}
       {row('model', modelLabel(draft?.model, draft?.effort))}
+      {draft?.queue
+        ? row('starts', item.waiting ?? 'on the next dispatch', item.waiting ? T.waiting : T.text)
+        : null}
+      {draft?.after?.length ? row('after', draft.after.join(', ')) : null}
+      {draft?.done ? row('done when', draft.done) : null}
+      {draft?.proposed ? row('from', draft.proposed) : null}
+      {draft ? row('id', draft.id) : null}
       <Text> </Text>
       <Keys keys={draftKeys(draft ?? {})} width={width} />
       <Text> </Text>

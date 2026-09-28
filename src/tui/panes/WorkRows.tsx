@@ -10,6 +10,7 @@ import { T } from '../theme.ts'
 const GROUP_COLOR: Record<Group, string> = {
   waiting: T.waiting,
   draft: T.draft,
+  proposed: T.draft,
   running: T.running,
   routines: T.focus,
   next: T.dim,

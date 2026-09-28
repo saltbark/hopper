@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { addAccount, setDefaultAccount, type Config } from '../src/config.ts'
+import { addAccount, OVERNIGHT_DEFAULTS, setDefaultAccount, type Config } from '../src/config.ts'
 import { loadConversations } from '../src/conversations.ts'
 import type { AccountState } from '../src/model.ts'
 import {
@@ -148,6 +148,7 @@ describe('launchd', () => {
       home,
       accounts: [],
       routes: [],
+      overnight: OVERNIGHT_DEFAULTS,
     } as Config
     expect(await syncLaunchd(config, [triage], { hopper: '/x/hopper.js' })).toEqual({
       loaded: ['inbox-triage'],
@@ -175,7 +176,14 @@ describe('runRoutine', () => {
       home,
     )
     process.env['HOPPER_CLAUDE'] = bin
-    let config: Config = { path: '', accountsPath: '', home, accounts: [], routes: [] }
+    let config: Config = {
+      path: '',
+      accountsPath: '',
+      home,
+      accounts: [],
+      routes: [],
+      overnight: OVERNIGHT_DEFAULTS,
+    }
     config = setDefaultAccount(
       addAccount(config, { name: 'kf', label: 'kf', configDir: null }),
       'kf',
@@ -218,7 +226,7 @@ describe('runRoutine', () => {
     const call = await readFile(log, 'utf8')
     expect(call).toContain('--bg --name ↻ inbox-triage')
     expect(call).toContain('--model haiku') // the routine's model beats the project's
-    expect(call).toMatch(/--add-dir \S*routines\/inbox-triage/)
+    expect(call).toMatch(/--add-dir \S*\/routines --/)
     expect(call).toContain('a scheduled run of the Hopper routine "inbox-triage"')
     const [run] = await listRuns(home, 'inbox-triage')
     expect(run).toMatchObject({ status: 'started', id: 'a1b2c3d4', account: 'kf', model: 'haiku' })
@@ -347,6 +355,7 @@ describe('runs in the list', () => {
       home,
       accounts: [],
       routes: [],
+      overnight: OVERNIGHT_DEFAULTS,
     }
     config = addAccount(config, { name: 'kf', label: 'kf', configDir: null })
     const snap = await gather(config, null, true)

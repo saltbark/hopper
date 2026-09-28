@@ -10,6 +10,14 @@ export type ConversationMeta = {
   project: string
   routine?: string
   startedAt: number
+  // The draft it started from, which is how other drafts name it in `after:`.
+  draft?: string
+  // Started with nobody watching (a routine, or dispatch): it writes a result file.
+  unattended?: boolean
+  result?: string
+  depth?: number
+  // The queue it started from, which its follow-ups inherit.
+  queue?: 'now' | 'night'
 }
 
 const file = (home: string) => join(home, 'state', 'conversations.json')

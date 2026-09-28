@@ -1,7 +1,8 @@
 import { existsSync, realpathSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 
-import { runInteractive, startBackground, UntrustedError } from '../claude.ts'
+import { runInteractive, UntrustedError } from '../claude.ts'
+import { dispatchOnce } from '../commands.ts'
 import {
   addAccount,
   ConfigError,
@@ -12,12 +13,10 @@ import {
   type Account,
   type Config,
 } from '../config.ts'
-import { recordConversation } from '../conversations.ts'
 import { loadDone, saveDone } from '../done.ts'
 import { deleteDraft, newDraftId, saveDraft, type Draft } from '../drafts.ts'
 import { when } from '../format.ts'
 import { readIfThere } from '../fsutil.ts'
-import { extraDirs } from '../home.ts'
 import { draftSessionId, inScope, routineSessionId, type Item } from '../model.ts'
 import { expandHome, isWithin, tildify } from '../paths.ts'
 import { hopperPrompt } from '../prompts.ts'
@@ -33,6 +32,7 @@ import {
   type Routine,
 } from '../routines/index.ts'
 import { pickAccount } from '../routing.ts'
+import { startDraft } from '../start.ts'
 import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
 import { admit, EmbeddedSession } from './embed.ts'
@@ -107,6 +107,13 @@ export function makeActions(ctx: AppCtx) {
       created: d.created,
       model: d.model,
       effort: d.effort,
+      extra: {
+        ...(d.queue ? { queue: d.queue } : {}),
+        ...(d.after ? { after: d.after } : {}),
+        ...(d.done ? { done: d.done } : {}),
+        ...(d.proposed ? { proposed: d.proposed } : {}),
+        ...(d.depth ? { depth: d.depth } : {}),
+      },
     })
 
   const routineEditing = (r: Routine) =>
@@ -117,7 +124,12 @@ export function makeActions(ctx: AppCtx) {
       created: now(),
       model: r.model,
       effort: r.effort,
-      routine: { name: r.name, schedule: r.schedule, enabled: r.enabled },
+      routine: {
+        name: r.name,
+        schedule: r.schedule,
+        enabled: r.enabled,
+        ...(r.check ? { check: r.check } : {}),
+      },
     })
 
   // A draft or routine on the list, as the editor would hold it, so the list's keys act on it the
@@ -219,29 +231,12 @@ export function makeActions(ctx: AppCtx) {
     const pick = pickAccount(config, project.key, snap?.accounts ?? [])
     if (!pick.account) return setMessage(`Can't start: ${pick.reason}.`)
     const account = pick.account
-    await saveDraft(config.home, toDraft(e, now()))
+    const draft = toDraft(e, now())
+    await saveDraft(config.home, draft)
     setEditing(null)
     setMessage(`Starting on ${account.name}${e.model ? ' with ' + e.model : ''}…`)
     try {
-      await mkdir(project.path, { recursive: true })
-      const name = `${project.key} · ${(text.split('\n')[0] ?? '').slice(0, 48)}`
-      const id = await startBackground(account, {
-        cwd: project.runIn,
-        name,
-        prompt: text,
-        systemPrompt: hopperPrompt(project),
-        model: e.model,
-        effort: e.effort,
-        addDirs: extraDirs(project),
-      })
-      // Claude Code doesn't report the model per session, so Hopper keeps it.
-      await recordConversation(config.home, id, {
-        project: project.key,
-        startedAt: now(),
-        ...(e.model ? { model: e.model } : {}),
-        ...(e.effort ? { effort: e.effort } : {}),
-      })
-      await deleteDraft(config.home, e.id)
+      const { name } = await startDraft({ config, project, account, draft, unattended: false })
       await refresh(false)
       setMessage(`Started on ${account.name}: ${name}`)
     } catch (err) {
@@ -375,6 +370,10 @@ export function makeActions(ctx: AppCtx) {
         systemPrompt: hopperPrompt,
       })
       if (out.status === 'skipped') return setMessage(`Skipped ${r.name}: ${out.reason}.`)
+      if (out.status === 'passed') {
+        await refresh(false)
+        return setMessage(`${r.name}: the check passed, so nothing to run.`)
+      }
       await refresh(false)
       setMessage(`Running ${r.name} on ${out.account}.`)
     } catch (err) {
@@ -502,9 +501,55 @@ export function makeActions(ctx: AppCtx) {
         ? submitRoutineForm(f)
         : submitAccountForm(f)
 
+  // Up next. Queued work starts on its own, unattended; `g` (and launchd every ten minutes) runs
+  // a dispatch. Queueing for now dispatches straight away.
+  const dispatchNow = async (quiet = false) => {
+    if (!quiet) setMessage('Dispatching…')
+    try {
+      const report = await dispatchOnce(config)
+      await refresh(false)
+      const n = report.started.length
+      const first = report.waiting[0]
+      if (n) setMessage(`Started ${n}: ${report.started.map((x) => x.name).join(', ')}`)
+      else if (!quiet)
+        setMessage(
+          first ? `Nothing started. ${first.name}: ${first.reason}.` : 'Nothing is queued.',
+        )
+    } catch (err) {
+      setMessage(`Dispatch failed: ${(err as Error).message}`)
+    }
+  }
+
+  const QUEUE_WORDS = {
+    now: 'Queued: starts when it is ready and an account has room.',
+    night: `Queued for tonight (${config.overnight.window}).`,
+  }
+
+  const setQueue = async (e: Editing, queue: Draft['queue']) => {
+    const { queue: _q, proposed: _p, ...rest } = e.extra ?? {}
+    const extra = { ...rest, ...(queue ? { queue } : {}) }
+    await saveEdit({ ...e, extra }, queue ? QUEUE_WORDS[queue] : 'Unqueued: a draft again.')
+    if (queue === 'now') void dispatchNow(true)
+  }
+
+  // Load the night: every proposed draft queued for tonight at once.
+  const queueProposed = async () => {
+    const proposed = (snap?.drafts ?? []).filter((d) => d.proposed && !d.queue)
+    if (!proposed.length) return setMessage('Nothing proposed.')
+    for (const d of proposed) {
+      const { proposed: _p, ...rest } = d
+      await saveDraft(config.home, { ...rest, queue: 'night', updated: now() })
+    }
+    await refresh(false)
+    setMessage(`Queued ${proposed.length} for tonight (${config.overnight.window}).`)
+  }
+
   return {
     go,
     focusProject,
+    dispatchNow,
+    setQueue,
+    queueProposed,
     newConversation,
     keepDraft,
     start,

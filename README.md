@@ -56,8 +56,9 @@ project's own folder instead. Projects in the home folder (`meta/`) run from the
     # run_in = "project"   # run in each project's folder, not the meta repo
 
 Drafts: `tab` opens one; `esc` saves it and leaves it selected in the list, its text on the
-right. From its row: `s` starts it, `m` `e` choose the model and effort, `p` moves it to another
-project, `y` copies it, `d` throws it away; ⏎ is the only way back to writing it.
+right. From its row: `s` starts it, `u` queues it (below), `m` `e` choose the model and effort,
+`p` moves it to another project, `y` copies it, `d` throws it away; ⏎ is the only way back to
+writing it.
 
 Routines: a prompt that runs on a schedule, each run its own conversation. Write it as a draft,
 then `esc`, `r`: name it and say when it runs (`daily 7:00`, `weekdays 7:00, 13:00`,
@@ -71,6 +72,39 @@ routines run with Hopper closed. A run is skipped when every account for its pro
     hopper routines          list them and when they next run
     hopper routines sync     make the launchd schedule match the routine files
     hopper run <name>        one run, now
+    hopper routine check <name>        is the file valid, and is launchd running it
+    hopper routine templates           the routines Hopper ships
+    hopper routine install <template>  add one, paused (P in the app resumes it)
+
+A routine with `check: <command>` in its front matter runs the command first, in the project's
+run folder. If it passes, no conversation starts (no model, nothing spent); if it fails, the
+conversation starts with the output. The templates: `daily-brief` (Sonnet, mornings),
+`hopper-review` (Opus, weekly), `groomer` (Sonnet, evenings: proposes tonight's work),
+`decision-memos` (Opus: a memo with a recommendation per Decide item), `checks` (no model unless
+`just planning-check` fails), `drift-check` (Haiku) and `branch-review` (Sonnet, low effort).
+`mail-brief` (Sonnet, 6:30) and `mail-lookback` (Opus, Saturdays) read Gmail through the
+connector, so they run on the account that has it (`kf/meta`, which routes to kf): what needs a
+reply, what's been forgotten, opportunities, and people from long ago worth writing to. They
+share a small ledger in `routines/mail-brief/ledger.md` (names, dates, a few words; never
+message bodies) and never send, draft or change anything in Gmail.
+
+Overnight: `u` on a draft queues it (up next: when there's room; `u` again: tonight; again: off).
+Queued drafts run unattended: in auto permission mode, told never to wait for an answer, to work
+on a branch, never push to main or send anything, and to write a result file (`needs: you` or
+`needs: nothing`). A draft can wait for others (`after:`), and a run may queue its own follow-ups
+up to `chain_depth` links; past that they're proposed. Proposed drafts (written by the groomer or
+a review) have their own group: `u` queues one, `U` queues them all for tonight. `hopper dispatch`
+starts whatever is ready; `hopper dispatch install` has launchd run it every ten minutes, and `g`
+runs it from the app. It keeps to `max_running` per account, to the night's budget (points of the
+weekly limit one night may use) and to a reserve kept for the day; all of these are under
+Overnight in settings.
+
+    hopper draft new --project <key> [--queue now|night] [--after <id>] [--done "…"] "<message>"
+    hopper list [--json]     everything Hopper sees; what agents read
+    hopper dispatch [--json] start what's ready, and say why the rest wait
+
+Agents: Hopper writes `docs/agents.md` to `<home>/CLAUDE.md`, so every conversation in the home
+folder knows these commands.
 
 Accounts: the default account (`*` in the Accounts panel) runs anything no prefix names. Each
 limit's bar has a tick at how far through its window we are: a fill short of the tick is using

@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { render } from 'ink-testing-library'
 import { describe, expect, it } from 'vitest'
 
-import { addAccount, setPrefixes, type Config } from '../src/config.ts'
+import { addAccount, OVERNIGHT_DEFAULTS, setPrefixes, type Config } from '../src/config.ts'
 import { initHome, loadProjects } from '../src/home.ts'
 import type { Snapshot } from '../src/model.ts'
 import {
@@ -24,6 +24,7 @@ const base = (home: string): Config => {
     home,
     accounts: [],
     routes: [],
+    overnight: OVERNIGHT_DEFAULTS,
   }
   c = addAccount(c, { name: 'kf', label: 'Knowledge Futures', configDir: null })
   c = addAccount(c, { name: 'sb', label: 'sb', configDir: '/tmp/hopper-test-sb' })
@@ -111,6 +112,7 @@ describe('the settings screen', () => {
     await press('')
     await press(',')
     expect(lastFrame()).toContain('SETTINGS')
+    await press('J') // overnight
     await press('J') // accounts
     await press('J') // sources
     expect(lastFrame()).toContain('SOURCES')

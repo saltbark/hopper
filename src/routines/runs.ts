@@ -1,11 +1,12 @@
+import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { appendFile, mkdir, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { startBackground, type Session } from '../claude.ts'
+import { limitedNote, startBackground, unattendedPermissions, type Session } from '../claude.ts'
 import type { Config } from '../config.ts'
 import { recordConversation } from '../conversations.ts'
-import { readIfThere } from '../fsutil.ts'
+import { readIfThere, writeAtomic } from '../fsutil.ts'
 import { extraDirs, type Project } from '../home.ts'
 import type { AccountState } from '../model.ts'
 import { hasRoom, routeFor } from '../routing.ts'
@@ -14,7 +15,8 @@ import { routinesDir, type Routine } from './files.ts'
 export type Run = {
   routine: string
   at: number
-  status: 'started' | 'skipped'
+  // passed: its check passed, so no conversation was needed.
+  status: 'started' | 'skipped' | 'passed'
   reason?: string
   id?: string // the conversation's short id
   account?: string
@@ -122,6 +124,7 @@ export async function listReports(home: string, name: string, runs: Run[]): Prom
 export function routineInstructions(r: Routine, result: string, previous?: string): string {
   return [
     `This conversation is a scheduled run of the Hopper routine "${r.name}".`,
+    'Nobody is watching it: never wait for an answer.',
     'Do what the prompt asks, then write a short result to',
     `${result} (create the folder if needed). Its first line must be exactly "needs: you" if`,
     'anything is waiting on the person (a decision, a review, something to send), or',
@@ -133,9 +136,39 @@ export function routineInstructions(r: Routine, result: string, previous?: strin
     .join(' ')
 }
 
+// A meta/ routine is Hopper's own and looks across projects (briefs, reviews, proposals): it
+// may read every meta repo Hopper imports, and the code reached through their projects/ links.
+export function lookAcross(r: Routine, projects: Project[]): string[] {
+  if (!r.project.startsWith('meta/')) return []
+  const repos = new Set<string>()
+  for (const p of projects) if (p.meta) repos.add(p.meta.repo)
+  return [...repos].sort()
+}
+
 export type RunOutcome =
   | { status: 'started'; id: string; account: string }
   | { status: 'skipped'; reason: string }
+  | { status: 'passed' }
+
+// A routine's check: a shell command in the project's run folder. Its output is kept to the end,
+// which is where failures say what went wrong.
+export function runCheck(
+  command: string,
+  cwd: string,
+): Promise<{ ok: boolean; code: number; output: string }> {
+  return new Promise((resolve) => {
+    execFile(
+      '/bin/sh',
+      ['-c', command],
+      { cwd, timeout: 30 * 60_000, maxBuffer: 32 << 20 },
+      (err, stdout, stderr) => {
+        const output = `${stdout}${stderr ? '\n' + stderr : ''}`.trim().split('\n').slice(-150)
+        const code = err ? (typeof err.code === 'number' ? err.code : 1) : 0
+        resolve({ ok: !err, code, output: output.join('\n') })
+      },
+    )
+  })
+}
 
 // One run: pick an account with room (skip if none), start the conversation in the project's
 // folder, and record it. Called by `hopper run` (from launchd) and by run-now in the app.
@@ -167,6 +200,31 @@ export async function runRoutine(opts: {
   if (previous?.id && sessions.find((s) => s.id === previous.id)?.state === 'working') {
     return skip('the previous run is still going')
   }
+  // A check that passes needs no model at all.
+  let prompt = r.prompt
+  if (r.check) {
+    const check = await runCheck(r.check, project.runIn)
+    if (check.ok) {
+      const result = resultPath(home, r.name, at)
+      await writeAtomic(result, `needs: nothing\nThe check passed: ${r.check}\n`)
+      await recordRun(home, {
+        routine: r.name,
+        at: at.getTime(),
+        status: 'passed',
+        result,
+        prompt: promptHash(r.prompt),
+      })
+      return { status: 'passed' }
+    }
+    prompt = [
+      r.prompt,
+      `The check \`${r.check}\` failed (exit ${check.code}) in ${project.runIn}. The end of its output:`,
+      '```',
+      check.output,
+      '```',
+    ].join('\n\n')
+  }
+
   // Skip rather than start on an account that is near its limit.
   const route = routeFor(config, r.project)
   const only = !route && config.accounts.length === 1 ? config.accounts[0] : undefined
@@ -187,20 +245,32 @@ export async function runRoutine(opts: {
   const effort = r.effort ?? project.effort
   const when = at.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   const name = `↻ ${r.name} · ${when} ${at.toTimeString().slice(0, 5)}`
+  const folder = join(routinesDir(home), r.name)
+  const perms = unattendedPermissions(model, [folder])
   const id = await startBackground(account, {
     cwd: project.runIn,
     name,
-    prompt: r.prompt,
-    systemPrompt: `${opts.systemPrompt(project)} ${routineInstructions(r, result, previous?.result)}`,
+    prompt,
+    systemPrompt: [
+      opts.systemPrompt(project),
+      routineInstructions(r, result, previous?.result),
+      perms.allowedTools ? limitedNote([folder]) : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
     model,
     effort,
     // The result file sits outside the project; let the run write there without asking.
-    addDirs: [join(routinesDir(home), r.name), ...extraDirs(project)],
+    // The whole routines folder, so routines can share what they remember (mail-brief's ledger).
+    addDirs: [routinesDir(home), ...extraDirs(project), ...lookAcross(r, projects)],
+    ...perms,
   })
   await recordConversation(home, id, {
     project: project.key,
     routine: r.name,
     startedAt: at.getTime(),
+    unattended: true,
+    result,
     ...(model ? { model } : {}),
     ...(effort ? { effort } : {}),
   })

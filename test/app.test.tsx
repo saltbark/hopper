@@ -7,7 +7,7 @@ import { render } from 'ink-testing-library'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { Session } from '../src/claude.ts'
-import { addAccount, setPrefixes, type Config } from '../src/config.ts'
+import { addAccount, OVERNIGHT_DEFAULTS, setPrefixes, type Config } from '../src/config.ts'
 import { initHome, loadProjects } from '../src/home.ts'
 import { draftSession, toItems, type Snapshot } from '../src/model.ts'
 import { App } from '../src/tui/App.tsx'
@@ -19,6 +19,7 @@ let config: Config = {
   home: '/h',
   accounts: [],
   routes: [],
+  overnight: OVERNIGHT_DEFAULTS,
 }
 config = addAccount(config, { name: 'kf', label: 'Knowledge Futures', configDir: null })
 config = addAccount(config, { name: 'sb', label: 'Saltbark', configDir: '/tmp/hopper-test-sb' })
@@ -572,6 +573,43 @@ describe('conversations', () => {
     done()
     unmount()
   })
+
+  it('a proposed draft has its own group, and u queues it: when there is room, tonight, off', async () => {
+    const { home, cfg } = await setup()
+    const { listDrafts, saveDraft } = await import('../src/drafts.ts')
+    await saveDraft(home, {
+      id: 'mul0-abcd',
+      project: 'meta/inbox',
+      text: 'tidy the README\n',
+      created: 1,
+      updated: 1,
+      proposed: 'groomer',
+      done: 'the README matches the commands',
+    })
+    const { lastFrame, stdin, unmount } = render(<App config={cfg} />)
+    await tick()
+    await press(stdin, 'c')
+    await until(() => (lastFrame() ?? '').includes('PROPOSED 1'))
+    expect(lastFrame()).toContain('proposed · u queues it')
+    expect(lastFrame()).toContain('groomer')
+    await press(stdin, 'u')
+    await until(async () => (await listDrafts(home))[0]?.queue === 'now')
+    const [queued] = await listDrafts(home)
+    expect(queued).toMatchObject({ queue: 'now', done: 'the README matches the commands' })
+    expect(queued?.proposed).toBeUndefined()
+    await until(() => (lastFrame() ?? '').includes('up next: tonight'))
+    expect(lastFrame()).toContain('UP NEXT 1')
+    await press(stdin, 'u')
+    await until(async () => (await listDrafts(home))[0]?.queue === 'night')
+    // The next press acts on the list as refreshed.
+    await until(() => (lastFrame() ?? '').includes('up next: off'))
+    expect(lastFrame()).toContain('queued for tonight')
+    await press(stdin, 'u')
+    await until(async () => !(await listDrafts(home))[0]?.queue)
+    expect((await listDrafts(home))[0]?.queue).toBeUndefined()
+    done()
+    unmount()
+  }, 15_000)
 
   it('esc keeps a draft on the list; only enter goes back to writing; d throws it away', async () => {
     const { home, cfg } = await setup()

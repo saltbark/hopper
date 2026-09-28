@@ -452,6 +452,12 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         setForm({ kind: 'routine-name', value: suggested, editing: e })
       },
       d: () => setForm({ kind: 'draft-remove', id: e.id, name: it.name }),
+      // Up next: off, then as soon as there's room, then tonight.
+      u: () => {
+        const q = e.extra?.queue
+        return act.setQueue(e, q === undefined ? 'now' : q === 'now' ? 'night' : undefined)
+      },
+      U: () => act.queueProposed(),
     }
   }
 
@@ -465,6 +471,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     }
     if (key.return) return act.open(it)
     if (input === 'd') return void act.markDone(it, panel === 'work')
+    if (input === 'g') return void act.dispatchNow()
   }
 
   const onAccounts = (input: string, key: Key) => {

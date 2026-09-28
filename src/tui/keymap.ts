@@ -66,6 +66,9 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
       ['⏎ →', 'open it, or go back in'],
       ['d', 'mark done'],
       ['i', 'interrupt (sends esc)'],
+      ['u', 'a draft: up next, tonight, off'],
+      ['U', 'queue every proposal tonight'],
+      ['g', 'dispatch up next now'],
     ],
   ],
   [
@@ -141,10 +144,22 @@ export const WRITING_KEYS: Hint[] = [
 // selected, the model and effort read "default".
 type Choices = { model?: string | undefined; effort?: string | undefined }
 
-export function draftKeys(e: Choices): Hint[] {
+const QUEUE_HINT = {
+  none: 'up next: when there is room',
+  now: 'up next: tonight instead',
+  night: 'up next: off',
+}
+
+export function draftKeys(
+  e: Choices & { queue?: string | undefined; proposed?: string | undefined },
+): Hint[] {
+  const q = (e.queue ?? 'none') as keyof typeof QUEUE_HINT
   return [
     ['⏎', 'keep writing'],
     ['s', 'start it'],
+    ['u', QUEUE_HINT[q] ?? QUEUE_HINT.none],
+    ...(e.queue ? [['g', 'dispatch now'] as Hint] : []),
+    ...(e.proposed ? [['U', 'queue every proposal tonight'] as Hint] : []),
     ['m', `model (${e.model ?? 'default'})`],
     ['e', `effort (${e.effort ?? 'default'})`],
     ['p', 'move to a project'],

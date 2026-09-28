@@ -19,12 +19,45 @@ export type Account = { name: string; label: string; configDir: string | null; p
 // The empty prefix matches every key.
 export type Route = { prefix: string; accounts: string[] }
 
+// How Hopper works while nobody is watching: when the night is, how much of the week one night
+// may spend, and how far work may run on its own. See dispatch.ts.
+export type Overnight = {
+  // "22:00-07:00": the window `queue: night` drafts start in.
+  window: string
+  // Share of the weekly limit one night may use, in points of the week's percentage.
+  budget: number
+  // The last part of the week kept for the day: nothing starts on its own above 100 - reserve.
+  reserve: number
+  // Hopper's own unattended conversations running at once, per account.
+  maxRunning: number
+  // How many links a chain of follow-ups may queue on its own; 0 makes every link wait for a key.
+  chainDepth: number
+}
+
+export const OVERNIGHT_DEFAULTS: Overnight = {
+  window: '22:00-07:00',
+  budget: 30,
+  reserve: 10,
+  maxRunning: 2,
+  chainDepth: 2,
+}
+
+// config.toml key → Overnight field. Numbers may be written as numbers or strings.
+export const OVERNIGHT_KEYS = {
+  night: 'window',
+  night_budget: 'budget',
+  reserve: 'reserve',
+  max_running: 'maxRunning',
+  chain_depth: 'chainDepth',
+} as const satisfies Record<string, keyof Overnight>
+
 export type Config = {
   path: string
   accountsPath: string
   home: string
   // config.toml's sound, when set; see chime.ts.
   sound?: string
+  overnight: Overnight
   accounts: Account[]
   routes: Route[]
 }
@@ -36,6 +69,16 @@ home = "~/Dropbox/Workspace/hopper"
 # Played when a conversation stops running and waits on you: a macOS sound (Glass, Ping, Pop,
 # Tink, Hero, Submarine, ...), "bell" for the terminal's own, or "off". Glass when not set.
 # sound = "Glass"
+
+# Overnight: drafts queued for tonight start inside this window, and one night may use up to
+# night_budget points of an account's weekly limit, keeping the last reserve points for the day.
+# max_running caps Hopper's unattended conversations per account; chain_depth is how many
+# follow-ups a run may queue on its own (0: every one waits for you).
+# night = "22:00-07:00"
+# night_budget = 30
+# reserve = 10
+# max_running = 2
+# chain_depth = 2
 
 # Claude accounts and which prefixes they run are in accounts.toml, next to this file. Hopper
 # writes it; manage them from the app (a), or edit it by hand.
@@ -58,7 +101,38 @@ function tomlError(path: string, e: unknown): ConfigError {
   return new ConfigError(`${tildify(path)}: ${(e as Error).message}`)
 }
 
-export function parseSettings(text: string, path: string): { home: string; sound?: string } {
+// "22:00-07:00" → minutes after midnight, or a message saying what's wrong.
+export function parseWindow(text: string): { from: number; to: number } | string {
+  const m = /^\s*(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*$/.exec(text)
+  const mins = (h: string | undefined, mm: string | undefined) => Number(h) * 60 + Number(mm)
+  if (!m || Number(m[1]) > 23 || Number(m[3]) > 23 || Number(m[2]) > 59 || Number(m[4]) > 59)
+    return `"${text}": the night is a window like 22:00-07:00`
+  return { from: mins(m[1], m[2]), to: mins(m[3], m[4]) }
+}
+
+function parseOvernight(raw: Record<string, unknown>, where: string): Overnight {
+  const out = { ...OVERNIGHT_DEFAULTS }
+  for (const [key, field] of Object.entries(OVERNIGHT_KEYS)) {
+    const v = raw[key]
+    if (v === undefined) continue
+    if (field === 'window') {
+      if (typeof v !== 'string' || typeof parseWindow(v) === 'string')
+        throw new ConfigError(`${where}: "night" is a window like "22:00-07:00"`)
+      out.window = v
+      continue
+    }
+    const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN
+    if (!Number.isInteger(n) || n < 0 || n > 100)
+      throw new ConfigError(`${where}: "${key}" is a whole number from 0 to 100`)
+    out[field] = n
+  }
+  return out
+}
+
+export function parseSettings(
+  text: string,
+  path: string,
+): { home: string; sound?: string; overnight: Overnight } {
   let raw: Record<string, unknown>
   try {
     raw = parse(text) as Record<string, unknown>
@@ -71,7 +145,11 @@ export function parseSettings(text: string, path: string): { home: string; sound
   const sound = raw['sound']
   if (sound !== undefined && (typeof sound !== 'string' || !sound))
     throw new ConfigError(`${tildify(path)}: "sound" must be a sound's name, "bell" or "off"`)
-  return { home: expandHome(home), ...(sound ? { sound } : {}) }
+  return {
+    home: expandHome(home),
+    ...(sound ? { sound } : {}),
+    overnight: parseOvernight(raw, tildify(path)),
+  }
 }
 
 // Sets one top-level string in config.toml's text, keeping its comments; null takes it out.

@@ -16,7 +16,7 @@ export type RoutineView = {
 
 const PROMPT_LINES = 4
 
-// What a report came to, in a word and a colour.
+// What a report came to, in a word and a colour. A run whose check passed writes a report too.
 export function outcome(r: Report) {
   if (r.needs === 'you') return { text: 'needs you', color: T.waiting }
   if (r.needs === 'nothing') return { text: 'nothing', color: T.dim }
@@ -67,6 +67,7 @@ export function RoutineDetail({
       )}
       {row('project', r.project)}
       {row('model', [r.model ?? 'project default', r.effort].filter(Boolean).join(' · '))}
+      {r.check ? row('check', r.check) : null}
       {view.account ? row('account', view.account) : null}
       <Text> </Text>
       <Heading label="prompt" width={width} />

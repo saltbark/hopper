@@ -51,6 +51,23 @@ The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it befor
   `<home>/state/conversations.json`; Claude Code doesn't report them. A routine's reports (`o`)
   are the files in its `runs/` folder (`listReports`), not the run log, so a report written some
   other way shows too; the log only adds which conversation wrote it.
+- **Unattended means a mode that never asks, and a result file.** Routine runs and anything
+  `hopper dispatch` starts get `unattendedPermissions` (`src/claude.ts`): `--permission-mode
+auto`, except for Haiku, which has no auto mode (Claude falls back to asking, and the run
+  stalls), so it gets `dontAsk` and a narrow `--allowedTools` list. Absolute paths in a rule
+  start with `//` (`Edit(//Users/…/**)`); `Write(...)` rules don't cover the Write tool. Their
+  prompt (`unattendedPrompt` in `src/prompts.ts`, `routineInstructions` for routines) says never
+  to wait, to work on a branch, and where to write the result. `startDraft` (`src/start.ts`) is
+  the one way a draft starts, from the app or the dispatcher; don't start one another way.
+- **Up next is drafts with `queue:`.** `src/dispatch.ts` decides what is ready (`after:` names
+  drafts; a dependency is finished when its conversation is in Done) and on which account
+  (route order, `max_running`, the reserve, and at night the budget measured from
+  `state/night.json`). One dispatch at a time (`state/dispatch.lock`). Its launchd entry is
+  `com.saltbark.hopper-dispatch`, outside the routines' `com.saltbark.hopper.` prefix, so
+  `syncLaunchd` leaves it alone.
+- **`docs/agents.md` is the agents' guide**, copied to `<home>/CLAUDE.md` whenever it differs
+  (`src/guide.ts`). A change to a command agents use (`src/commands.ts`) changes it too.
+  Routine templates are `templates/routines/*.md`.
 - **Registry projects are read, never copied.** A `[[source]]` in `projects.toml` imports a meta
   repo's `paths.local` on every load (`loadSource` in `src/home.ts`); those projects carry
   `meta`, their open file sits in the meta repo, and `hopperPrompt` defers to that repo's planning
@@ -84,6 +101,8 @@ The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it befor
   `projects.toml` as a document to edit); `src/tui/settingsActions.ts` writes changes back, and
   checks a `projects.toml` loads before keeping it; `src/tui/panes/SettingsPane.tsx` draws it. A
   new setting in any of the three files gets a row in `buildRows`.
+- `src/commands.ts`: `hopper list`, `draft new`, `routine check|templates|install`, `dispatch`;
+  `src/cli.tsx` only wires and prints them. `src/dispatch.ts`, `src/start.ts`, `src/guide.ts`.
 - `src/fsutil.ts` (`readIfThere`, `writeAtomic`) and `src/frontmatter.ts`: use these for any
   state file rather than writing fs code again. Tests share `test/helpers.ts` (`fakeClaude`).
 

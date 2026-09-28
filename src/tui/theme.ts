@@ -60,6 +60,9 @@ export function stateMark(
   state: string,
   kind?: string,
 ): { mark: string; color: string; bold?: boolean } {
+  // Queued drafts: ○ to start when there's room, ☾ tonight.
+  if (state === 'queued') return { mark: '○', color: T.dim }
+  if (state === 'tonight') return { mark: '☾', color: T.dim }
   if (kind === 'draft' || state === 'draft') return { mark: '◇', color: T.draft }
   if (kind === 'routine')
     return state === 'paused' ? { mark: '○', color: T.dim } : { mark: '↻', color: T.focus }
@@ -67,7 +70,6 @@ export function stateMark(
   if (state === 'blocked') return { mark: '?', color: T.waiting, bold: true }
   if (state === 'failed' || state === 'stopped') return { mark: '✕', color: T.blocked }
   if (state === 'done') return { mark: '✓', color: T.waiting }
-  if (state === 'queued') return { mark: '○', color: T.dim }
   return { mark: 'spin', color: T.running }
 }
 
