@@ -110,6 +110,7 @@ describe('EmbeddedSession', () => {
     const first = s.screen()[0]!
     expect(first[0]).toMatchObject({ text: 'green', fg: T.running })
     expect(first.map((x) => x.text).join('')).toMatch(/^green plain/)
+    expect(first.find((x) => x.text.includes('plain'))).toMatchObject({ fg: T.text })
     s.send('hi\r')
     await new Promise((r) => setTimeout(r, 500))
     expect(

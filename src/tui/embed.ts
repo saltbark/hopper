@@ -285,6 +285,8 @@ export class EmbeddedSession {
           const style: Seg = { text: cell.getChars() || ' ' }
           if (cell.isFgRGB()) style.fg = rgbHex(cell.getFgColor())
           else if (cell.isFgPalette()) style.fg = paletteHex(cell.getFgColor())
+          // Text Claude leaves uncoloured would take the terminal's own foreground, green in some themes.
+          else style.fg = T.text
           if (cell.isBgRGB()) style.bg = rgbHex(cell.getBgColor())
           else if (cell.isBgPalette()) style.bg = paletteHex(cell.getBgColor())
           if (cell.isBold()) style.bold = true
