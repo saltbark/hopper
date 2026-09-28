@@ -119,7 +119,8 @@ export const CONVERSATION_KEYS: Hint[] = [
 export const MOUSE_KEYS: Hint[] = [
   ['wheel', 'scrolls what is under it'],
   ['click', 'focuses a panel'],
-  ['click click', 'in the list: select, then open'],
+  ['click click', 'on a row: select, then open'],
+  ['click ▸ ▾', 'fold a folder'],
   ['drag', 'in a conversation: copy'],
   ['modifier+drag', "copy elsewhere (your terminal's)"],
 ]

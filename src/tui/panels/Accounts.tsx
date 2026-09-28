@@ -5,7 +5,7 @@ import type { Window } from '../../claude.ts'
 import { cell, isStale } from '../../format.ts'
 import type { AccountState } from '../../model.ts'
 import { T, tone } from '../theme.ts'
-import { Rail } from './primitives.tsx'
+import { Rail, windowed } from './primitives.tsx'
 
 // One line per account: its name, then the session and weekly limits side by side. Plan,
 // resets and routes are in the detail panel, shown when the account is selected.
@@ -14,6 +14,11 @@ import { Rail } from './primitives.tsx'
 // percentages and the gap between them.
 const barWidth = (width: number, nameW: number) =>
   Math.max(3, Math.min(16, Math.floor((width - 4 - nameW - 11) / 2)))
+
+// The accounts shown under the heading line, windowed around the selection. The mouse reads it
+// too, to find the account under the pointer.
+export const accountLines = (accounts: AccountState[], sel: number, height: number) =>
+  windowed(accounts, sel, Math.max(1, height - 3))
 
 export function AccountsHeader({ width, nameW }: { width: number; nameW: number }) {
   const barW = barWidth(width, nameW)
@@ -26,13 +31,15 @@ export const AccountRow = memo(function AccountRow(props: {
   nameW: number
   color: string
   selected: boolean
+  // Under the pointer: a lighter background than the selection's.
+  hovered: boolean
   focused: boolean
   // When the numbers were read, so render stays pure.
   now: number
 }) {
-  const { a, width, nameW, color, selected, focused, now } = props
+  const { a, width, nameW, color, selected, hovered, focused, now } = props
   const on = selected && focused
-  const bg = on ? T.sel : undefined
+  const bg = on ? T.sel : hovered ? T.hover : undefined
   const barW = barWidth(width, nameW)
   const limit = (x: Window | null | undefined) => {
     const stale = !x || isStale(x.resetsAt, now)

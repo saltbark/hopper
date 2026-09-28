@@ -3,9 +3,9 @@ import { Box, Text } from 'ink'
 import { ago } from '../../format.ts'
 import type { AccountState, Item, Snapshot } from '../../model.ts'
 import type { TreeRow } from '../../tree.ts'
-import { AccountRow, AccountsHeader } from '../panels/Accounts.tsx'
+import { AccountRow, AccountsHeader, accountLines } from '../panels/Accounts.tsx'
 import { ItemRows } from '../panels/ItemRows.tsx'
-import { Frame, windowed } from '../panels/primitives.tsx'
+import { Frame } from '../panels/primitives.tsx'
 import { ProjectRows } from '../panels/ProjectRows.tsx'
 import type { Find, Focus, Hover, Panel } from '../state.ts'
 import { T } from '../theme.ts'
@@ -21,6 +21,7 @@ export function Band(props: {
   projectSel: number
   find: Find | null
   scope: string | null
+  hover: Hover
   // Where the keys are, for the blue edge; null while the editor has them.
   focus: Focus | null
   color: (account: string) => string
@@ -28,8 +29,8 @@ export function Band(props: {
   projectsW: number
   height: number
 }) {
-  const { snap, accountStates, accountSel, find, focus, color, accountsW, projectsW, height } =
-    props
+  const { snap, accountStates, accountSel, find, hover, focus, color } = props
+  const { accountsW, projectsW, height } = props
   // The name column fits the longest account name.
   const nameW = Math.max(4, ...accountStates.map((a) => a.account.name.length + 2))
   // How old the usage numbers are, always shown: the oldest of them.
@@ -51,7 +52,7 @@ export function Band(props: {
         {accountStates.length ? (
           <>
             <AccountsHeader width={accountsW} nameW={nameW} />
-            {windowed(accountStates, accountSel, Math.max(1, height - 3)).slice.map((a) => (
+            {accountLines(accountStates, accountSel, height).slice.map((a) => (
               <AccountRow
                 key={a.account.name}
                 a={a}
@@ -59,6 +60,7 @@ export function Band(props: {
                 nameW={nameW}
                 color={color(a.account.name)}
                 selected={accountStates.indexOf(a) === accountSel}
+                hovered={hover?.panel === 'accounts' && accountStates.indexOf(a) === hover.index}
                 focused={focus === 'accounts'}
                 now={snap?.at ?? 0}
               />
@@ -84,6 +86,7 @@ export function Band(props: {
         <ProjectRows
           rows={rows}
           sel={find ? Math.min(find.sel, Math.max(0, rows.length - 1)) : props.projectSel}
+          hover={hover?.panel === 'projects' ? hover.index : null}
           focused={focus === 'projects' || finding}
           scope={find ? null : props.scope}
           width={projectsW}
