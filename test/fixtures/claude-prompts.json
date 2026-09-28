@@ -1,0 +1,119 @@
+{
+  "empty": {
+    "about": "interactive, empty prompt with its dim placeholder",
+    "cursor": [2, 6],
+    "text": [
+      "",
+      "",
+      "",
+      "",
+      "                                                  ◐ medium · /effort",
+      "──────────────────────────────────────────────────────────────────────",
+      "❯ Try \"refactor Accounts.tsx\"",
+      "──────────────────────────────────────────────────────────────────────",
+      "  ⏵⏵ auto mode on (shift+tab to cycle)"
+    ],
+    "dim": ["", "", "", "", "", "", "  ddddddddddddddddddddddddddd", "", ""]
+  },
+  "typed": {
+    "about": "text typed, cursor at its end",
+    "cursor": [13, 6],
+    "text": [
+      "",
+      "",
+      "",
+      "",
+      "                                                  ◐ medium · /effort",
+      "──────────────────────────────────────────────────────────────────────",
+      "❯ hello there",
+      "──────────────────────────────────────────────────────────────────────",
+      "  ⏵⏵ auto mode on (shift+tab to cycle)"
+    ],
+    "dim": ["", "", "", "", "", "", "", "", ""]
+  },
+  "home": {
+    "about": "text typed, cursor moved to the start",
+    "cursor": [2, 6],
+    "text": [
+      "",
+      "",
+      "",
+      "",
+      "                                                  ◐ medium · /effort",
+      "──────────────────────────────────────────────────────────────────────",
+      "❯ hello there",
+      "──────────────────────────────────────────────────────────────────────",
+      "  ⏵⏵ auto mode on (shift+tab to cycle)"
+    ],
+    "dim": ["", "", "", "", "", "", "", "", ""]
+  },
+  "multiline": {
+    "about": "a two-line draft",
+    "cursor": [14, 6],
+    "text": [
+      "",
+      "",
+      "",
+      "                                           ctrl+g to edit in VS Code",
+      "──────────────────────────────────────────────────────────────────────",
+      "❯",
+      "   second linehello there",
+      "──────────────────────────────────────────────────────────────────────",
+      "  ⏵⏵ auto mode on (shift+tab to cycle)"
+    ],
+    "dim": ["", "", "", "", "", "", "", "", ""]
+  },
+  "slash": {
+    "about": "the slash-command menu open over the prompt",
+    "cursor": [3, 6],
+    "text": [
+      "",
+      "  /cloudflare-email-service   Send and receive transactional emails",
+      "                              with Cloudflare Email Service (Email …",
+      "  /dataviz                    Use this skill whenever you are about",
+      "                              to create ANY chart, graph, plot, das…",
+      "──────────────────────────────────────────────────────────────────────",
+      "❯ /",
+      "──────────────────────────────────────────────────────────────────────",
+      "  ⏵⏵ auto mode on (shift+tab to cycle)"
+    ],
+    "dim": ["", "", "", "", "", "", "", "", ""]
+  },
+  "model-down": {
+    "about": "the /model picker, where ← adjusts effort",
+    "cursor": [3, 6],
+    "text": [
+      "   Select model",
+      "   Switch between Claude models. Your pick becomes the default for",
+      "   new sessions. For other/previous model names, specify with",
+      "   --model.",
+      "",
+      "   ↑ 2.  Opus 5.5 ✔             Most capable for ambitious work",
+      "   ❯ 3.  Sonnet 5               Most efficient for everyday tasks",
+      "      … +9 models",
+      "",
+      "",
+      "   ● High effort (default) ←/→ to adjust",
+      "",
+      "   Enter to set as default · s to use this session only · Esc to",
+      "   cancel"
+    ],
+    "dim": ["", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+  },
+  "attach": {
+    "about": "claude attach, empty prompt under a titled border",
+    "cursor": [2, 6],
+    "text": [
+      "⏺ Done. The change is on the branch.",
+      "",
+      "",
+      "",
+      "",
+      "─────── meta/inbox · an earlier conversation ─────────────────────────",
+      "❯",
+      "──────────────────────────────────────────────────────────────────────",
+      "  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent"
+    ],
+    "dim": ["", "", "", "", "", "", "", "", ""]
+  }
+}

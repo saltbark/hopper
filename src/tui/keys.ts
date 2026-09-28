@@ -92,13 +92,17 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
   }
 
   // ---- in a conversation, every key is Claude's, esc included ----
-  // Stepping back to Hopper is Claude's own ← at the empty prompt (embed.ts sees its agents
-  // screen), or ctrl+], which works from anywhere, a Claude menu included. Both leave the
-  // conversation live; ⏎ goes back in. Claude's interrupt is ctrl+c, or i on the list.
+  // Stepping back to Hopper is ← at Claude's empty prompt, or ctrl+], which works from anywhere,
+  // a Claude menu included. Both leave the conversation live; ⏎ goes back in. When the screen
+  // shows the empty prompt, ← steps back at once and never reaches Claude; otherwise it goes
+  // through, and Claude's agents screen (embed.ts) is the fallback. Claude's interrupt is
+  // ctrl+c, or i on the list.
   const onSession: Handler = (input, key) => {
     const { embed } = ctx
     // ctrl+] arrives as the raw control character (0x1d).
     if (!embed || input === '\u001d' || (key.ctrl && input === ']')) return act.go(ctx.returnTo)
+    if (key.leftArrow && !key.meta && !key.shift && !key.ctrl && embed.atEmptyPrompt())
+      return act.go(ctx.returnTo)
     if (ctx.pick) ctx.setPick(null)
     embed.send(keyToBytes(input, key))
   }

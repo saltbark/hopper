@@ -79,6 +79,26 @@ export function keyToBytes(input: string, key: Key): string {
   return input
 }
 
+// Whether the cursor sits in Claude's input box with nothing typed: a one-line box between two
+// borders, only the ❯ before the cursor, nothing after it but the dim placeholder. Then ← is
+// Claude's leave, and Hopper can step back at once rather than wait for the agents screen.
+// A Claude menu fails this: its ❯ has no border round it, and the cursor sits on it.
+export function atEmptyPrompt(b: xterm.IBuffer): boolean {
+  const y = b.viewportY + b.cursorY
+  const border = (l: xterm.IBufferLine | undefined) =>
+    !!l && l.translateToString(true).startsWith('─')
+  const row = b.getLine(y)
+  if (!row || !border(b.getLine(y - 1)) || !border(b.getLine(y + 1))) return false
+  // Claude follows the ❯ with a no-break space once there's text or a placeholder; \s covers it.
+  if (!/^\s*❯\s$/.test(row.translateToString(false, 0, b.cursorX))) return false
+  const cell = b.getNullCell()
+  for (let x = b.cursorX; x < row.length; x++) {
+    row.getCell(x, cell)
+    if (cell.getChars().trim() && !cell.isDim()) return false
+  }
+  return true
+}
+
 export class EmbeddedSession {
   private term: xterm.Terminal
   private pty: IPty | null = null
@@ -91,6 +111,8 @@ export class EmbeddedSession {
   // Whether the program shows the terminal's cursor (DECTCEM, `CSI ? 25 h/l`). Claude puts the
   // real cursor where you type, so Hopper has to draw it; the headless terminal doesn't say.
   private cursorShown = true
+  // When a key last went to Claude: until it has redrawn, the screen is no guide to the prompt.
+  private lastSent = 0
   // Set while the agents screen is up, so it's answered once rather than on every redraw.
   private onAgents = false
 
@@ -233,7 +255,16 @@ export class EmbeddedSession {
   }
 
   send(data: string): void {
-    if (!this.closed && !this.exited) this.pty?.write(data)
+    if (this.closed || this.exited) return
+    this.lastSent = Date.now()
+    this.pty?.write(data)
+  }
+
+  // Whether ← now would be Claude's leave, judged from the screen without asking Claude.
+  atEmptyPrompt(): boolean {
+    return (
+      !this.closed && Date.now() - this.lastSent > 150 && atEmptyPrompt(this.term.buffer.active)
+    )
   }
 
   resize(cols: number, rows: number): void {

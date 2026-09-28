@@ -338,7 +338,7 @@ describe('conversations', () => {
     bin = await fakeClaude(
       'echo "$PWD|$*" >> "$HOPPER_FAKE_LOG"\n' +
         'case "$1" in --bg) if [ -n "$HOPPER_FAKE_UNTRUSTED" ]; then echo "Workspace not trusted."; exit 1; fi; echo "backgrounded · abc12345 · name";;\n' +
-        '  attach) printf "fake claude screen\\n❯ "; while read -r line; do case "$line" in leave) printf "  enter to return · space to reply\\n";; "") printf "\\033[2J\\033[Hback in the conversation\\n❯ ";; *) printf "you said: %s\\n❯ " "$line";; esac; done;; esac\n' +
+        '  attach) printf "fake claude screen\\n❯ "; while read -r line; do case "$line" in leave) printf "  enter to return · space to reply\\n";; box) printf "the prompt box\\n──────────\\n❯ \\n──────────\\033[1A\\r\\033[2C";; "") printf "\\033[2J\\033[Hback in the conversation\\n❯ ";; *) printf "you said: %s\\n❯ " "$line";; esac; done;; esac\n' +
         'exit 0',
     )
     await new Promise<void>((resolve) =>
@@ -422,9 +422,23 @@ describe('conversations', () => {
     await until(() => (lastFrame() ?? '').includes('back in the conversation'))
     expect(focusOf(lastFrame())).toBe('conversations')
     expect(lastFrame()).toContain('back in the conversation')
-    // → goes back in, and esc is Claude's there: it stays in the conversation.
+    // → goes back in.
     await press(stdin, '\u001b[C')
     expect(lastFrame()).toContain(' claude ')
+    // At Claude's empty prompt (a one-line box, nothing typed), ← steps back at once and the
+    // key never reaches Claude: what's typed next arrives clean.
+    await press(stdin, 'box')
+    await press(stdin, '\r')
+    await until(() => (lastFrame() ?? '').includes('the prompt box'))
+    await new Promise((r) => setTimeout(r, 200))
+    await press(stdin, '\u001b[D')
+    expect(focusOf(lastFrame())).toBe('conversations')
+    await press(stdin, '\u001b[C')
+    await press(stdin, 'clean')
+    await press(stdin, '\r')
+    await until(() => (lastFrame() ?? '').includes('you said: clean'))
+    expect(lastFrame()).toContain('you said: clean')
+    // esc is Claude's: it stays in the conversation.
     await press(stdin, '\u001b')
     expect(lastFrame()).toContain(' claude ')
     done()

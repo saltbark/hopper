@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs'
+
+import xterm from '@xterm/headless'
 import { describe, expect, it } from 'vitest'
 
-import { EmbeddedSession, keyToBytes, paletteHex } from '../src/tui/embed.ts'
+import { atEmptyPrompt, EmbeddedSession, keyToBytes, paletteHex } from '../src/tui/embed.ts'
 import { fakeClaude } from './helpers.ts'
 
 const key = (over: Record<string, boolean> = {}) =>
@@ -50,6 +53,34 @@ describe('paletteHex', () => {
     expect(paletteHex(231)).toBe('#ffffff')
     expect(paletteHex(232)).toBe('#080808')
   })
+})
+
+// Screens captured from Claude Code 2.1.283 (`claude`, and `claude attach` on a finished
+// session), trimmed to the rows round the prompt: text, dim cells, and where the cursor was.
+type Shot = { about: string; cursor: [number, number]; text: string[]; dim: string[] }
+const shots = JSON.parse(
+  readFileSync(new URL('./fixtures/claude-prompts.json', import.meta.url), 'utf8'),
+) as Record<string, Shot>
+
+const draw = async (shot: Shot) => {
+  const term = new xterm.Terminal({ cols: 70, rows: shot.text.length, allowProposedApi: true })
+  const rows = shot.text.map((line, y) =>
+    [...line].map((ch, x) => (shot.dim[y]?.[x] === 'd' ? `\x1b[2m${ch}\x1b[22m` : ch)).join(''),
+  )
+  const [x, y] = shot.cursor
+  await new Promise<void>((r) => term.write(rows.join('\r\n') + `\x1b[${y + 1};${x + 1}H`, r))
+  return term
+}
+
+describe('atEmptyPrompt', () => {
+  const empty = ['empty', 'attach']
+  for (const [name, shot] of Object.entries(shots)) {
+    it(`${empty.includes(name) ? 'is' : 'is not'} the empty prompt: ${shot.about}`, async () => {
+      const term = await draw(shot)
+      expect(atEmptyPrompt(term.buffer.active)).toBe(empty.includes(name))
+      term.dispose()
+    })
+  }
 })
 
 describe('EmbeddedSession', () => {
