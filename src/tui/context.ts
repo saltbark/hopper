@@ -32,8 +32,13 @@ export type AppCtx = {
   returnTo: Panel
   setReturnTo: Set<Panel>
   listFocus: Panel
+  // The conversations kept open, the one last gone into first (see `admit` in embed.ts). The
+  // ref is the same list as of the latest change, for callbacks that outlive a render.
+  embeds: EmbeddedSession[]
+  setEmbeds: Set<EmbeddedSession[]>
+  embedsRef: { current: EmbeddedSession[] }
+  // The open conversation the right panel is showing, if any.
   embed: EmbeddedSession | null
-  setEmbed: Set<EmbeddedSession | null>
   // After stepping back, the conversation stays in the panel until the selection moves.
   embedShown: boolean
   setEmbedShown: Set<boolean>

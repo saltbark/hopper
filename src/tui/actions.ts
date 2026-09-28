@@ -33,7 +33,7 @@ import {
 import { pickAccount } from '../routing.ts'
 import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
-import { EmbeddedSession } from './embed.ts'
+import { admit, EmbeddedSession } from './embed.ts'
 import { MOUSE_OFF, MOUSE_ON } from './mouse.ts'
 import { makeSettingsActions } from './settingsActions.ts'
 import {
@@ -151,9 +151,17 @@ export function makeActions(ctx: AppCtx) {
     void refresh(false)
   }
 
-  // Opens a conversation in the right-hand panel and gives it the keyboard. Attach runs in the
-  // conversation's own folder: Claude's agents view opens wherever attach runs, and that folder
-  // is one Claude already trusts.
+  // Goes into an open conversation: it moves to the front of the open ones and gets the keyboard.
+  const enter = (session: EmbeddedSession, from: Panel) => {
+    ctx.setEmbeds((cur) => admit(cur, session).open)
+    ctx.setEmbedShown(true)
+    ctx.setReturnTo(from)
+    ctx.setFocus('session')
+  }
+
+  // Opens a conversation in the right-hand panel and gives it the keyboard, keeping the others
+  // open up to the cap. Attach runs in the conversation's own folder: Claude's agents view opens
+  // wherever attach runs, and that folder is one Claude already trusts.
   const openEmbedded = (
     account: Account,
     id: string,
@@ -162,7 +170,6 @@ export function makeActions(ctx: AppCtx) {
     cwd: string,
     key?: string,
   ) => {
-    ctx.embed?.close()
     // A conversation whose folder has gone (a worktree removed after it finished) attaches from
     // its project's run folder instead; in its own missing folder attach exits at once.
     const project = snap?.projects.find((p) => p.key === key)
@@ -174,13 +181,18 @@ export function makeActions(ctx: AppCtx) {
         copyToClipboard(text)
         setMessage(`Copied ${text.length} characters.`)
       },
+      // The attach ended. Only the conversation you were in takes the keyboard back with it; one
+      // open behind it just drops out of the open ones, back to its summary.
       onLeave: () => {
-        ctx.setEmbed((cur) => (cur === session ? null : cur))
-        ctx.setFocus(from)
+        const inFront = ctx.embedsRef.current[0] === session
+        ctx.setEmbeds((cur) => cur.filter((e) => e !== session))
+        if (inFront) {
+          ctx.setEmbedShown(false)
+          ctx.setFocus((f) => (f === 'session' ? from : f))
+        }
         // Gone again within a second or two: it never opened, so say so rather than flicker.
-        setMessage(
-          now() - opened < 2000 ? `Couldn't open ${name}: claude attach ended at once.` : null,
-        )
+        if (now() - opened < 2000) setMessage(`Couldn't open ${name}: claude attach ended at once.`)
+        else if (inFront) setMessage(null)
         void refresh(false)
       },
       onStepBack: () => {
@@ -189,10 +201,9 @@ export function makeActions(ctx: AppCtx) {
       },
     })
     session.start(dir)
-    ctx.setEmbed(session)
-    ctx.setEmbedShown(true)
-    ctx.setReturnTo(from)
-    ctx.setFocus('session')
+    const { dropped } = admit(ctx.embedsRef.current, session)
+    for (const d of dropped) d.close()
+    enter(session, from)
   }
 
   // Starting hands the draft to Claude Code as a background session in the project's folder. It
@@ -279,12 +290,9 @@ export function makeActions(ctx: AppCtx) {
     }
     const account = config.accounts.find((a) => a.name === item.account)
     if (!item.id || !account) return setMessage('Interactive session: switch to its terminal.')
-    // Already open in the panel: just go back in.
-    if (ctx.embed && ctx.embed.id === item.id) {
-      ctx.setReturnTo(ctx.listFocus)
-      ctx.setEmbedShown(true)
-      return ctx.setFocus('session')
-    }
+    // Already open: just go back in.
+    const already = ctx.embeds.find((e) => e.id === item.id)
+    if (already) return enter(already, ctx.listFocus)
     openEmbedded(account, item.id, item.name, ctx.listFocus, item.cwd, item.key)
   }
 
@@ -474,6 +482,7 @@ export function makeActions(ctx: AppCtx) {
     start,
     trust,
     markDone,
+    enter,
     open,
     keepRoutine,
     editingOf,
