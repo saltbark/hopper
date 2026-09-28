@@ -201,11 +201,14 @@ export function startBackground(
     effort?: string | undefined
     // Folders outside cwd the session may use without asking (a routine's result folder).
     addDirs?: string[] | undefined
+    // With nobody watching, 'auto': Claude decides what it may do rather than asking and waiting.
+    permissionMode?: 'auto' | undefined
   },
 ): Promise<string> {
   // Remote Control puts the session in the Claude app too, so it can be answered from the phone.
   const args = ['--bg', '--name', opts.name, '--remote-control', opts.name]
   for (const d of opts.addDirs ?? []) args.push('--add-dir', d)
+  if (opts.permissionMode) args.push('--permission-mode', opts.permissionMode)
   if (opts.model) args.push('--model', opts.model)
   if (opts.effort) args.push('--effort', opts.effort)
   if (opts.systemPrompt) args.push('--append-system-prompt', opts.systemPrompt)

@@ -5,7 +5,14 @@
 import { parse, stringify } from 'smol-toml'
 
 import { DEFAULT_SOUND, SOUNDS } from './chime.ts'
-import { defaultAccount, prefixesOf, showPrefix, type Config } from './config.ts'
+import {
+  defaultAccount,
+  OVERNIGHT_DEFAULTS,
+  OVERNIGHT_KEYS,
+  prefixesOf,
+  showPrefix,
+  type Config,
+} from './config.ts'
 import { EFFORTS, MODELS } from './conversations.ts'
 import type { Project } from './home.ts'
 import { tildify } from './paths.ts'
@@ -71,7 +78,7 @@ export const removeEntry = (doc: ProjectsDoc, table: TableName, index: number): 
 // ---------- rows ----------
 
 export type Target =
-  | { file: 'config'; field: 'home' | 'sound' }
+  | { file: 'config'; field: 'home' | 'sound' | keyof typeof OVERNIGHT_KEYS }
   | { file: 'accounts'; account: string; field: 'label' | 'prefixes' | 'default' }
   | { file: 'projects'; table: TableName; index: number; field: string }
 
@@ -143,6 +150,43 @@ export function buildRows(
     edit: { type: 'choice', options: soundOptions },
     target: { file: 'config', field: 'sound' },
   })
+
+  rows.push({
+    kind: 'section',
+    id: 'overnight',
+    label: 'Overnight',
+    file: 'config',
+    help: 'How queued work runs while you are away: drafts queued for tonight (u on a draft) start inside the night, unattended, within a budget. config.toml.',
+  })
+  const OVERNIGHT_HELP: Record<keyof typeof OVERNIGHT_KEYS, string> = {
+    night: 'The night window, like 22:00-07:00. Drafts queued for tonight start only inside it.',
+    night_budget:
+      "How many points of an account's weekly limit one night may use. Dispatch stops starting work once the week has risen this much since the night began.",
+    reserve:
+      'The last points of the week kept for the day: nothing starts on its own once an account is past 100 minus this.',
+    max_running: "Hopper's unattended conversations running at once, per account.",
+    chain_depth:
+      'How many follow-ups a run may queue on its own, one after another. Past it they are proposed for you instead; 0 makes every one wait for you.',
+  }
+  for (const [key, field] of Object.entries(OVERNIGHT_KEYS) as [
+    keyof typeof OVERNIGHT_KEYS,
+    (typeof OVERNIGHT_KEYS)[keyof typeof OVERNIGHT_KEYS],
+  ][]) {
+    const value = String(config.overnight[field])
+    const isSet = value !== String(OVERNIGHT_DEFAULTS[field])
+    rows.push({
+      kind: 'setting',
+      id: `overnight.${key}`,
+      label: key.replace(/_/g, ' '),
+      value,
+      raw: isSet ? value : '',
+      isSet,
+      help: OVERNIGHT_HELP[key],
+      file: 'config',
+      edit: { type: 'text' },
+      target: { file: 'config', field: key },
+    })
+  }
 
   rows.push({
     kind: 'section',

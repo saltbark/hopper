@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest'
 
-import { addAccount, parsePrefixList, setPrefixes, type Config } from '../src/config.ts'
+import {
+  addAccount,
+  OVERNIGHT_DEFAULTS,
+  parsePrefixList,
+  setPrefixes,
+  type Config,
+} from '../src/config.ts'
 import type { AccountState } from '../src/model.ts'
 import { hasRoom, pickAccount, routeFor } from '../src/routing.ts'
 
-let config: Config = { path: '', accountsPath: '', home: '/h', accounts: [], routes: [] }
+let config: Config = {
+  path: '',
+  accountsPath: '',
+  home: '/h',
+  accounts: [],
+  routes: [],
+  overnight: OVERNIGHT_DEFAULTS,
+}
 for (const [name, dir] of [
   ['kf', null],
   ['kf2', '/d/kf2'],
@@ -81,7 +94,14 @@ describe('pickAccount', () => {
 
 describe('a single account', () => {
   it('runs everything while there are no routes, once it is signed in', () => {
-    let one: Config = { path: '', accountsPath: '', home: '/h', accounts: [], routes: [] }
+    let one: Config = {
+      path: '',
+      accountsPath: '',
+      home: '/h',
+      accounts: [],
+      routes: [],
+      overnight: OVERNIGHT_DEFAULTS,
+    }
     one = addAccount(one, { name: 'kf', label: 'kf', configDir: null })
     const st = (loggedIn: boolean): AccountState => ({
       ...state('kf', loggedIn),

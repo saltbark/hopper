@@ -5,6 +5,16 @@ import { render } from 'ink'
 
 import { fetchAuth, runInteractive } from './claude.ts'
 import {
+  dispatchOnce,
+  draftNew,
+  listJson,
+  listText,
+  routineCheck,
+  routineInstall,
+  routineTemplates,
+  UsageError,
+} from './commands.ts'
+import {
   addAccount,
   setDefaultAccount,
   ConfigError,
@@ -17,11 +27,19 @@ import {
   type Config,
 } from './config.ts'
 import { ago, resetShort, when } from './format.ts'
+import { writeGuide } from './guide.ts'
 import { initHome } from './home.ts'
 import { gather, OTHER } from './model.ts'
 import { configPath, tildify } from './paths.ts'
 import { hopperPrompt } from './prompts.ts'
-import { listRoutines, loadRoutine, nextRun, runRoutine, syncLaunchd } from './routines/index.ts'
+import {
+  listRoutines,
+  loadRoutine,
+  nextRun,
+  runRoutine,
+  setDispatchSchedule,
+  syncLaunchd,
+} from './routines/index.ts'
 import { App } from './tui/App.tsx'
 import { MOUSE_OFF, MOUSE_ON } from './tui/mouse.ts'
 import { TITLE_RESTORE, TITLE_SAVE, titleSeq } from './tui/title.ts'
@@ -34,7 +52,19 @@ const HELP = `hopper: toss work in the hopper, hop from item to item.
   hopper login <account> sign a login in (runs claude auth login for it)
   hopper run <routine>   run a routine once now (what the schedule calls)
   hopper routines [sync] list routines and when they next run; sync updates the schedule
+  hopper list [--json]   every project, draft, conversation, routine and run
+  hopper draft new --project <key> [--model m] [--effort e] [--queue now|night]
+                   [--after <id>,…] [--done "…"] [--proposed <who>] "<message>" | -
+                         make a draft (agents use this; - reads the message from stdin)
+  hopper routine check <name> [--json]   is a routine file valid, and scheduled
+  hopper routine templates               the routines Hopper ships
+  hopper routine install <template> [--name n] [--project key] [--schedule "…"]
+                   [--check "cmd"] [--enable]   add one (paused unless --enable)
+  hopper dispatch [--json]               start queued drafts that are ready
+  hopper dispatch install|remove         run dispatch every ten minutes, or stop
   hopper help            this
+
+For agents: docs/agents.md, written to <home>/CLAUDE.md.
 
 Config: ${tildify(configPath())} (override with HOPPER_CONFIG)`
 
@@ -53,6 +83,7 @@ async function init() {
   console.log(wrote ? `wrote   ${tildify(path)}` : `kept    ${tildify(path)} (already there)`)
   const config = await requireConfig()
   const created = await initHome(config.home)
+  if (await writeGuide(config.home)) created.push('CLAUDE.md (the guide for agents)')
   console.log(`home    ${tildify(config.home)}`)
   for (const c of created) console.log(`  + ${c}`)
   if (!created.length) console.log('  (nothing new; existing files left alone)')
@@ -154,6 +185,7 @@ async function tui() {
     console.error('hopper needs a terminal. For text output: hopper status')
     process.exit(1)
   }
+  await writeGuide(config.home)
   process.stdout.write(TITLE_SAVE)
   const setTitle = (text: string) => process.stdout.write(titleSeq(text))
   const app = render(<App config={config} setTitle={setTitle} />, {
@@ -191,6 +223,7 @@ async function run(name: string | undefined) {
     console.error(`No routine "${name}" in ${tildify(config.home)}/routines`)
     process.exit(1)
   }
+  await writeGuide(config.home)
   const snap = await gather(config, null, true)
   const out = await runRoutine({
     config,
@@ -202,7 +235,89 @@ async function run(name: string | undefined) {
   })
   const at = new Date().toISOString()
   if (out.status === 'started') console.log(`${at} ${name}: started ${out.id} on ${out.account}`)
+  else if (out.status === 'passed') console.log(`${at} ${name}: the check passed, nothing to run`)
   else console.log(`${at} ${name}: skipped, ${out.reason}`)
+}
+
+const readStdin = async () => {
+  let text = ''
+  for await (const chunk of process.stdin) text += String(chunk)
+  return text
+}
+
+const json = (v: unknown) => console.log(JSON.stringify(v, null, 2))
+
+async function list(rest: string[]) {
+  const config = await requireConfig()
+  if (rest.includes('--json')) json(await listJson(config))
+  else console.log(await listText(config))
+}
+
+async function draft(sub: string | undefined, rest: string[]) {
+  const config = await requireConfig()
+  if (sub !== 'new') throw new UsageError('hopper draft new --project <key> "<message>"')
+  const asJson = rest.includes('--json')
+  const { draft: d, note } = await draftNew(
+    config,
+    rest.filter((a) => a !== '--json'),
+    readStdin,
+  )
+  if (asJson) return json({ ...d, note: note ?? null })
+  console.log(d.id)
+  if (note) console.error(note)
+}
+
+async function routine(sub: string | undefined, rest: string[]) {
+  const config = await requireConfig()
+  if (sub === 'check') {
+    const name = rest.find((a) => !a.startsWith('--'))
+    if (!name) throw new UsageError('hopper routine check <name>')
+    const out = await routineCheck(config, name, hopperBin())
+    if (rest.includes('--json')) json(out)
+    else {
+      console.log(
+        `${out.name}: ${out.ok ? 'ok' : 'problems'} · launchd ${out.launchd ?? '–'} · next ${out.next ? when(Date.parse(out.next)) : '–'}`,
+      )
+      for (const p of out.problems) console.log(`  - ${p}`)
+    }
+    if (!out.ok) process.exitCode = 1
+    return
+  }
+  if (sub === 'templates') {
+    for (const t of await routineTemplates())
+      console.log(
+        `${t.name.padEnd(16)} ${(t.schedule || '–').padEnd(18)} ${(t.model ?? 'default').padEnd(7)} ${(t.prompt.split('\n')[0] ?? '').slice(0, 60)}`,
+      )
+    return
+  }
+  if (sub === 'install') {
+    const r = await routineInstall(config, rest)
+    await syncLaunchd(config, await listRoutines(config.home), { hopper: hopperBin() })
+    console.log(
+      `added routines/${r.name}.md · ${r.project} · ${r.schedule || 'run-now only'} · ${r.enabled ? 'on' : 'paused (P in the app resumes it)'}`,
+    )
+    return
+  }
+  throw new UsageError('hopper routine check|templates|install')
+}
+
+async function dispatchCmd(rest: string[]) {
+  const config = await requireConfig()
+  const sub = rest.find((a) => !a.startsWith('--'))
+  if (sub === 'install' || sub === 'remove') {
+    const path = await setDispatchSchedule(config, sub === 'install', { hopper: hopperBin() })
+    console.log(
+      sub === 'install' ? `dispatch every ten minutes · ${tildify(path)}` : 'dispatch unscheduled',
+    )
+    return
+  }
+  if (sub) throw new UsageError('hopper dispatch [--json] | install | remove')
+  await writeGuide(config.home)
+  const report = await dispatchOnce(config)
+  if (rest.includes('--json')) return json(report)
+  const at = new Date(report.at).toISOString()
+  for (const s of report.started) console.log(`${at} started ${s.id} on ${s.account}: ${s.name}`)
+  for (const w of report.waiting) console.log(`${at} waiting ${w.draft}: ${w.reason}`)
 }
 
 async function routines(sub: string | undefined) {
@@ -231,13 +346,17 @@ try {
   else if (cmd === 'login') await login(rest[0])
   else if (cmd === 'run') await run(rest[0])
   else if (cmd === 'routines') await routines(rest[0])
+  else if (cmd === 'list') await list(rest)
+  else if (cmd === 'draft') await draft(rest[0], rest.slice(1))
+  else if (cmd === 'routine') await routine(rest[0], rest.slice(1))
+  else if (cmd === 'dispatch') await dispatchCmd(rest)
   else if (cmd === 'help' || cmd === '--help' || cmd === '-h') console.log(HELP)
   else {
     console.error(`Unknown command "${cmd}".\n\n${HELP}`)
     process.exit(1)
   }
 } catch (e) {
-  if (e instanceof ConfigError) {
+  if (e instanceof ConfigError || e instanceof UsageError) {
     console.error(e.message)
     process.exit(1)
   }

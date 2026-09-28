@@ -16,19 +16,25 @@ export const PANELS: Panel[] = ['projects', 'work', 'done', 'accounts']
 
 // Everything not done is one list, in these groups, in this order. J K jump between them; the
 // letters on the list act on the selected row instead.
-export type Group = 'waiting' | 'draft' | 'running' | 'routines' | 'next'
+export type Group = 'waiting' | 'draft' | 'proposed' | 'running' | 'routines' | 'next'
 export const GROUPS: { id: Group; label: string }[] = [
   { id: 'waiting', label: 'waiting on you' },
   { id: 'draft', label: 'drafts' },
+  // Drafts an agent wrote for me to approve (the groomer, a review, a chain past its depth).
+  { id: 'proposed', label: 'proposed' },
   { id: 'running', label: 'running' },
   // Prompts that run on a schedule; each run is its own conversation.
   { id: 'routines', label: 'routines' },
-  // Work that will start on its own when an account has room. Nothing lands here until dispatch.
+  // Queued drafts: they start on their own, unattended, when ready and an account has room.
   { id: 'next', label: 'up next' },
 ]
 export const groupOf = (i: Item): Group =>
   i.kind === 'draft'
-    ? 'draft'
+    ? i.queue
+      ? 'next'
+      : i.proposed
+        ? 'proposed'
+        : 'draft'
     : i.kind === 'routine'
       ? 'routines'
       : i.where === 'queue'
@@ -54,8 +60,12 @@ export type Editing = {
   model?: string | undefined
   effort?: string | undefined
   // Set when this is a routine's prompt rather than a draft.
-  routine?: { name: string; schedule: string; enabled: boolean } | undefined
+  routine?: { name: string; schedule: string; enabled: boolean; check?: string } | undefined
+  // A draft's overnight fields, carried through the editor unchanged.
+  extra?: DraftExtra | undefined
 }
+
+export type DraftExtra = Pick<Draft, 'queue' | 'after' | 'done' | 'proposed' | 'depth'>
 
 // One line of input at a time, in the key bar. Removing is a yes/no.
 export type Form =
@@ -123,6 +133,7 @@ export const toRoutine = (
   prompt: e.text,
   ...(e.model ? { model: e.model } : {}),
   ...(e.effort ? { effort: e.effort } : {}),
+  ...(e.routine?.check ? { check: e.routine.check } : {}),
 })
 
 // The draft as it is saved to disk.
@@ -134,6 +145,7 @@ export const toDraft = (e: Editing, updated: number): Draft => ({
   updated,
   ...(e.model ? { model: e.model } : {}),
   ...(e.effort ? { effort: e.effort } : {}),
+  ...e.extra,
 })
 
 // "sonnet · high", or "default model" when nothing is chosen.

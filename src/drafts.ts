@@ -14,7 +14,21 @@ export type Draft = {
   updated: number
   model?: string
   effort?: string
+  // Up next: start on its own when an account has room ('now'), or only in the night window.
+  // Queued work runs unattended. See dispatch.ts.
+  queue?: Queue
+  // Drafts whose conversations must finish first.
+  after?: string[]
+  // What finished looks like, so an unattended run knows when to stop.
+  done?: string
+  // Written by an agent for me to approve: the routine or conversation that proposed it.
+  proposed?: string
+  // Links from the first draft of a chain of follow-ups; 0 for one I wrote.
+  depth?: number
 }
+
+export const QUEUES = ['now', 'night'] as const
+export type Queue = (typeof QUEUES)[number]
 
 const INBOX = 'meta/inbox'
 
@@ -32,6 +46,11 @@ export const serializeDraft = (d: Draft): string =>
       updated: new Date(d.updated).toISOString(),
       model: d.model,
       effort: d.effort,
+      queue: d.queue,
+      after: d.after?.length ? d.after.join(', ') : undefined,
+      done: d.done,
+      proposed: d.proposed,
+      depth: d.depth ? String(d.depth) : undefined,
     },
     d.text,
   )
@@ -54,6 +73,13 @@ export function parseDraft(id: string, text: string, fileTime = 0): Draft | null
   }
   if (f['model']) draft.model = f['model']
   if (f['effort']) draft.effort = f['effort']
+  if (QUEUES.includes(f['queue'] as Queue)) draft.queue = f['queue'] as Queue
+  const after = (f['after'] ?? '').split(/[,\s]+/).filter(Boolean)
+  if (after.length) draft.after = after
+  if (f['done']) draft.done = f['done']
+  if (f['proposed']) draft.proposed = f['proposed']
+  const depth = Number(f['depth'])
+  if (Number.isInteger(depth) && depth > 0) draft.depth = depth
   return draft
 }
 
@@ -78,6 +104,8 @@ export async function listDrafts(home: string): Promise<Draft[]> {
 
 export const saveDraft = (home: string, d: Draft) =>
   writeAtomic(file(home, d.id), serializeDraft(d))
+
+export const DRAFT_ID = /^[a-z0-9]+-[a-z0-9]{2,8}$/
 
 export async function deleteDraft(home: string, id: string): Promise<void> {
   await rm(file(home, id), { force: true })

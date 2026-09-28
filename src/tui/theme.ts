@@ -57,13 +57,15 @@ export const tone = (pct: number) => (pct >= 90 ? T.blocked : pct >= 75 ? T.wait
 
 // What an item is doing, as the glyph that leads its row.
 export function stateMark(state: string, kind?: string): { mark: string; color: string } {
+  // Queued drafts: ○ to start when there's room, ☾ tonight.
+  if (state === 'queued') return { mark: '○', color: T.dim }
+  if (state === 'tonight') return { mark: '☾', color: T.dim }
   if (kind === 'draft' || state === 'draft') return { mark: '◇', color: T.draft }
   if (kind === 'routine')
     return state === 'paused' ? { mark: '○', color: T.dim } : { mark: '↻', color: T.focus }
   if (state === 'blocked' || state === 'failed' || state === 'stopped')
     return { mark: '▲', color: T.blocked }
   if (state === 'done') return { mark: '◆', color: T.waiting }
-  if (state === 'queued') return { mark: '○', color: T.dim }
   return { mark: 'spin', color: T.running }
 }
 

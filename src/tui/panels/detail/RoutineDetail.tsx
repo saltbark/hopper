@@ -18,6 +18,7 @@ export type RoutineView = {
 // What a run came to, in a word and a colour.
 function outcome(run: Run, res: Result | null | undefined) {
   if (run.status === 'skipped') return { text: 'skipped', color: T.faint, what: run.reason ?? '' }
+  if (run.status === 'passed') return { text: 'passed', color: T.dim, what: 'the check passed' }
   if (res?.needs === 'you') return { text: 'needs you', color: T.waiting, what: res.summary }
   if (res?.needs === 'nothing') return { text: 'nothing', color: T.dim, what: res.summary }
   return { text: 'no result', color: T.faint, what: '' }
@@ -37,6 +38,7 @@ export function RoutineDetail({ view, width }: { view: RoutineView; width: numbe
       )}
       {row('project', r.project)}
       {row('model', [r.model ?? 'project default', r.effort].filter(Boolean).join(' · '))}
+      {r.check ? row('check', r.check) : null}
       {view.account ? row('account', view.account) : null}
       <Text> </Text>
       <Heading label="prompt" width={width} />

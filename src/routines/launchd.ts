@@ -109,3 +109,102 @@ export async function syncLaunchd(
   }
   return { loaded, removed }
 }
+
+// Whether launchd has a routine: its entry is loaded, written but not loaded, out of step with
+// the file (stale), missing, or not wanted (paused or unscheduled).
+export type LaunchdStatus = 'loaded' | 'not loaded' | 'stale' | 'missing' | 'unscheduled'
+
+export async function launchdStatus(
+  config: Config,
+  r: Routine,
+  opts: { hopper: string; node?: string },
+): Promise<LaunchdStatus> {
+  const agents = process.env['HOPPER_LAUNCHD_DIR'] || join(homedir(), 'Library', 'LaunchAgents')
+  const want = plistFor(r, {
+    node: opts.node ?? process.execPath,
+    hopper: opts.hopper,
+    configPath: config.path,
+    logDir: join(config.home, 'state', 'logs'),
+    path: process.env['PATH'] ?? '/usr/bin:/bin',
+  })
+  const have = await readIfThere(join(agents, `${LABEL}${r.name}.plist`)).catch(() => null)
+  if (!want) return 'unscheduled'
+  if (have === null) return 'missing'
+  // PATH differs between a shell and launchd's own run; compare everything else.
+  const strip = (x: string) => x.replace(/<key>PATH<\/key><string>[^<]*<\/string>/, '')
+  if (strip(have) !== strip(want)) return 'stale'
+  if (process.env['HOPPER_NO_LAUNCHCTL']) return 'loaded'
+  const uid = process.getuid?.() ?? 501
+  const ok = await new Promise<boolean>((resolve) =>
+    execFile('launchctl', ['print', `gui/${uid}/${LABEL}${r.name}`], (err) => resolve(!err)),
+  )
+  return ok ? 'loaded' : 'not loaded'
+}
+
+// The dispatcher's own entry: `hopper dispatch` every ten minutes. Its label sits outside the
+// routines' prefix, so syncLaunchd leaves it alone.
+export const DISPATCH_LABEL = 'com.saltbark.hopper-dispatch'
+
+export function dispatchPlist(opts: {
+  node: string
+  hopper: string
+  configPath: string
+  logDir: string
+  path: string
+  every?: number
+}): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>${DISPATCH_LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${esc(opts.node)}</string>
+    <string>${esc(opts.hopper)}</string>
+    <string>dispatch</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>${esc(opts.path)}</string>
+    <key>HOPPER_CONFIG</key><string>${esc(opts.configPath)}</string>
+  </dict>
+  <key>StartInterval</key><integer>${opts.every ?? 600}</integer>
+  <key>StandardOutPath</key><string>${esc(join(opts.logDir, 'dispatch.log'))}</string>
+  <key>StandardErrorPath</key><string>${esc(join(opts.logDir, 'dispatch.log'))}</string>
+</dict>
+</plist>
+`
+}
+
+// Installs or removes the dispatcher's entry. Returns the plist's path.
+export async function setDispatchSchedule(
+  config: Config,
+  on: boolean,
+  opts: { hopper: string; node?: string },
+): Promise<string> {
+  const agents = process.env['HOPPER_LAUNCHD_DIR'] || join(homedir(), 'Library', 'LaunchAgents')
+  const live = !process.env['HOPPER_NO_LAUNCHCTL']
+  const uid = process.getuid?.() ?? 501
+  const path = join(agents, `${DISPATCH_LABEL}.plist`)
+  if (live) await launchctl(['bootout', `gui/${uid}`, path])
+  if (!on) {
+    await rm(path, { force: true })
+    return path
+  }
+  const logDir = join(config.home, 'state', 'logs')
+  await mkdir(agents, { recursive: true })
+  await mkdir(logDir, { recursive: true })
+  await writeFile(
+    path,
+    dispatchPlist({
+      node: opts.node ?? process.execPath,
+      hopper: opts.hopper,
+      configPath: config.path,
+      logDir,
+      path: process.env['PATH'] ?? '/usr/bin:/bin',
+    }),
+  )
+  if (live) await launchctl(['bootstrap', `gui/${uid}`, path])
+  return path
+}

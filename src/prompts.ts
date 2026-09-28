@@ -1,8 +1,12 @@
 import type { Project } from './home.ts'
 
 // What Claude is told about the project when Hopper starts a conversation in it.
-export function hopperPrompt(project: Project): string {
+// Unattended, the closing "talk it through first" is left off: nobody is there to talk to.
+export function hopperPrompt(project: Project, opts: { unattended?: boolean } = {}): string {
   const { key, openFile, meta } = project
+  const talk = opts.unattended
+    ? []
+    : ['Start by talking it through. Do not start on the work itself unless they ask.']
   const opening = `This conversation was started from Hopper, for the project ${key}.`
   // A registry project's open file belongs to its meta repo, which has its own planning rules.
   if (meta) {
@@ -23,15 +27,55 @@ export function hopperPrompt(project: Project): string {
       '(which sections items go under, moving finished items to _done.md, dates, the planning check).',
       'When the person asks you to file, add or capture something, add it there and say what you added.',
       "If the open file doesn't exist yet, ask before creating it.",
-      'Start by talking it through. Do not start on the work itself unless they ask.',
+      ...talk,
     ].join(' ')
   }
   return [
     opening,
     ...(project.runIn !== project.path ? [`Its folder is ${project.path}.`] : []),
     `Its open items live in ${openFile}, one per line as "- [ ] **Title** — detail", under the file's first "## " heading.`,
-    'Start by talking it through. When the person asks you to file, add or capture something, add it to that file',
+    'When the person asks you to file, add or capture something, add it to that file',
     `(create it with "# ${key}" and "## Open" if it is missing) and say what you added.`,
-    'Do not start on the work itself unless they ask.',
+    ...talk,
   ].join(' ')
+}
+
+// What a conversation started with nobody watching is told on top of the project prompt, so it
+// never sits waiting on a question until morning. `result` is where it reports; `draft` is its
+// own id, which follow-ups name in --after.
+export function unattendedPrompt(opts: {
+  result: string
+  guide?: string | undefined
+  draft?: string | undefined
+  done?: string | undefined
+  depth?: number | undefined
+  chainDepth: number
+}): string {
+  const { result, draft, done } = opts
+  const depth = opts.depth ?? 0
+  return [
+    'Nobody is watching this conversation: it was started by Hopper while the person is away,',
+    'and it runs in auto permission mode. The person has asked for this work to be done, so do it',
+    'rather than only talking it through. Never wait for an answer; nobody will reply until morning.',
+    done ? `It is finished when: ${done}.` : '',
+    'Rules: make changes in a git worktree on a branch of the repo you change, and commit there.',
+    'Never push to main, merge, force-push, deploy, publish, or send anything to anyone.',
+    'Do not edit any _open.md or other planning file; say in the result what should change there.',
+    'When a decision is needed, take the option you would recommend and say so in the result.',
+    'For a real fork in the road, do both on two branches and say which you recommend.',
+    'If you are blocked (a missing credential, a question only the person can answer), stop, and',
+    'put the question in the result.',
+    `When you finish or stop, write a result to ${result} (create the folder if needed).`,
+    opts.guide ? `How Hopper works, for agents: ${opts.guide}.` : '',
+    'Its first line must be exactly "needs: you" if anything is waiting on the person (a',
+    'decision, a review, a question, branches to merge), or "needs: nothing" if not. Then a',
+    'one-line summary, then detail: branches and commits, decisions you took, what is left.',
+    draft && depth < opts.chainDepth
+      ? `If the work leaves an obvious next step that can run unattended, you may queue it with:
+hopper draft new --after ${draft} --done "<what finished looks like>" "<the prompt>"
+(add --project <key> for another project). It starts once this conversation is done and its result says "needs: nothing". Queue at most two, and none for anything that needs the person.`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 }

@@ -8,6 +8,7 @@ import {
 } from './claude.ts'
 import type { Account, Config } from './config.ts'
 import { loadConversations } from './conversations.ts'
+import { inWindow, readiness } from './dispatch.ts'
 import { loadDone } from './done.ts'
 import { listDrafts, type Draft } from './drafts.ts'
 import { loadProjects, readOpenCount, type Project } from './home.ts'
@@ -57,8 +58,20 @@ export type Item = Session & {
   model?: string
   effort?: string
   routine?: string
-  // For a routine's run: what its result file says.
+  // For a routine's run or an unattended conversation: what its result file says.
   result?: Result | null
+  resultPath?: string
+  // Started with nobody watching.
+  unattended?: boolean
+  // The draft a conversation started from; for a draft, its own id.
+  draft?: string
+  // A draft's overnight fields (drafts.ts).
+  queue?: Draft['queue']
+  after?: string[]
+  done?: string
+  proposed?: string
+  // For a queued draft: why it hasn't started, or undefined when it's ready.
+  waiting?: string
 }
 
 export type AccountState = {
@@ -204,6 +217,9 @@ export async function gather(
     if (m?.model) it.model = m.model
     if (m?.effort) it.effort = m.effort
     if (m?.routine) it.routine = m.routine
+    if (m?.draft) it.draft = m.draft
+    if (m?.unattended) it.unattended = true
+    if (m?.result) it.resultPath = m.result
     // Several projects can run from one folder (a meta repo), so the folder alone can't say
     // which a conversation is for; the project Hopper started it in can.
     if (m?.project && projects.some((p) => p.key === m.project)) it.key = m.project
@@ -214,18 +230,33 @@ export async function gather(
       results[run.result!] = await readResult(run.result)
     }
   }
-  // A run that finished and says nothing needs me goes straight to Done.
+  // A run, or unattended conversation, that finished and says nothing needs me goes straight to
+  // Done.
   for (const it of items) {
-    if (!it.routine || !it.id) continue
-    const run = runs.find((r) => r.id === it.id)
-    it.result = run?.result ? (results[run.result] ?? (await readResult(run.result))) : null
+    if (!it.id || (!it.routine && !it.resultPath)) continue
+    const path = it.resultPath ?? runs.find((r) => r.id === it.id)?.result
+    it.result = path ? (results[path] ?? (await readResult(path))) : null
+    if (path && !it.resultPath) it.resultPath = path
     if (it.where === 'needs' && it.state === 'done' && it.result?.needs === 'nothing')
       it.where = 'done'
   }
   for (const d of drafts) {
     const it = items.find((x) => x.sessionId === draftSessionId(d.id))
-    if (it && d.model) it.model = d.model
-    if (it && d.effort) it.effort = d.effort
+    if (!it) continue
+    it.draft = d.id
+    if (d.model) it.model = d.model
+    if (d.effort) it.effort = d.effort
+    if (d.queue) {
+      it.queue = d.queue
+      it.state = d.queue === 'night' ? 'tonight' : 'queued'
+      const r = await readiness(d, { drafts, meta, items })
+      if (!r.ready) it.waiting = r.reason
+      else if (d.queue === 'night' && !inWindow(config.overnight.window, now))
+        it.waiting = `starts in the night window (${config.overnight.window})`
+    }
+    if (d.after) it.after = d.after
+    if (d.done) it.done = d.done
+    if (d.proposed) it.proposed = d.proposed
   }
   // A draft's project comes from the draft, not from matching its folder.
   for (const it of items)

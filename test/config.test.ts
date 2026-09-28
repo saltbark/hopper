@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addAccount,
   ConfigError,
+  OVERNIGHT_DEFAULTS,
   parseAccounts,
   parsePrefixList,
   parseSettings,
@@ -24,6 +25,7 @@ const base = (): Config => ({
   home: '/h',
   accounts: [],
   routes: [],
+  overnight: OVERNIGHT_DEFAULTS,
 })
 const two = (): Config => {
   let c = addAccount(base(), { name: 'kf', label: 'KF', configDir: null })
@@ -155,7 +157,7 @@ describe('account order', () => {
       '/c/accounts.toml',
     )
     expect(read.accounts.map((a) => a.name)).toEqual(['kf', 'sb'])
-    const config = { path: '', accountsPath: '', home: '', ...read }
+    const config = { path: '', accountsPath: '', home: '', overnight: OVERNIGHT_DEFAULTS, ...read }
     const added = addAccount(config, { name: 'gt', label: 'gt', configDir: '/tmp/gt' })
     expect(added.accounts.map((a) => a.name)).toEqual(['gt', 'kf', 'sb'])
   })
