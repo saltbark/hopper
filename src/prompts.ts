@@ -54,8 +54,8 @@ export function unattendedPrompt(opts: {
   const { result, draft, done } = opts
   const depth = opts.depth ?? 0
   return [
-    'Nobody is watching this conversation: it was started by Hopper while the person is away,',
-    'and it runs in auto permission mode. The person has asked for this work to be done, so do it',
+    'Nobody is watching this conversation: it was started by Hopper while the person is away.',
+    'The person has asked for this work to be done, so do it',
     'rather than only talking it through. Never wait for an answer; nobody will reply until morning.',
     done ? `It is finished when: ${done}.` : '',
     'Rules: make changes in a git worktree on a branch of the repo you change, and commit there.',

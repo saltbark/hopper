@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { startBackground } from './claude.ts'
+import { limitedNote, startBackground, unattendedPermissions } from './claude.ts'
 import type { Account, Config } from './config.ts'
 import { recordConversation } from './conversations.ts'
 import { deleteDraft, type Draft } from './drafts.ts'
@@ -36,6 +36,7 @@ export async function startDraft(opts: {
   const name = `${unattended ? '☾ ' : ''}${project.key} · ${first}`
   const result = unattended ? draftResultPath(home, d.id) : undefined
   if (result) await mkdir(resultsDir(home), { recursive: true })
+  const perms = result ? unattendedPermissions(d.model, [resultsDir(home)]) : undefined
   const systemPrompt = [
     hopperPrompt(project, { unattended }),
     result
@@ -48,6 +49,7 @@ export async function startDraft(opts: {
           chainDepth: config.overnight.chainDepth,
         })
       : '',
+    perms?.allowedTools ? limitedNote([resultsDir(home)]) : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -59,7 +61,7 @@ export async function startDraft(opts: {
     model: d.model,
     effort: d.effort,
     addDirs: [...(result ? [resultsDir(home)] : []), ...extraDirs(project)],
-    ...(unattended ? { permissionMode: 'auto' as const } : {}),
+    ...perms,
   })
   await recordConversation(home, id, {
     project: project.key,

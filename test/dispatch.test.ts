@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { unattendedPermissions } from '../src/claude.ts'
 import { draftNew, UsageError } from '../src/commands.ts'
 import { OVERNIGHT_DEFAULTS, parseSettings, type Config } from '../src/config.ts'
 import { recordConversation } from '../src/conversations.ts'
@@ -307,6 +308,18 @@ describe('unattended prompts', () => {
     const project: Project = { key: 'meta/inbox', path: '/h/p', runIn: '/h', openFile: '/h/o.md' }
     expect(hopperPrompt(project)).toMatch(/talking it through/)
     expect(hopperPrompt(project, { unattended: true })).not.toMatch(/talking it through/)
+  })
+})
+
+describe('unattended permissions', () => {
+  it('are auto, except for models without it, which get dontAsk and a narrow allow-list', () => {
+    expect(unattendedPermissions('sonnet', ['/h/r'])).toEqual({ permissionMode: 'auto' })
+    expect(unattendedPermissions(undefined, ['/h/r'])).toEqual({ permissionMode: 'auto' })
+    const haiku = unattendedPermissions('haiku', ['/h/r'])
+    expect(haiku.permissionMode).toBe('dontAsk')
+    expect(haiku.allowedTools).toContain('Edit(//h/r/**)')
+    expect(haiku.allowedTools).toContain('Bash(git log:*)')
+    expect(haiku.allowedTools).not.toContain('Bash')
   })
 })
 

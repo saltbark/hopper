@@ -184,10 +184,51 @@ export class UntrustedError extends Error {
   }
 }
 
-// Parses "backgrounded · 699f6c71 · name" from `claude --bg`.
+// Parses "backgrounded · 699f6c71 · name" from `claude --bg`. With colour forced (FORCE_COLOR in
+// the environment) the id comes wrapped in escape codes; missing it would report a session that
+// started as a failure, and the dispatcher would start it again.
+const ESCAPES = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[A-Za-z]`, 'g')
+
 export function parseBackgroundId(stdout: string): string | null {
-  return /backgrounded\s*·\s*([0-9a-f]{6,})/.exec(stdout)?.[1] ?? null
+  const plain = stdout.replace(ESCAPES, '')
+  return /backgrounded\s*·\s*([0-9a-f]{6,})/.exec(plain)?.[1] ?? null
 }
+
+// How a session with nobody watching gets its permissions. 'auto' lets Claude decide what's safe
+// rather than ask. Some models have no auto mode (Claude Code 2.1.284 says "auto mode
+// unavailable for this model" for Haiku and falls back to asking), so those get 'dontAsk':
+// anything not allowed here is denied, never asked. They may read, search, look at git history
+// and use Hopper's own commands, and write only in `writable`.
+export type UnattendedMode = 'auto' | 'dontAsk'
+const NO_AUTO = new Set(['haiku'])
+
+export function unattendedPermissions(
+  model: string | undefined,
+  writable: string[],
+): { permissionMode: UnattendedMode; allowedTools?: string[] } {
+  if (!model || !NO_AUTO.has(model)) return { permissionMode: 'auto' }
+  const read = ['log', 'diff', 'show', 'status', 'branch', 'for-each-ref'].map(
+    (c) => `Bash(git ${c}:*)`,
+  )
+  return {
+    permissionMode: 'dontAsk',
+    allowedTools: [
+      'Read',
+      'Glob',
+      'Grep',
+      ...read,
+      'Bash(ls:*)',
+      'Bash(hopper list:*)',
+      'Bash(hopper draft new:*)',
+      // An absolute path in a rule starts with //.
+      ...writable.map((d) => `Edit(/${d}/**)`),
+    ],
+  }
+}
+
+// What a run with limited permissions is told, so it doesn't spend itself retrying denials.
+export const limitedNote = (writable: string[]) =>
+  `This run's model has no auto mode, so its permissions are limited: it may read and search files, run git log, diff, show, status and branch, ls, and hopper list and hopper draft new, and write only under ${writable.join(', ')}. Anything else is denied without asking; don't retry it, say in the result what you couldn't do.`
 
 // Starts a conversation as a Claude Code background session and returns its short id.
 export function startBackground(
@@ -201,14 +242,17 @@ export function startBackground(
     effort?: string | undefined
     // Folders outside cwd the session may use without asking (a routine's result folder).
     addDirs?: string[] | undefined
-    // With nobody watching, 'auto': Claude decides what it may do rather than asking and waiting.
-    permissionMode?: 'auto' | undefined
+    // With nobody watching, never a mode that asks (see unattendedPermissions).
+    permissionMode?: UnattendedMode | undefined
+    allowedTools?: string[] | undefined
   },
 ): Promise<string> {
   // Remote Control puts the session in the Claude app too, so it can be answered from the phone.
   const args = ['--bg', '--name', opts.name, '--remote-control', opts.name]
-  for (const d of opts.addDirs ?? []) args.push('--add-dir', d)
+  // --allowedTools takes every value up to the next flag, so one always follows it.
+  if (opts.allowedTools?.length) args.push('--allowedTools', ...opts.allowedTools)
   if (opts.permissionMode) args.push('--permission-mode', opts.permissionMode)
+  for (const d of opts.addDirs ?? []) args.push('--add-dir', d)
   if (opts.model) args.push('--model', opts.model)
   if (opts.effort) args.push('--effort', opts.effort)
   if (opts.systemPrompt) args.push('--append-system-prompt', opts.systemPrompt)

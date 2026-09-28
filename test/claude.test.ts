@@ -136,5 +136,7 @@ describe('parseBackgroundId', () => {
       'Starting background service…\nbackgrounded · 699f6c71 · hopper probe\n  claude agents  list sessions\n'
     expect(parseBackgroundId(out)).toBe('699f6c71')
     expect(parseBackgroundId('Workspace not trusted.')).toBeNull()
+    // With colour forced, the id comes wrapped in escape codes.
+    expect(parseBackgroundId('backgrounded · \x1b[36m0ee6c2bd\x1b[39m · ☾ probe')).toBe('0ee6c2bd')
   })
 })

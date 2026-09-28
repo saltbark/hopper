@@ -44,7 +44,10 @@ It prints the new draft's id. Pass `-` as the message to read it from stdin.
 
 ## Unattended runs
 
-Routines and queued drafts run with nobody watching, in auto permission mode. Such a run is told
+Routines and queued drafts run with nobody watching, in auto permission mode (Claude decides
+what is safe rather than asking). A model with no auto mode (Haiku) runs in dontAsk mode instead:
+it may read, search, look at git history and use `hopper list` and `hopper draft new`, and write
+only in its result folder; anything else is denied without asking. Such a run is told
 where its result file is. The result's first line is exactly `needs: you` or `needs: nothing`,
 then a one-line summary, then detail. `needs: nothing` sends it straight to Done; `needs: you`
 puts it in front of the person.

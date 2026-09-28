@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { appendFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { startBackground, type Session } from '../claude.ts'
+import { limitedNote, startBackground, unattendedPermissions, type Session } from '../claude.ts'
 import type { Config } from '../config.ts'
 import { recordConversation } from '../conversations.ts'
 import { readIfThere, writeAtomic } from '../fsutil.ts'
@@ -86,7 +86,7 @@ export async function readResult(path: string | undefined): Promise<Result | nul
 export function routineInstructions(r: Routine, result: string, previous?: string): string {
   return [
     `This conversation is a scheduled run of the Hopper routine "${r.name}".`,
-    'Nobody is watching it and it runs in auto permission mode: never wait for an answer.',
+    'Nobody is watching it: never wait for an answer.',
     'Do what the prompt asks, then write a short result to',
     `${result} (create the folder if needed). Its first line must be exactly "needs: you" if`,
     'anything is waiting on the person (a decision, a review, something to send), or',
@@ -207,16 +207,24 @@ export async function runRoutine(opts: {
   const effort = r.effort ?? project.effort
   const when = at.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   const name = `↻ ${r.name} · ${when} ${at.toTimeString().slice(0, 5)}`
+  const folder = join(routinesDir(home), r.name)
+  const perms = unattendedPermissions(model, [folder])
   const id = await startBackground(account, {
     cwd: project.runIn,
     name,
     prompt,
-    systemPrompt: `${opts.systemPrompt(project)} ${routineInstructions(r, result, previous?.result)}`,
+    systemPrompt: [
+      opts.systemPrompt(project),
+      routineInstructions(r, result, previous?.result),
+      perms.allowedTools ? limitedNote([folder]) : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
     model,
     effort,
     // The result file sits outside the project; let the run write there without asking.
-    addDirs: [join(routinesDir(home), r.name), ...extraDirs(project), ...lookAcross(r, projects)],
-    permissionMode: 'auto',
+    addDirs: [folder, ...extraDirs(project), ...lookAcross(r, projects)],
+    ...perms,
   })
   await recordConversation(home, id, {
     project: project.key,

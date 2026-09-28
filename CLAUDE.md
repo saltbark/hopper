@@ -49,8 +49,11 @@ The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it befor
   and `HOPPER_NO_LAUNCHCTL`). A run gets `--add-dir` on its routine folder so it can write its
   result without asking. The model and routine of a conversation Hopper started are in
   `<home>/state/conversations.json`; Claude Code doesn't report them.
-- **Unattended means auto permission mode and a result file.** Routine runs and anything
-  `hopper dispatch` starts go through `startBackground` with `permissionMode: 'auto'`, and their
+- **Unattended means a mode that never asks, and a result file.** Routine runs and anything
+  `hopper dispatch` starts get `unattendedPermissions` (`src/claude.ts`): `--permission-mode
+auto`, except for Haiku, which has no auto mode (Claude falls back to asking, and the run
+  stalls), so it gets `dontAsk` and a narrow `--allowedTools` list. Absolute paths in a rule
+  start with `//` (`Edit(//Users/…/**)`); `Write(...)` rules don't cover the Write tool. Their
   prompt (`unattendedPrompt` in `src/prompts.ts`, `routineInstructions` for routines) says never
   to wait, to work on a branch, and where to write the result. `startDraft` (`src/start.ts`) is
   the one way a draft starts, from the app or the dispatcher; don't start one another way.
