@@ -37,6 +37,7 @@ export function Band(props: {
   const read = accountStates.map((a) => a.usage?.fetchedAt ?? 0).filter(Boolean)
   const usageAge = read.length ? `read ${ago(Math.min(...read), snap?.at ?? 0)} ago` : undefined
   const finding = !!find
+  const shown = accountLines(accountStates, accountSel, height)
   const rows = find ? props.findRows : props.treeRows
   return (
     <Box flexDirection="row" height={height}>
@@ -52,7 +53,7 @@ export function Band(props: {
         {accountStates.length ? (
           <>
             <AccountsHeader width={accountsW} nameW={nameW} />
-            {accountLines(accountStates, accountSel, height).slice.map((a) => (
+            {shown.slice.map((a) => (
               <AccountRow
                 key={a.account.name}
                 a={a}
@@ -63,6 +64,7 @@ export function Band(props: {
                 hovered={hover?.panel === 'accounts' && accountStates.indexOf(a) === hover.index}
                 focused={focus === 'accounts'}
                 now={snap?.at ?? 0}
+                resets={shown.perAccount === 2}
               />
             ))}
           </>

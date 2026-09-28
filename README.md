@@ -72,7 +72,9 @@ routines run with Hopper closed. A run is skipped when every account for its pro
     hopper routines sync     make the launchd schedule match the routine files
     hopper run <name>        one run, now
 
-Accounts: the default account (`*` in the Accounts panel) runs anything no prefix names.
+Accounts: the default account (`*` in the Accounts panel) runs anything no prefix names. Each
+limit's bar has a tick at how far through its window we are: a fill short of the tick is using
+less than an even pace. When there's room, a second line says when each limit resets.
 
 Keys: `p` `c` `v` `a` jump to projects, conversations, done, accounts; `n` the first thing waiting on
 you; `J` `K` (or shift+↑↓) the nearest folder in Projects, the next group in the list; `d` on a
