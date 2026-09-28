@@ -1,4 +1,4 @@
-import { realpathSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 
 import { runInteractive, startBackground, UntrustedError } from '../claude.ts'
@@ -154,8 +154,20 @@ export function makeActions(ctx: AppCtx) {
   // Opens a conversation in the right-hand panel and gives it the keyboard. Attach runs in the
   // conversation's own folder: Claude's agents view opens wherever attach runs, and that folder
   // is one Claude already trusts.
-  const openEmbedded = (account: Account, id: string, name: string, from: Panel, cwd: string) => {
+  const openEmbedded = (
+    account: Account,
+    id: string,
+    name: string,
+    from: Panel,
+    cwd: string,
+    key?: string,
+  ) => {
     ctx.embed?.close()
+    // A conversation whose folder has gone (a worktree removed after it finished) attaches from
+    // its project's run folder instead; in its own missing folder attach exits at once.
+    const project = snap?.projects.find((p) => p.key === key)
+    const dir = existsSync(cwd) ? cwd : (project?.runIn ?? config.home)
+    const opened = now()
     const { sessionCols, sessionRows } = ctx.layout
     const session = new EmbeddedSession(account, id, name, sessionCols, sessionRows, {
       onCopy: (text) => {
@@ -165,7 +177,10 @@ export function makeActions(ctx: AppCtx) {
       onLeave: () => {
         ctx.setEmbed((cur) => (cur === session ? null : cur))
         ctx.setFocus(from)
-        setMessage(null)
+        // Gone again within a second or two: it never opened, so say so rather than flicker.
+        setMessage(
+          now() - opened < 2000 ? `Couldn't open ${name}: claude attach ended at once.` : null,
+        )
         void refresh(false)
       },
       onStepBack: () => {
@@ -173,7 +188,7 @@ export function makeActions(ctx: AppCtx) {
         setMessage(null)
       },
     })
-    session.start(cwd)
+    session.start(dir)
     ctx.setEmbed(session)
     ctx.setEmbedShown(true)
     ctx.setReturnTo(from)
@@ -269,7 +284,7 @@ export function makeActions(ctx: AppCtx) {
       ctx.setEmbedShown(true)
       return ctx.setFocus('session')
     }
-    openEmbedded(account, item.id, item.name, ctx.listFocus, item.cwd)
+    openEmbedded(account, item.id, item.name, ctx.listFocus, item.cwd, item.key)
   }
 
   // Routines: saved on esc, and launchd kept in step every time one changes.
