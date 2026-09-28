@@ -103,7 +103,7 @@ const press = async (stdin: { write: (s: string) => void }, keys: string) => {
 }
 // After esc a draft is saved and selected on the list, its text on the right.
 const onList = (frame: () => string | undefined) =>
-  until(() => (frame() ?? '').includes('⏎ to keep writing'))
+  until(() => (frame() ?? '').includes('⏎ TO KEEP WRITING')) // the heading is upper case
 // The key bar names the focused panel at its right end.
 const focusOf = (frame: string | undefined) =>
   (frame ?? '').trimEnd().split('\n').at(-1)?.trim().split(/\s+/).at(-1)
