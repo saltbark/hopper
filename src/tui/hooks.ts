@@ -11,9 +11,24 @@ import { readItems, type OpenItem } from '../items.ts'
 import type { gather, Item, Snapshot } from '../model.ts'
 import { expandHome } from '../paths.ts'
 import { parseProjectsDoc, type ProjectsDoc } from '../settings.ts'
+import type { EmbeddedSession } from './embed.ts'
 import { now, toDraft, type Editing } from './state.ts'
 
 export type Loader = typeof gather
+
+// The conversations open in Hopper, the one last gone into first. The ref is the same list as
+// of the latest change, for callbacks that outlive a render (an attach ending, a start that
+// awaited). All of them close when Hopper does; their conversations keep running.
+export function useOpenConversations() {
+  const [list, setList] = useState<EmbeddedSession[]>([])
+  const embedsRef = useRef(list)
+  const setEmbeds = useCallback((next: SetStateAction<EmbeddedSession[]>) => {
+    embedsRef.current = typeof next === 'function' ? next(embedsRef.current) : next
+    setList(embedsRef.current)
+  }, [])
+  useEffect(() => () => embedsRef.current.forEach((e) => e.close()), [])
+  return { embeds: list, setEmbeds, embedsRef }
+}
 
 const SESSION_POLL_MS = 5_000
 const AUTH_EVERY = 12 // polls, so about a minute

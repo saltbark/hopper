@@ -9,12 +9,12 @@ import { buildRows } from '../settings.ts'
 import { activeRows, buildTree, type TreeRow } from '../tree.ts'
 import { defaultSync, makeActions } from './actions.ts'
 import type { AppCtx } from './context.ts'
-import type { EmbeddedSession } from './embed.ts'
 import { rank, withFolders } from './fuzzy.ts'
 import {
   useChime,
   useDraftAutosave,
   useFoldImported,
+  useOpenConversations,
   useSettingsDoc,
   useProjectItems,
   useSnapshot,
@@ -70,8 +70,9 @@ export function App({
 
   const [config, setConfig] = useState(initialConfig)
   const [focus, setFocus] = useState<Focus>('projects')
-  // The conversation open in the right panel, if any; it keeps running while you're elsewhere.
-  const [embed, setEmbed] = useState<EmbeddedSession | null>(null)
+  // The conversations open, the one last gone into first. Each keeps running while you're
+  // elsewhere, and shows in the right panel whenever its row is selected.
+  const { embeds, setEmbeds, embedsRef } = useOpenConversations()
   const [returnTo, setReturnTo] = useState<Panel>('work')
   const [embedShown, setEmbedShown] = useState(false)
   const [pick, setPick] = useState<(Sel & { active: boolean }) | null>(null)
@@ -103,7 +104,6 @@ export function App({
     () => buildRows(config, settingsDoc.doc, snap?.projects ?? [], settingsDoc.missing),
     [config, settingsDoc.doc, settingsDoc.missing, snap],
   )
-  useEffect(() => () => embed?.close(), [embed])
 
   // ---- derived ----
   const color = useCallback((name: string) => accountColor(config, name), [config])
@@ -187,8 +187,13 @@ export function App({
   const selectedItem =
     listFocus === 'work' ? work[at('work')] : listFocus === 'done' ? done[at('done')] : undefined
   const scopeProject = scope && projectKeys.includes(scope) ? scope : null
-  const showingEmbed =
-    !!embed && (focus === 'session' || embedShown || selectedItem?.id === embed.id)
+  // While you're in a conversation, or just stepped back from one, the panel shows the one you
+  // went into; otherwise whichever open one the selected row is.
+  const embed =
+    focus === 'session' || embedShown
+      ? (embeds[0] ?? null)
+      : (embeds.find((e) => !!selectedItem?.id && e.id === selectedItem.id) ?? null)
+  const showingEmbed = !!embed
   // The blue edge is where the keys go: nowhere on the left while the editor has them.
   const keysAt = editing ? null : focus
   // The list whose selected row the right panel is showing, which keeps its highlight while the
@@ -255,7 +260,10 @@ export function App({
   // The conversation fills the right panel inside its border; the title is in the top edge.
   const sessionCols = rightW - 2
   const sessionRows = bodyH - 2
-  useEffect(() => embed?.resize(sessionCols, sessionRows), [embed, sessionCols, sessionRows])
+  useEffect(
+    () => embeds.forEach((e) => e.resize(sessionCols, sessionRows)),
+    [embeds, sessionCols, sessionRows],
+  )
   // The conversation in the right panel, which doesn't need a sound to say it's waiting.
   const onScreen =
     embed && showingEmbed ? (snap?.items.find((i) => i.id === embed.id)?.sessionId ?? null) : null
@@ -278,8 +286,10 @@ export function App({
     returnTo,
     setReturnTo,
     listFocus,
+    embeds,
+    setEmbeds,
+    embedsRef,
     embed,
-    setEmbed,
     embedShown,
     setEmbedShown,
     pick,

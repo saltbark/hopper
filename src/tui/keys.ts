@@ -69,10 +69,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       const button = ev.kind === 'press' || ev.kind === 'drag' || ev.kind === 'release'
       if (embed && ctx.showingEmbed && button && (panel === 'right' || pick?.active)) {
         // A click in the conversation also gives it the keyboard, as a click on any panel does.
-        if (ev.kind === 'press' && focus !== 'session' && !ctx.editing && !ctx.form && !ctx.find) {
-          ctx.setReturnTo(focus)
-          ctx.setFocus('session')
-        }
+        if (ev.kind === 'press' && focus !== 'session' && !ctx.editing && !ctx.form && !ctx.find)
+          act.enter(embed, focus)
         // Claude asks for the mouse and does its own selection; give it the events.
         if (embed.mouseWanted()) {
           embed.forwardMouse(
@@ -392,10 +390,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       if (focus === 'work' || focus === 'done') {
         const it = (focus === 'work' ? ctx.work : ctx.done)[ctx.at(focus)]
         if (it) return act.open(it)
-        if (ctx.embed && ctx.showingEmbed) {
-          ctx.setReturnTo(focus)
-          ctx.setFocus('session')
-        }
+        if (ctx.embed) act.enter(ctx.embed, focus)
       }
       return
     }

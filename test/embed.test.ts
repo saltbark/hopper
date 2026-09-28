@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import xterm from '@xterm/headless'
 import { describe, expect, it } from 'vitest'
 
-import { atEmptyPrompt, EmbeddedSession, keyToBytes, paletteHex } from '../src/tui/embed.ts'
+import { admit, atEmptyPrompt, EmbeddedSession, keyToBytes, paletteHex } from '../src/tui/embed.ts'
 import { T } from '../src/tui/theme.ts'
 import { fakeClaude } from './helpers.ts'
 
@@ -82,6 +82,25 @@ describe('atEmptyPrompt', () => {
       term.dispose()
     })
   }
+})
+
+describe('admit', () => {
+  const s = (id: string) => ({ id })
+  it('puts the one gone into first, and closes what no longer fits', () => {
+    const [a, b, c] = [s('a'), s('b'), s('c')]
+    expect(admit([a, b], c, 2)).toEqual({ open: [c, a], dropped: [b] })
+    // Going back into one already open only moves it up.
+    const back = admit([a, b, c], c, 3)
+    expect(back.open.map((x) => x.id)).toEqual(['c', 'a', 'b'])
+    expect(back.dropped).toEqual([])
+  })
+  it('replaces an open one with the same id, and closes the old one', () => {
+    const [old, fresh, b] = [s('a'), s('a'), s('b')]
+    const r = admit([b, old], fresh, 5)
+    expect(r.open).toEqual([fresh, b])
+    expect(r.dropped).toEqual([old])
+    expect(r.open[0]).toBe(fresh)
+  })
 })
 
 describe('EmbeddedSession', () => {

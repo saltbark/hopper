@@ -710,6 +710,58 @@ describe('conversations', () => {
     unmount()
   })
 
+  it('conversations opened stay open: moving onto one shows it live, without attaching again', async () => {
+    const { cfg, projects, log } = await setup()
+    const inbox = projects.find((p) => p.key === 'meta/inbox')!
+    const snap: Snapshot = {
+      ...snapshot,
+      projects,
+      items: toItems(
+        [
+          session({ name: 'First chat', id: 'aaa11111', cwd: inbox.path, state: 'done' }),
+          session({ name: 'Second chat', id: 'bbb22222', cwd: inbox.path, state: 'done' }),
+        ],
+        projects,
+      ),
+    }
+    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
+    await tick()
+    await press(stdin, 'n')
+    const said = async (text: string) => {
+      await press(stdin, text)
+      await press(stdin, '\r')
+      await until(() => (lastFrame() ?? '').includes(`you said: ${text}`))
+    }
+    // Open the selected one and say something, then step back; the same for the next row.
+    await press(stdin, '\r')
+    await until(() => (lastFrame() ?? '').includes('fake claude screen'))
+    const first = /(First|Second) chat/.exec(lastFrame() ?? '')?.[0]
+    await said('one')
+    await press(stdin, '\u001d')
+    await press(stdin, '\u001b[B')
+    expect(lastFrame()).not.toContain('you said: one')
+    await press(stdin, '\r')
+    await until(() => !(lastFrame() ?? '').includes('you said: one'))
+    await said('two')
+    await press(stdin, '\u001d')
+    // Back up: the first is still open and shows as it is, as does the second.
+    await press(stdin, '\u001b[A')
+    expect(lastFrame()).toContain('you said: one')
+    expect(lastFrame()).toContain(first)
+    expect(lastFrame()).not.toContain('you said: two')
+    await press(stdin, '\u001b[B')
+    expect(lastFrame()).toContain('you said: two')
+    // ⏎ goes back into the one shown, not the one gone into last.
+    await press(stdin, '\u001b[A')
+    await press(stdin, '\r')
+    await said('three')
+    expect(lastFrame()).toContain('you said: one')
+    const attaches = (await calls(log)).filter((c) => c.includes('|attach '))
+    expect(attaches.map((c) => c.split('|attach ')[1]).sort()).toEqual(['aaa11111', 'bbb22222'])
+    done()
+    unmount()
+  })
+
   it('d marks a finished conversation done, in Hopper’s own state', async () => {
     const { home, cfg, projects } = await setup()
     const inbox = projects.find((p) => p.key === 'meta/inbox')!
