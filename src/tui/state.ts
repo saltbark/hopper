@@ -179,5 +179,7 @@ export const blankState = (account: Account): AccountState => ({
   authError: null,
   usage: null,
   sessionError: null,
+  sessions: [],
+  sessionsAt: null,
   counts: { queue: 0, needs: 0, done: 0, live: 0 },
 })

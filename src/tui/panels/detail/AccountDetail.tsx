@@ -60,7 +60,15 @@ export function AccountDetail({ account, width }: { account: AccountView; width:
         `${c.queue} running · ${c.needs} waiting on you · ${c.done} done · ${c.live} open terminals`,
       )}
       {resets.length ? row('resets', resets.join(' · ')) : null}
-      {state.sessionError ? row('sessions', state.sessionError, T.blocked) : null}
+      {state.sessionError
+        ? row(
+            'sessions',
+            state.sessionsAt
+              ? `${state.sessionError} · showing the list from ${ago(state.sessionsAt, now)} ago`
+              : state.sessionError,
+            T.blocked,
+          )
+        : null}
       <Text> </Text>
       <Heading label="limits" width={width} />
       {account.usageLines?.length ? (

@@ -87,6 +87,10 @@ export type AccountState = {
   authError: string | null
   usage: Usage | null
   sessionError: string | null
+  // The last list claude gave, and when. A failed poll keeps it rather than showing nothing, so
+  // a slow answer doesn't empty the queue; sessionsAt says how old it has grown.
+  sessions: Session[]
+  sessionsAt: number | null
   counts: { queue: number; needs: number; done: number; live: number }
 }
 
@@ -175,21 +179,24 @@ export async function gather(
           authError = (e as Error).message
         }
       }
-      let sessions: Session[] = []
+      let sessions = prev?.sessions ?? []
+      let sessionsAt = prev?.sessionsAt ?? null
       let sessionError: string | null = null
       try {
         sessions = await fetchSessions(account)
+        sessionsAt = Date.now()
       } catch (e) {
         sessionError = (e as Error).message
       }
-      return { account, auth, authError, usage: await readUsage(account), sessionError, sessions }
+      const usage = await readUsage(account)
+      return { account, auth, authError, usage, sessionError, sessions, sessionsAt }
     }),
   )
 
   const drafts = await listDrafts(config.home)
   const routines = await listRoutines(config.home)
   const runs = await listRuns(config.home)
-  const states = perAccount.map(({ sessions: _s, ...a }) => ({
+  const states = perAccount.map((a) => ({
     ...a,
     counts: { queue: 0, needs: 0, done: 0, live: 0 },
   }))
@@ -278,7 +285,7 @@ export async function gather(
   for (const it of items)
     if (it.kind === 'draft')
       it.key = drafts.find((d) => draftSessionId(d.id) === it.sessionId)?.project ?? it.key
-  const accounts: AccountState[] = perAccount.map(({ sessions: _s, ...a }) => {
+  const accounts: AccountState[] = perAccount.map((a) => {
     const mine = items.filter((i) => i.account === a.account.name)
     const n = (w: Where) => mine.filter((i) => i.where === w).length
     return {

@@ -73,6 +73,8 @@ const snapshot: Snapshot = {
         fetchedAt: now - 3_600_000,
       },
       sessionError: null,
+      sessions: [],
+      sessionsAt: null,
       counts: { queue: 1, needs: 1, done: 0, live: 0 },
     },
     {
@@ -81,6 +83,8 @@ const snapshot: Snapshot = {
       authError: null,
       usage: null,
       sessionError: null,
+      sessions: [],
+      sessionsAt: null,
       counts: { queue: 0, needs: 0, done: 0, live: 0 },
     },
   ],

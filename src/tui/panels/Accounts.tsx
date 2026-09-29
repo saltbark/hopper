@@ -2,7 +2,7 @@ import { Text } from 'ink'
 import { memo } from 'react'
 
 import type { Window } from '../../claude.ts'
-import { cell, isStale, resetShort } from '../../format.ts'
+import { ago, cell, isStale, resetShort } from '../../format.ts'
 import type { AccountState } from '../../model.ts'
 import { T, tone } from '../theme.ts'
 import { Rail, windowed } from './primitives.tsx'
@@ -135,7 +135,11 @@ export const AccountRow = memo(function AccountRow(props: {
             {cell(a.account.name, nameW)}
           </Text>
           {rest}
-          {a.sessionError ? <Text color={T.blocked}> !</Text> : null}
+          {a.sessionError ? (
+            <Text color={T.blocked}>
+              {a.sessionsAt ? ` ! ${ago(a.sessionsAt, now)} old` : ' !'}
+            </Text>
+          ) : null}
         </Text>
       </Text>
       {resets ? (

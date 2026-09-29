@@ -1,7 +1,13 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import type { Session } from '../src/claude.ts'
-import { classify, inScope, OTHER, projectForCwd, toItems } from '../src/model.ts'
+import { addAccount, type Config, OVERNIGHT_DEFAULTS } from '../src/config.ts'
+import { classify, gather, inScope, OTHER, projectForCwd, toItems } from '../src/model.ts'
+import { fakeClaude } from './helpers.ts'
 
 const s = (over: Partial<Session>): Session => ({
   account: 'kf',
@@ -90,5 +96,43 @@ describe('resetShort', () => {
     expect(resetShort('2026-09-27T15:10:00Z', now)).toBe('in 3h 10m')
     expect(resetShort('2026-09-30T03:00:00Z', now)).toMatch(/^\w{3} \d\d:\d\d$/)
     expect(resetShort('2026-09-24T03:00:00Z', now)).toBe('reset')
+  })
+})
+
+describe('gather', () => {
+  it('keeps the last list of sessions when claude fails to give one', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-model-'))
+    const listed = [
+      { id: 'aaaa1111', sessionId: 's-1', cwd: home, kind: 'background', state: 'working' },
+    ]
+    const answer = join(home, 'answer.json')
+    await writeFile(answer, JSON.stringify(listed))
+    // Answers with whatever answer.json holds, and fails once it's gone.
+    const bin = await fakeClaude(
+      `case "$1" in auth) echo '{"loggedIn":true}';; agents) cat '${answer}' 2>/dev/null || { echo 'timed out' >&2; exit 1; };; esac`,
+    )
+    process.env['HOPPER_CLAUDE'] = bin
+    try {
+      let config: Config = {
+        path: join(home, 'c.toml'),
+        accountsPath: '',
+        home,
+        accounts: [],
+        routes: [],
+        overnight: OVERNIGHT_DEFAULTS,
+      }
+      config = addAccount(config, { name: 'kf', label: 'kf', configDir: null })
+      const first = await gather(config, null, true)
+      expect(first.items.map((i) => i.id)).toEqual(['aaaa1111'])
+      const at = first.accounts[0]!.sessionsAt
+      expect(at).not.toBeNull()
+
+      await rm(answer)
+      const failed = await gather(config, first, false)
+      expect(failed.items.map((i) => i.id)).toEqual(['aaaa1111'])
+      expect(failed.accounts[0]).toMatchObject({ sessionError: 'timed out', sessionsAt: at })
+    } finally {
+      delete process.env['HOPPER_CLAUDE']
+    }
   })
 })

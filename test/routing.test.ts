@@ -45,6 +45,8 @@ const state = (
       ? null
       : { fiveHour: null, sevenDay: { pct: weekPct, resetsAt }, fetchedAt: Date.now() },
   sessionError: null,
+  sessions: [],
+  sessionsAt: null,
   counts: { queue: 0, needs: 0, done: 0, live: 0 },
 })
 
