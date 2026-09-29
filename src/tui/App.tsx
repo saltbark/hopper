@@ -91,6 +91,10 @@ export function App({
     done: 0,
     accounts: 0,
   })
+  // Which item each re-sorting list has selected, and the row it was on then.
+  const [pinned, setPinned] = useState<
+    Record<'work' | 'done', { key: string | null; at: number } | null>
+  >({ work: null, done: null })
   const [hover, setHover] = useState<Hover>(null)
   const [scope, setScope] = useState<string | null>(null)
   const [help, setHelp] = useState<{ scroll: number } | null>(null)
@@ -176,6 +180,27 @@ export function App({
     accounts: accountStates.length,
   }
   const at = (p: Panel) => Math.max(0, Math.min(sel[p], lists[p] - 1))
+  // The conversations and Done lists re-sort as things change state, so the selection follows
+  // the item, not the row. Moving the selection re-pins it; while it hasn't moved, a pinned item
+  // that went elsewhere in the list is found again. One that left the list leaves the row
+  // selected, which is now its neighbour.
+  for (const [p, list] of [
+    ['work', work],
+    ['done', done],
+  ] as const) {
+    const pin = pinned[p]
+    const key = list[at(p)]?.sessionId ?? null
+    if (pin && pin.at === sel[p] && pin.key !== key) {
+      const i = list.findIndex((w) => w.sessionId === pin.key)
+      if (i >= 0) {
+        setSel((s) => ({ ...s, [p]: i }))
+        setPinned((x) => ({ ...x, [p]: { key: pin.key, at: i } }))
+        continue
+      }
+    }
+    if (pin?.key !== key || pin?.at !== sel[p])
+      setPinned((x) => ({ ...x, [p]: { key, at: sel[p] } }))
+  }
   const selectedRow = projectRows[at('projects')]
   const listFocus: Panel = focus === 'session' ? returnTo : focus
   const selectedItem =
@@ -196,10 +221,14 @@ export function App({
       : null
   const selectedReport = reports ? routineReports[reports.sel] : undefined
   // While you're in a conversation, or just stepped back from one, the panel shows the one you
-  // went into; otherwise whichever open one the selected row is.
+  // went into; otherwise whichever open one the selected row is. Stepped back, it only shows
+  // the one you went into while no other row is selected: when that one moves (to Done, say)
+  // and the selection lands on its neighbour, the panel follows the selection.
+  const front = embeds[0]
+  const frontListed = !!front && [...work, ...done].some((i) => i.id === front.id)
   const embed =
-    focus === 'session' || embedShown
-      ? (embeds[0] ?? null)
+    focus === 'session' || (embedShown && (!selectedItem || !frontListed))
+      ? (front ?? null)
       : (embeds.find((e) => !!selectedItem?.id && e.id === selectedItem.id) ?? null)
   const showingEmbed = !!embed
   // The blue edge is where the keys go: nowhere on the left while the editor has them.
