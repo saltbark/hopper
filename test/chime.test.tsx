@@ -32,10 +32,9 @@ describe('newlyWaiting', () => {
     expect(newlyWaiting(prev, next, null)).toEqual([])
   })
 
-  it('counts a routine whose newest report starts needing you', () => {
-    const r = (attention: boolean) => ({ ...item('routine:x', 'routine'), attention }) as Item
-    expect(newlyWaiting([r(false)], [r(true)], null).map((i) => i.sessionId)).toEqual(['routine:x'])
-    expect(newlyWaiting([r(true)], [r(true)], null)).toEqual([])
+  it("doesn't count a routine's new report: its row's dot says it", () => {
+    const r = (unread?: number) => ({ ...item('routine:x', 'routine'), unread }) as Item
+    expect(newlyWaiting([r()], [r(1)], null)).toEqual([])
   })
 })
 

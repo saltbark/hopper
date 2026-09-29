@@ -23,9 +23,9 @@ export type Here = {
   editing: Editing | null
   // Set while the settings screen is open: the row selected there.
   setting?: Row | null | undefined
-  // Set while a routine's reports have the keyboard: reading one, and whether the selected
-  // report's conversation is still there to open.
-  reports?: { reading: boolean; conversation: boolean } | undefined
+  // Set while a routine's list (its prompt, then its reports) has the keyboard: reading a report,
+  // on the prompt's line, and whether the selected report's conversation is still there to open.
+  reports?: { reading: boolean; onPrompt?: boolean; conversation: boolean } | undefined
 }
 
 export const ANYWHERE: Hint[] = [
@@ -171,8 +171,8 @@ export function draftKeys(
 
 export function routineKeys(e: Choices & { paused?: boolean }): Hint[] {
   return [
-    ['⏎', 'edit the prompt'],
-    ['o', 'its reports'],
+    ['⏎', 'open it'],
+    ['M', 'mark all read'],
     ['s', 'run now'],
     ['S', 'schedule'],
     ['P', e.paused ? 'resume' : 'pause'],
@@ -184,10 +184,19 @@ export function routineKeys(e: Choices & { paused?: boolean }): Hint[] {
   ]
 }
 
-// A routine's reports in the right panel (o on a routine), and one of them open for reading.
+// A routine's list in its details (⏎ on a routine): its prompt, then its reports. And one of
+// them open for reading.
+export const PROMPT_LINE_KEYS: Hint[] = [
+  ['j k ↑↓', 'move'],
+  ['⏎ →', 'edit the prompt'],
+  ['M', 'mark all read'],
+  ['esc ←', 'back to the list'],
+]
 export const REPORT_LIST_KEYS: Hint[] = [
   ['j k ↑↓', 'move'],
   ['⏎ →', 'read it'],
+  ['m', 'mark read'],
+  ['M', 'mark all read'],
   ['c', 'its conversation'],
   ['esc ←', 'back to the list'],
 ]
@@ -202,7 +211,9 @@ export const REPORT_KEYS: Hint[] = [
 // Both, as one section of the help screen.
 export const REPORTS_HELP: Hint[] = [
   ['j k ↑↓', 'move, or scroll a report'],
-  ['⏎ →', 'read it'],
+  ['⏎ →', 'read it, or edit the prompt'],
+  ['m', 'mark read'],
+  ['M', 'mark all read'],
   ['space', 'a page down'],
   ['J K', 'older, newer report'],
   ['c', 'its conversation'],
@@ -214,14 +225,17 @@ export const REPORTS_HELP: Hint[] = [
 export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   const trust: Hint[] = h.untrusted ? [['T', 'trust the folder and start']] : []
   if (h.setting !== undefined) return { label: 'settings', hints: settingKeys(h.setting) }
+  // The editor, opened from a routine's list, comes before the list it goes back to.
+  if (h.editing) return { label: 'writing', hints: WRITING_KEYS }
   if (h.reports) {
     // c only when Claude still has the conversation that wrote it.
     const keep = ([k]: Hint) => k !== 'c' || h.reports!.conversation
     return h.reports.reading
       ? { label: 'a report', hints: REPORT_KEYS.filter(keep) }
-      : { label: 'routine reports', hints: REPORT_LIST_KEYS.filter(keep) }
+      : h.reports.onPrompt
+        ? { label: 'routine', hints: PROMPT_LINE_KEYS }
+        : { label: 'routine reports', hints: REPORT_LIST_KEYS.filter(keep) }
   }
-  if (h.editing) return { label: 'writing', hints: WRITING_KEYS }
   if (h.focus === 'session') return { label: 'a conversation', hints: CONVERSATION_KEYS }
   if (h.focus === 'projects') {
     const hints: Hint[] = [

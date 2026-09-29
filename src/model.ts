@@ -26,7 +26,7 @@ import {
   type Run,
 } from './routines/index.ts'
 import { pickAccount } from './routing.ts'
-import { loadSeen } from './seen.ts'
+import { isRead, loadRead } from './seen.ts'
 
 // Sessions whose cwd is under no project are grouped here, so outside work still shows.
 // The leading ~ sorts it after every real key in the tree.
@@ -69,8 +69,8 @@ export type Item = Session & {
   resultPath?: string
   // Started with nobody watching.
   unattended?: boolean
-  // For a routine: its newest report says it needs me, and I haven't opened its reports since.
-  attention?: boolean
+  // For a routine: how many of its reports I haven't read (seen.ts); unset when none.
+  unread?: number
   // For a routine: when it next runs; unset when paused or run-now-only. Its startedAt is when
   // it last ran.
   nextAt?: number
@@ -248,8 +248,8 @@ export async function gather(
   const reports: Record<string, Report[]> = {}
   for (const r of routines) reports[r.name] = await listReports(config.home, r.name, runs)
   // An unattended conversation that finished and says nothing needs me goes straight to Done.
-  // A routine's run shows while it works; once finished it is filed with its routine's reports,
-  // which say whether it needs me. Only a run blocked on a question stays in the list, because
+  // A routine's run shows while it works; once finished it is filed with its routine's reports.
+  // Only a run blocked on a question stays in the list, because
   // the conversation is the one place to answer it.
   for (const it of items) {
     if (!it.id || (!it.routine && !it.resultPath)) continue
@@ -263,12 +263,14 @@ export async function gather(
     } else if (it.where === 'needs' && it.state === 'done' && it.result?.needs === 'nothing')
       it.where = 'done'
   }
-  const seen = await loadSeen(config.home)
+  const read = await loadRead(config.home)
+  for (const [name, list] of Object.entries(reports))
+    for (const rep of list) if (!isRead(read, name, rep)) rep.unread = true
   for (const it of items) {
     if (it.kind !== 'routine') continue
     const name = routines.find((r) => routineSessionId(r.name) === it.sessionId)?.name
-    const latest = name ? reports[name]?.[0] : undefined
-    if (name && latest?.needs === 'you' && seen[name] !== latest.path) it.attention = true
+    const n = name ? (reports[name]?.filter((x) => x.unread).length ?? 0) : 0
+    if (n) it.unread = n
   }
   for (const d of drafts) {
     const it = items.find((x) => x.sessionId === draftSessionId(d.id))

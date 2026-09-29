@@ -51,8 +51,8 @@ The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it befor
   `HOPPER_NO_AUTOPILOT` set (vitest.config.ts); App's `autopilot` prop turns it back on. A run
   gets `--add-dir` on the routines folder so it can write its result, and what routines share,
   without asking. The model and routine of a conversation Hopper started are in
-  `<home>/state/conversations.json`; Claude Code doesn't report them. A routine's reports (`o`)
-  are the files in its `runs/` folder (`listReports`), not the run log, so a report written some
+  `<home>/state/conversations.json`; Claude Code doesn't report them. A routine's reports are
+  the files in its `runs/` folder (`listReports`), not the run log, so a report written some
   other way shows too; the log only adds which conversation wrote it.
 - **Unattended means a mode that never asks, and a result file.** Routine runs and anything
   `hopper dispatch` starts get `unattendedPermissions` (`src/claude.ts`): `--permission-mode
@@ -63,9 +63,12 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   to wait, to work on a branch, and where to write the result. `startDraft` (`src/start.ts`) is
   the one way a draft starts, from the app or the dispatcher; don't start one another way.
 - **A routine's finished runs are `filed`**, not listed or in Done (`gather` in `model.ts`):
-  they live in the routine's reports. Only a run `blocked` on a question stays in waiting. The
-  routine's row carries `attention` while its newest report says `needs: you` and isn't in
-  `state/seen.json`; `o` (showReports) marks it seen. Title count and chime include it.
+  they live in the routine's reports. Only a run `blocked` on a question stays in waiting.
+  Reports are read or unread (`src/seen.ts`, `state/read.json`), and nothing else: routine
+  runs write no `needs:` line (queued drafts still do; chains depend on it). The routine's row
+  carries a dot while any report is unread; it doesn't chime or count in the title. Reports
+  older than `read.json` count as read, so a new file lights nothing. ⏎ on a routine hands the
+  keyboard to the list in its details (`reports` in App, `sel` -1 is "edit the prompt").
 - **Up next is drafts with `queue:`.** `src/dispatch.ts` decides what is ready (`after:` names
   drafts; a dependency is finished when its conversation is in Done) and on which account
   (route order, `max_running`, the reserve, and at night the budget measured from

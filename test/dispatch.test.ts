@@ -348,7 +348,8 @@ describe('routine checks', () => {
     expect(out).toEqual({ status: 'passed' })
     const [run] = await listRuns(config.home, 'nightly')
     expect(run?.status).toBe('passed')
-    expect(await readFile(run!.result!, 'utf8')).toMatch(/^needs: nothing/)
+    // It leaves no report; the run log says it passed.
+    expect(run?.result).toBeUndefined()
   })
   it('a check that fails starts one, with its output in the prompt', async () => {
     const { config, project } = await setup()

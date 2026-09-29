@@ -25,6 +25,5 @@ they walk away. They approve in Hopper with one key, so each proposal must stand
    prompt as the first message of the conversation: the goal, the item's title verbatim, where
    the code is, how to check it works.
 4. In the result, list the proposals in the order you'd run them, a line each, with the model.
-   First line `needs: you` if you proposed anything.
 
 Do not edit any `_open.md` or other planning file.

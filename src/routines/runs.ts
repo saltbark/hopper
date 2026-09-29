@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { limitedNote, startBackground, unattendedPermissions, type Session } from '../claude.ts'
 import type { Config } from '../config.ts'
 import { recordConversation } from '../conversations.ts'
-import { readIfThere, writeAtomic } from '../fsutil.ts'
+import { readIfThere } from '../fsutil.ts'
 import { extraDirs, type Project } from '../home.ts'
 import type { AccountState } from '../model.ts'
 import { hasRoom, routeFor } from '../routing.ts'
@@ -70,7 +70,9 @@ export const resultPath = (home: string, name: string, at: Date) =>
 
 export type Result = { needs: 'you' | 'nothing' | null; summary: string }
 
-// A run's result file: "needs: you" or "needs: nothing" on its first lines, then a summary.
+// A run's result file: a summary line, after "needs: you" or "needs: nothing" for a dispatched
+// draft's (a chain goes on only past "nothing"). Routine reports don't carry the line any more;
+// older ones do, and it's read past.
 export async function readResult(path: string | undefined): Promise<Result | null> {
   if (!path) return null
   const text = await readIfThere(path).catch(() => null)
@@ -94,6 +96,7 @@ export type Report = Result & {
   at: number
   id?: string | undefined // the conversation that wrote it
   account?: string | undefined
+  unread?: boolean | undefined // set by gather (seen.ts)
 }
 
 // The stamp resultPath writes, back to a time.
@@ -131,9 +134,7 @@ export function routineInstructions(r: Routine, result: string, previous?: strin
     `This conversation is a scheduled run of the Hopper routine "${r.name}".`,
     'Nobody is watching it: never wait for an answer.',
     'Do what the prompt asks, then write a short result to',
-    `${result} (create the folder if needed). Its first line must be exactly "needs: you" if`,
-    'anything is waiting on the person (a decision, a review, something to send), or',
-    '"needs: nothing" if not. Then a one-line summary, then any detail.',
+    `${result} (create the folder if needed): a one-line summary first, then any detail.`,
     previous ? `The previous run's result is at ${previous}; read it for continuity.` : '',
     'Never send, publish or push anything yourself: leave drafts for the person to approve.',
   ]
@@ -205,18 +206,15 @@ export async function runRoutine(opts: {
   if (previous?.id && sessions.find((s) => s.id === previous.id)?.state === 'working') {
     return skip('the previous run is still going')
   }
-  // A check that passes needs no model at all.
+  // A check that passes needs no model at all, and leaves no report: the run log says it passed.
   let prompt = r.prompt
   if (r.check) {
     const check = await runCheck(r.check, project.runIn)
     if (check.ok) {
-      const result = resultPath(home, r.name, at)
-      await writeAtomic(result, `needs: nothing\nThe check passed: ${r.check}\n`)
       await recordRun(home, {
         routine: r.name,
         at: at.getTime(),
         status: 'passed',
-        result,
         prompt: promptHash(r.prompt),
       })
       return { status: 'passed' }

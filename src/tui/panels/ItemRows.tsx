@@ -63,7 +63,7 @@ export const ItemRows = memo(function ItemRows(props: {
               </Text>
             ) : (
               <Mark
-                state={it.attention ? 'attention' : it.state}
+                state={it.unread ? 'unread' : it.state}
                 kind={it.kind}
                 {...(bg ? { bg } : {})}
               />

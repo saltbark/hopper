@@ -14,35 +14,29 @@ export type RoutineView = {
   last?: Run | undefined
   account?: string | undefined
   now: number
-  // Its newest report needs you and you haven't opened its reports since.
-  attention?: boolean | undefined
 }
 
 const PROMPT_LINES = 4
 
-// What a report came to, in a word and a colour. A run whose check passed writes a report too.
-export function outcome(r: Report) {
-  if (r.needs === 'you') return { text: 'needs you', color: T.waiting }
-  if (r.needs === 'nothing') return { text: 'nothing', color: T.dim }
-  return { text: 'report', color: T.faint }
-}
-
 const keysFor = (r: Routine) => routineKeys({ ...r, paused: !r.enabled })
 
-// Where the reports sit in the panel, which the mouse reads too: the line their rows start on,
-// and which of them show. `sel` is set while the reports have the keyboard; then the key bar
-// carries their keys, the panel doesn't list the routine's, and the rows follow the selection.
+// Where the list sits in the panel, which the mouse reads too: the prompt's line, then the line
+// the report rows start on, and which of them show. `sel` is set while the list has the
+// keyboard (-1 the prompt's line); then the key bar carries its keys, the panel doesn't list
+// the routine's, and the rows follow the selection.
 export function reportRows(view: RoutineView, width: number, height: number, sel?: number) {
   const { routine: r, reports } = view
   const prompt = Math.min(PROMPT_LINES, wrapText(r.prompt, width).length)
-  const top = 6 + (view.account ? 1 : 0) + 1 + 1 + prompt + 1 + 1
+  const rows = 6 + (r.check ? 1 : 0) + (view.account ? 1 : 0)
+  const edit = rows + 1 + 1 + prompt
+  const top = edit + 1 + 1 + 1
   const tail = sel === undefined ? 1 + keyLines(keysFor(r), width).length : 0
   const room = Math.max(1, height - top - tail)
-  if (sel !== undefined) return { top, ...windowed(reports, sel, room), more: 0 }
+  if (sel !== undefined) return { edit, top, ...windowed(reports, Math.max(0, sel), room), more: 0 }
   // Unfocused, the newest show and a line says how many more there are.
   const fits = reports.length <= room
   const slice = reports.slice(0, fits ? room : room - 1)
-  return { top, start: 0, slice, more: reports.length - slice.length }
+  return { edit, top, start: 0, slice, more: reports.length - slice.length }
 }
 
 export function RoutineDetail({
@@ -60,6 +54,7 @@ export function RoutineDetail({
   const next = r.enabled ? nextRun(r.schedule, new Date(now)) : null
   const { start, slice, more } = reportRows(view, width, height, sel)
   const focused = sel !== undefined
+  const unread = reports.filter((x) => x.unread).length
   return (
     <>
       {title('↻ ' + r.name)}
@@ -87,42 +82,46 @@ export function RoutineDetail({
             {l || ' '}
           </Text>
         ))}
+      <Text wrap="truncate-end">
+        <Rail on={sel === -1} bg={sel === -1 ? T.sel : undefined} />
+        <Text color={sel === -1 ? T.hi : T.dim} backgroundColor={sel === -1 ? T.sel : undefined}>
+          {'  edit the prompt'}
+        </Text>
+      </Text>
       <Text> </Text>
       <Heading
         label={
-          !reports.length
-            ? 'reports · none yet'
-            : view.attention
-              ? 'reports · the newest needs you · o'
-              : 'reports'
+          !reports.length ? 'reports · none yet' : unread ? `reports · ${unread} unread` : 'reports'
         }
         width={width}
-        color={focused ? T.focus : view.attention ? T.waiting : T.dim}
+        color={focused ? T.focus : T.dim}
       />
       {slice.map((rep, i) => {
-        const o = outcome(rep)
         const lit = focused && start + i === sel
         const bg = lit ? T.sel : undefined
         return (
           <Text key={rep.path} wrap="truncate-end">
             <Rail on={lit} bg={bg} />
+            {/* Unread shows as a dot; the time is what tells reports apart, so it's never cut. */}
+            <Text color={T.focus} backgroundColor={bg}>
+              {rep.unread ? '● ' : '  '}
+            </Text>
             <Text color={lit ? T.hi : T.dim} backgroundColor={bg}>
               {when(rep.at) + '  '}
             </Text>
-            {/* The time is what tells reports apart, so it's never cut; one that needs you
-                shows by its colour rather than a column of words. */}
             <Text
-              color={lit ? T.hi : rep.needs === 'you' ? T.waiting : T.text}
+              color={lit ? T.hi : rep.unread ? T.text : T.dim}
               backgroundColor={bg}
+              bold={!!rep.unread && !lit}
             >
-              {rep.summary || o.text}
+              {rep.summary || 'report'}
             </Text>
           </Text>
         )
       })}
       {more > 0 ? (
         <Text color={T.dim} wrap="truncate-end">
-          {slice.length ? `  … ${more} older · o for all` : `  ${more} reports · o to read them`}
+          {slice.length ? `  … ${more} older · ⏎ for all` : `  ${more} reports · ⏎ to read them`}
         </Text>
       ) : null}
       {focused ? null : (

@@ -30,7 +30,7 @@ import {
   type Routine,
 } from '../routines/index.ts'
 import { pickAccount } from '../routing.ts'
-import { markSeen } from '../seen.ts'
+import { markAllRead, markRead } from '../seen.ts'
 import { startDraft } from '../start.ts'
 import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
@@ -273,10 +273,14 @@ export function makeActions(ctx: AppCtx) {
     await refresh(false)
   }
 
-  // ⏎ on anything in the lists.
+  // ⏎ on anything in the lists. A routine's goes into its details (enterRoutine).
   const open = (item: Item | undefined) => {
     if (!item) return
-    if (item.kind === 'routine' || item.kind === 'draft') {
+    if (item.kind === 'routine') {
+      const r = snap?.routines.find((x) => routineSessionId(x.name) === item.sessionId)
+      return r ? enterRoutine(r.name) : undefined
+    }
+    if (item.kind === 'draft') {
       const e = editingOf(item)
       return e ? setEditing(e) : undefined
     }
@@ -288,14 +292,39 @@ export function makeActions(ctx: AppCtx) {
     openEmbedded(account, item.id, item.name, ctx.listFocus, item.cwd, item.key)
   }
 
-  // o on a routine: its reports take the keyboard in the right panel, the newest selected.
-  const showReports = (name: string) => {
-    if (!ctx.routineReports.length) return setMessage(`No reports from ${name} yet.`)
+  // ⏎ on a routine: the list in its details (edit the prompt, then its reports) takes the
+  // keyboard, on the newest unread report, else the newest, else the prompt.
+  const enterRoutine = (name: string) => {
+    const list = ctx.routineReports
+    const unread = list.findIndex((r) => r.unread)
     ctx.setEmbedShown(false)
-    ctx.setReports({ routine: name, sel: 0, open: null })
-    // Seen: the routine's row stops asking for me.
-    const latest = ctx.routineReports[0]
-    if (latest) void markSeen(config.home, name, latest.path).then(() => refresh(false))
+    ctx.setReports({ routine: name, sel: unread >= 0 ? unread : list.length ? 0 : -1, open: null })
+  }
+
+  // The routine's prompt, from the top of that list. Closing the editor comes back to the list.
+  const editRoutine = (item: Item | undefined) => {
+    const e = editingOf(item)
+    if (e) setEditing(e)
+  }
+
+  const markReportsRead = async (routine: string, which: Report[] | 'all') => {
+    const list = ctx.routineReports
+    if (which === 'all') await markAllRead(config.home, routine, list)
+    else
+      await markRead(
+        config.home,
+        routine,
+        which.map((r) => r.path),
+        list,
+      )
+    await refresh(false)
+  }
+
+  // M: every report the routine has now, read.
+  const markAllReports = (routine: string) => {
+    if (!ctx.routineReports.some((r) => r.unread)) return setMessage('Nothing unread.')
+    setMessage(`Marked ${routine}'s reports read.`)
+    return markReportsRead(routine, 'all')
   }
 
   // Opens one of the routine's reports for reading, in place of the list.
@@ -306,6 +335,7 @@ export function makeActions(ctx: AppCtx) {
     if (text === null) return setMessage('That report is gone.')
     ctx.setEmbedShown(false)
     ctx.setReports({ routine, sel: i, open: { path: rep.path, text, scroll: 0 } })
+    if (rep.unread) void markReportsRead(routine, [rep])
   }
 
   // The conversation that wrote a report, while Claude still has it.
@@ -552,7 +582,10 @@ export function makeActions(ctx: AppCtx) {
     markDone,
     enter,
     open,
-    showReports,
+    enterRoutine,
+    editRoutine,
+    markReportsRead,
+    markAllReports,
     readReport,
     reportConversation,
     keepRoutine,

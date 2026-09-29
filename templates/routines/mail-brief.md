@@ -32,7 +32,6 @@ Dropbox.
    - **Forgotten**: one line each.
    - **Opportunities**: one line each, and why now.
    - **Arrived**: a few lines on anything else worth knowing.
-     First line `needs: you` if any of the first three has anything.
 
 Read only. Never send, reply, forward, archive, label, delete or create drafts in Gmail.
 Suggested replies go in the result only.

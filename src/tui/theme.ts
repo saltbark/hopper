@@ -65,8 +65,8 @@ export function stateMark(
   if (state === 'tonight') return { mark: '☾', color: T.dim }
   if (kind === 'draft' || state === 'draft') return { mark: '◇', color: T.draft }
   if (kind === 'routine') {
-    // Its newest report needs you: the waiting colour, on the routine's own row.
-    if (state === 'attention') return { mark: '↻', color: T.waiting, bold: true }
+    // A report I haven't read: a dot in place of its mark.
+    if (state === 'unread') return { mark: '●', color: T.focus, bold: true }
     return state === 'paused' ? { mark: '○', color: T.dim } : { mark: '↻', color: T.focus }
   }
   // Waiting on you: a question is your turn, not a fault, so only a failure is red.

@@ -55,8 +55,13 @@ export type Saver = typeof saveAccounts
 const noTitle = () => {}
 
 const LISTED = new Set<Item['where']>(['queue', 'needs', 'routine'])
-const byGroup = (a: Item, b: Item) =>
-  groupRank(groupOf(a)) - groupRank(groupOf(b)) || b.startedAt - a.startedAt
+// Newest first, except routines: the soonest to run first, then the ones with no next run
+// (paused, run by hand), each by name.
+export const byGroup = (a: Item, b: Item) =>
+  groupRank(groupOf(a)) - groupRank(groupOf(b)) ||
+  (a.kind === 'routine' && b.kind === 'routine'
+    ? (a.nextAt ?? Infinity) - (b.nextAt ?? Infinity) || a.name.localeCompare(b.name)
+    : b.startedAt - a.startedAt)
 
 export function App({
   config: initialConfig,
@@ -209,9 +214,10 @@ export function App({
     () => (selectedRoutine && snap?.reports[selectedRoutine.name]) || [],
     [selectedRoutine, snap],
   )
-  // The reports have the keyboard only while their routine is the one selected.
+  // The routine's list has the keyboard only while its routine is the one selected. -1 is its
+  // first line, the prompt.
   const reports =
-    reportsFocus && reportsFocus.routine === selectedRoutine?.name && routineReports.length
+    reportsFocus && reportsFocus.routine === selectedRoutine?.name
       ? { ...reportsFocus, sel: Math.min(reportsFocus.sel, routineReports.length - 1) }
       : null
   const selectedReport = reports ? routineReports[reports.sel] : undefined
@@ -249,6 +255,7 @@ export function App({
     reports: reports
       ? {
           reading: !!reports.open,
+          onPrompt: reports.sel < 0,
           conversation:
             !!selectedReport?.id && !!snap?.items.some((i) => i.id === selectedReport.id),
         }
@@ -443,7 +450,6 @@ export function App({
             last: lastRan(snap.runs, r.name),
             account: selectedItem?.account,
             now: snap.at,
-            attention: selectedItem?.attention,
           }
         : undefined
     return (

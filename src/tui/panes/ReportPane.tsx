@@ -2,7 +2,6 @@ import { Text } from 'ink'
 
 import { when, wrapText } from '../../format.ts'
 import type { Report } from '../../routines/index.ts'
-import { outcome } from '../panels/detail/RoutineDetail.tsx'
 import { Frame } from '../panels/primitives.tsx'
 import { T } from '../theme.ts'
 
@@ -11,7 +10,7 @@ import { T } from '../theme.ts'
 
 type Line = { text: string; heading: boolean }
 
-// The report's lines as the panel shows them. Its own "needs:" line is said in the header.
+// The report's lines as the panel shows them, less an older report's "needs:" line.
 export function reportLines(text: string, width: number): Line[] {
   const body = text.replace(/^---\n[\s\S]*?\n---\n?/, '').replace(/^\s*needs:.*\n?/i, '')
   const out: Line[] = []
@@ -48,7 +47,6 @@ export function ReportPane(props: {
   const room = reportRoom(height)
   const top = Math.max(0, Math.min(props.scroll, lines.length - room))
   const shown = lines.slice(top, top + room)
-  const o = outcome(report)
   const below = lines.length - top - shown.length
   const meta = [
     `${index + 1} of ${count}`,
@@ -62,8 +60,7 @@ export function ReportPane(props: {
         <Text bold color={T.hi}>
           {'↻ ' + routine}
         </Text>
-        <Text color={T.dim}>{'  ' + when(report.at) + '  '}</Text>
-        <Text color={o.color}>{o.text}</Text>
+        <Text color={T.dim}>{'  ' + when(report.at)}</Text>
       </Text>
       <Text> </Text>
       {shown.map((l, i) => (

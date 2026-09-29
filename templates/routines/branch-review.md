@@ -17,6 +17,5 @@ Review the branches agents worked on in the last day, before the person looks at
    Not style. Read the surrounding code where the diff alone can't say.
 4. In the result: per branch, its head commit, then findings, most severe first, each with
    file:line and one sentence. Say "nothing found" for a clean branch. List every head reviewed.
-   First line `needs: you` if there are findings.
 
 Report only; change nothing.

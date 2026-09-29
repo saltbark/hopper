@@ -15,4 +15,3 @@ commands it gives that aren't in `package.json` or the `justfile`, functions it 
 already done.
 
 Report only; change nothing. In the result, one line per finding with the file and line.
-First line `needs: you` if you found anything.

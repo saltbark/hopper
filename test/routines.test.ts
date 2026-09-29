@@ -265,7 +265,7 @@ describe('runs in the list', () => {
     expect(lastRan([run(1, 'skipped')], 'a')).toBeUndefined()
   })
 
-  it('finished runs are filed with their routine, which says when its newest report needs you', async () => {
+  it("finished runs are filed with their routine, whose row counts the reports I haven't read", async () => {
     const { gather } = await import('../src/model.ts')
     const { initHome } = await import('../src/home.ts')
     const home = await mkdtemp(join(tmpdir(), 'hopper-auto-'))
@@ -331,6 +331,8 @@ describe('runs in the list', () => {
     await writeFile(r1, 'needs: nothing\nAll quiet.\n')
     await writeFile(r2, 'needs: you\n2 replies to check.\n')
     await mkdir(join(home, 'state'), { recursive: true })
+    // Both reports are newer than the read file, so neither is read yet.
+    await writeFile(join(home, 'state', 'read.json'), JSON.stringify({ since: 0, routines: {} }))
     await writeFile(
       join(home, 'state', 'runs.jsonl'),
       [
@@ -373,20 +375,37 @@ describe('runs in the list', () => {
       needs: 'you',
       summary: '2 replies to check.',
     })
-    // The routine's row says its newest report needs me, until I open its reports.
+    // The routine's row counts the reports I haven't read, until I read them.
     expect(snap.items.find((i) => i.kind === 'routine')).toMatchObject({
       name: 'inbox-triage',
       where: 'routine',
       state: 'manual',
-      attention: true,
+      unread: 2,
       // Its age is since it last ran; a run-now-only routine has no next run.
       startedAt: 2,
     })
     expect(snap.items.find((i) => i.kind === 'routine')?.nextAt).toBeUndefined()
-    const { markSeen } = await import('../src/seen.ts')
-    await markSeen(home, 'inbox-triage', r2)
-    const after = await gather(config, snap, false)
-    expect(after.items.find((i) => i.kind === 'routine')?.attention).toBeUndefined()
+    const { markRead, markAllRead } = await import('../src/seen.ts')
+    const reports = snap.reports['inbox-triage']!
+    await markRead(home, 'inbox-triage', [r2], reports)
+    const one = await gather(config, snap, false)
+    expect(one.items.find((i) => i.kind === 'routine')?.unread).toBe(1)
+    expect(one.reports['inbox-triage']!.map((r) => !!r.unread)).toEqual([false, true])
+    await markAllRead(home, 'inbox-triage', reports)
+    const all = await gather(config, one, false)
+    expect(all.items.find((i) => i.kind === 'routine')?.unread).toBeUndefined()
     delete process.env['HOPPER_CLAUDE']
+  })
+})
+
+describe('read reports', () => {
+  it('counts every report older than the read file as read, so the first look lights nothing', async () => {
+    const { loadRead, isRead } = await import('../src/seen.ts')
+    const home = await mkdtemp(join(tmpdir(), 'hopper-read-'))
+    const s = await loadRead(home, 1000)
+    expect(isRead(s, 'a', { path: 'x', at: 999 })).toBe(true)
+    expect(isRead(s, 'a', { path: 'y', at: 1001 })).toBe(false)
+    // The file is made on that first look and kept.
+    expect((await loadRead(home, 5000)).since).toBe(1000)
   })
 })

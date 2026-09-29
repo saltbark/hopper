@@ -27,6 +27,5 @@ look-back has reached: `lookback reached <YYYY-MM>`. Create it if it's missing.
    the `lookback reached` line.
 4. Write the result: **Reach out** (at most eight: who, when you last spoke and about what, and
    a one-sentence reason to write now), then the stretch covered.
-   First line `needs: you` if there's anyone to reach out to.
 
 Read only. Never send, reply, forward, archive, label, delete or create drafts in Gmail.

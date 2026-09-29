@@ -48,9 +48,10 @@ Routines and queued drafts run with nobody watching, in auto permission mode (Cl
 what is safe rather than asking). A model with no auto mode (Haiku) runs in dontAsk mode instead:
 it may read, search, look at git history and use `hopper list` and `hopper draft new`, and write
 only in its result folder; anything else is denied without asking. Such a run is told
-where its result file is. The result's first line is exactly `needs: you` or `needs: nothing`,
-then a one-line summary, then detail. `needs: nothing` sends it straight to Done; `needs: you`
-puts it in front of the person.
+where its result file is. A queued draft's result starts with exactly `needs: you` or
+`needs: nothing`, then a one-line summary, then detail. `needs: nothing` sends it straight to
+Done; `needs: you` puts it in front of the person. A routine's result is a report: a one-line
+summary, then detail, with no `needs:` line. The person reads reports as they come.
 
 Unattended runs work in a git worktree on a branch, never push to main, merge, deploy, publish or
 send, and never edit planning files: they say in the result what should change. When a decision
