@@ -2,9 +2,9 @@
 // screen (?) shows those first and then all of them. keys.ts is what acts on them; keep the two
 // in step.
 
+import type { ProjectRow } from '../active.ts'
 import type { Item } from '../model.ts'
 import type { Row } from '../settings.ts'
-import type { TreeRow } from '../tree.ts'
 import type { Editing, Focus } from './state.ts'
 
 export type Hint = [key: string, does: string]
@@ -12,7 +12,7 @@ export type Hint = [key: string, does: string]
 // Where the keyboard is, as much as the hints need to know.
 export type Here = {
   focus: Focus
-  row?: TreeRow | undefined
+  row?: ProjectRow | undefined
   item?: Item | undefined
   scope: string | null
   // The selected item's conversation is the one showing on the right.
@@ -30,10 +30,9 @@ export type Here = {
 
 export const ANYWHERE: Hint[] = [
   ['?', 'all keys'],
-  ['f', 'find a project'],
   ['tab', 'new conversation'],
   ['n', 'next waiting on you'],
-  ['p', 'projects'],
+  ['p', 'projects: type to find one'],
   ['c', 'conversations'],
   ['v', 'done'],
   ['a', 'accounts'],
@@ -49,13 +48,11 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
   [
     'projects',
     [
-      ['j k', 'move'],
-      ['J K', 'nearest folder (shift+↑↓)'],
-      ['option+↑↓', 'up a level, then the next'],
+      ['type', 'find a project or a folder'],
+      ['↑↓', 'move'],
       ['⏎', 'narrow the list to it'],
-      ['tab', 'new conversation here'],
-      ['z', 'fold a folder'],
-      ['esc', 'every project again'],
+      ['tab', 'new conversation there'],
+      ['esc →', 'back to the list'],
     ],
   ],
   [
@@ -69,6 +66,7 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
       ['u', 'a draft: up next, tonight, off'],
       ['U', 'queue every proposal tonight'],
       ['g', 'dispatch up next now'],
+      ['esc', 'every project again'],
     ],
   ],
   [
@@ -126,7 +124,6 @@ export const MOUSE_KEYS: Hint[] = [
   ['wheel', 'scrolls what is under it'],
   ['click', 'focuses a panel'],
   ['click click', 'on a row: select, then open'],
-  ['click ▸ ▾', 'fold a folder'],
   ['drag', 'in a conversation: copy'],
   ['modifier+drag', "copy elsewhere (your terminal's)"],
 ]
@@ -224,14 +221,10 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   if (h.editing) return { label: 'writing', hints: WRITING_KEYS }
   if (h.focus === 'session') return { label: 'a conversation', hints: CONVERSATION_KEYS }
   if (h.focus === 'projects') {
-    const hints: Hint[] = [
-      ['⏎', 'focus'],
-      ['tab', 'new here'],
-    ]
-    if (h.row?.hasChildren) hints.push(['z', h.row.folded ? 'unfold' : 'fold'])
-    hints.push(['J K', 'folders'], ['opt+↑↓', 'levels'])
-    if (h.scope) hints.push(['esc', 'show every project'])
-    return { label: 'projects', hints: [...trust, ...hints] }
+    const hints: Hint[] = [['⏎', 'focus']]
+    if (!h.row || h.row.isProject) hints.push(['tab', 'new here'])
+    hints.push(['↑↓', 'move'], ['esc', 'back'])
+    return { label: 'projects', hints }
   }
   if (h.focus === 'accounts') return { label: 'accounts', hints: PANEL_KEYS[3]![1] }
   const it = h.item
@@ -247,12 +240,13 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   if (it && it.kind !== 'draft' && it.kind !== 'routine')
     hints.push(['d', done ? 'bring it back' : 'mark done'])
   if (!done) hints.push(['J K', 'groups'])
+  if (!done && h.scope) hints.push(['esc', 'every project'])
   return { label: done ? 'done' : 'the list', hints: [...trust, ...hints] }
 }
 
 // Keys each summary on the right lists itself (panels/detail/), so the key bar leaves them out.
 function summaryKeys(h: Here): Set<string> {
-  if (h.focus === 'projects') return new Set(['⏎', 'tab', 'z'])
+  if (h.focus === 'projects') return new Set(['⏎', 'tab'])
   if (h.focus === 'accounts') return new Set(PANEL_KEYS[3]![1].map(([k]) => k))
   if (h.item?.kind === 'routine') return new Set(routineKeys({}).map(([k]) => k))
   if (h.item?.kind === 'draft') return new Set(draftKeys({}).map(([k]) => k))

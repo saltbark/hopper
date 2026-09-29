@@ -41,6 +41,11 @@ The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it befor
   `accountLines`), so a change to how a list lays out its lines carries over to the mouse.
 - **Claude does its own mouse selection** (it asks for "any" mouse tracking) and copies with OSC 52. The headless terminal has no clipboard, so `embed.ts` catches OSC 52 and Hopper copies.
   Hopper's own drag-select is only the fallback for programs that don't want the mouse.
+- **Panels without the keys are drawn darker** by `Frame`'s `dimmed`: its outer box is Ink's
+  internal `ink-box` with `internal_transform` (`dimLine` in `theme.ts`), which Ink runs over every
+  line of text inside, after the text's own colours. `<Box>` doesn't take a transform and
+  `<Transform>` can't hold boxes, so this leans on Ink internals: check it after an Ink upgrade
+  (`test/dim.test.tsx`).
 - **Usage comes from `claude -p /usage`**, which is answered locally at no cost and refreshes the
   cache. Never read login tokens for it.
 - **Routines** (`src/routines/`): files in `<home>/routines/`, runs in `<home>/state/runs.jsonl`,

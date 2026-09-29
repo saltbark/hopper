@@ -11,11 +11,12 @@ hopper status             # what Hopper sees, as text
 hopper                    # the app
 ```
 
-Everyday: Hopper opens on Projects, in a band across the top beside Accounts. Projects with
-something waiting, running or used today are listed first by full key, above the tree. `f` and a
-few letters finds a project; ⏎ focuses it, `tab` starts a conversation there. Under the band is
-one list of every conversation that isn't done, grouped: waiting on you, drafts, running, up next
-(`w` `d` `r` `u` jump to each). Done sits below it.
+Everyday: Hopper opens on Conversations: one list of every conversation that isn't done, grouped:
+waiting on you, drafts, running, up next (`w` `d` `r` `u` jump to each). Done sits below it. Above
+it, beside Accounts, Projects lists the projects with something waiting, running or used today, by
+full key. `p` (or ←) goes there ready to find: type a few letters and it lists every project and
+folder that matches; ⏎ narrows the list to it, `tab` starts a conversation there, `esc` comes back
+to the list. `esc` on the list shows every project again, and never goes up to Projects.
 
 `tab` starts a new conversation as a draft: a real text box (arrows, option+arrows by word,
 shift to select, ⏎ for new lines), saved as you type. `esc`, then `s` starts it, `w` moves it,

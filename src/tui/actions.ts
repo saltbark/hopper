@@ -17,7 +17,7 @@ import { loadDone, saveDone } from '../done.ts'
 import { deleteDraft, newDraftId, saveDraft, type Draft } from '../drafts.ts'
 import { when } from '../format.ts'
 import { readIfThere } from '../fsutil.ts'
-import { draftSessionId, inScope, routineSessionId, type Item } from '../model.ts'
+import { draftSessionId, routineSessionId, type Item } from '../model.ts'
 import { expandHome, isWithin, tildify } from '../paths.ts'
 import { hopperPrompt } from '../prompts.ts'
 import {
@@ -62,25 +62,26 @@ export function makeActions(ctx: AppCtx) {
   const { config, snap, refresh, setMessage, setEditing, setForm, setSel } = ctx
 
   const go = (f: Focus) => {
+    // Projects starts afresh each time you go to it: nothing typed, on its first row.
+    if (f === 'projects' && ctx.focus !== 'projects') {
+      ctx.setQuery('')
+      setSel((s) => ({ ...s, projects: 0 }))
+    }
     ctx.setFocus(f)
     setMessage(null)
   }
 
   const focusProject = (key: string) => {
     ctx.setScope(key)
-    // Unfold the folders above it, so the tree shows where it is.
-    ctx.setFolded((f) => new Set([...f].filter((k) => !inScope(key, k) || k === key)))
     setSel((s) => ({ ...s, work: 0, done: 0 }))
     go('work')
   }
 
-  // Where a new conversation goes: the project it's asked for (from find), else the one under
-  // the cursor, else the scope, else the inbox.
+  // Where a new conversation goes: the project it's asked for (from Projects), else the scope,
+  // else the inbox. Closing the editor comes back to the list.
   const newConversation = (at?: string) => {
-    const row = ctx.selectedRow
-    const here =
-      ctx.focus === 'projects' && row && ctx.projectKeys.includes(row.key) ? row.key : null
-    const key = at ?? here ?? ctx.scopeProject ?? 'meta/inbox'
+    if (ctx.focus === 'projects') go('work')
+    const key = at ?? ctx.scopeProject ?? 'meta/inbox'
     const project = snap?.projects.find((p) => p.key === key)
     setEditing(
       newEditing({

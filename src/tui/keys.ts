@@ -13,7 +13,7 @@ import { parseMouse, type MouseEvent } from './mouse.ts'
 import { accountLines } from './panels/Accounts.tsx'
 import { reportRows } from './panels/detail/RoutineDetail.tsx'
 import { itemLines } from './panels/ItemRows.tsx'
-import { foldMarkAt, projectLines } from './panels/ProjectRows.tsx'
+import { projectLines } from './panels/ProjectRows.tsx'
 import { reportMaxScroll, reportRoom } from './panes/ReportPane.tsx'
 import { workItemAt } from './panes/WorkRows.tsx'
 import { asText, groupOf, typed, type Editing, type Hover, type Panel } from './state.ts'
@@ -23,18 +23,9 @@ type Handler = (input: string, key: Key) => void
 export const QUIT_PROMPT = 'Press x again to quit.'
 
 // Every key and mouse event, by what has the keyboard: the conversation, the input line, the
-// editor, find, or the board. Built from the current context on every render.
+// editor, Projects (which finds as you type), or the board. Built from the current context on every render.
 export function makeInput(ctx: AppCtx, act: Actions): Handler {
   const { setMessage, setEditing, setForm, setSel } = ctx
-
-  // A folder in Projects: z, or a click on its ▸ ▾.
-  const toggleFold = (key: string) =>
-    ctx.setFolded((f) => {
-      const next = new Set(f)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
 
   // ---- the mouse: the wheel scrolls what's under it; a click gives that panel the keyboard ----
   // In every list, the row under the pointer lights softly and a click selects it.
@@ -110,12 +101,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         }
         // The band's panels start on the first line; each has a heading line inside its frame.
         if (panel === 'projects') {
-          // While finding, the panel shows what was found.
-          const rows = ctx.find ? ctx.findRows : ctx.treeRows
-          const sel = ctx.find
-            ? Math.min(ctx.find.sel, Math.max(0, rows.length - 1))
-            : ctx.at('projects')
-          const line = projectLines(rows, sel, bandH)[ev.y - 2]
+          const line = projectLines(ctx.projectRows, ctx.at('projects'), bandH)[ev.y - 2]
           return line && 'row' in line ? { panel, index: line.index } : null
         }
         if (panel !== 'accounts') return null
@@ -139,7 +125,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       const button = ev.kind === 'press' || ev.kind === 'drag' || ev.kind === 'release'
       if (embed && ctx.showingEmbed && button && (panel === 'right' || pick?.active)) {
         // A click in the conversation also gives it the keyboard, as a click on any panel does.
-        if (ev.kind === 'press' && focus !== 'session' && !ctx.editing && !ctx.form && !ctx.find)
+        if (ev.kind === 'press' && focus !== 'session' && !ctx.editing && !ctx.form)
           act.enter(embed, focus)
         // Claude asks for the mouse and does its own selection; give it the events.
         if (embed.mouseWanted()) {
@@ -185,26 +171,14 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
           ...s,
           [panel]: Math.max(0, Math.min(ctx.lists[panel] - 1, s[panel] + (up ? -1 : 1))),
         }))
-      } else if (ev.kind === 'press' && !ctx.editing && !ctx.form && !ctx.find) {
+      } else if (ev.kind === 'press' && !ctx.editing && !ctx.form) {
         const h = rowAt()
         if (h) {
-          // A click on a folder's ▸ ▾ folds or unfolds it, as z would, and selects it too.
-          const tree = h.panel === 'projects' ? ctx.treeRows[h.index] : undefined
-          const onMark =
-            !!tree?.hasChildren &&
-            !tree.active &&
-            ev.x - leftW - 1 - foldMarkAt(tree) >= 0 &&
-            ev.x - leftW - 1 - foldMarkAt(tree) < 2
-          if (tree && onMark) {
-            toggleFold(tree.key)
-            if (ctx.at('projects') !== h.index) ctx.setEmbedShown(false)
-            setSel((s) => ({ ...s, projects: h.index }))
-            act.go('projects')
-          }
+          const project = h.panel === 'projects' ? ctx.projectRows[h.index] : undefined
           // A click selects the row; a second click on it, once the list has the keyboard,
           // opens it, as ⏎ would.
-          else if (focus === h.panel && ctx.at(h.panel) === h.index) {
-            if (tree) act.focusProject(tree.key)
+          if (focus === h.panel && ctx.at(h.panel) === h.index) {
+            if (project) act.focusProject(project.key)
             else if (h.panel === 'accounts') {
               // Only an account that isn't signed in: signing in takes over the terminal.
               const a = ctx.accountStates[h.index]
@@ -212,8 +186,9 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
             } else act.open((h.panel === 'work' ? ctx.work : ctx.done)[h.index])
           } else {
             if (ctx.at(h.panel) !== h.index) ctx.setEmbedShown(false)
-            setSel((s) => ({ ...s, [h.panel]: h.index }))
+            // Going to Projects starts it on its first row; the click's row comes after.
             act.go(h.panel)
+            setSel((s) => ({ ...s, [h.panel]: h.index }))
           }
         } else if (panel !== 'right') act.go(panel)
         // In a routine's details a click on a report reads it. The details of anything else
@@ -311,27 +286,28 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     onWrite(e, input, key)
   }
 
-  // ---- finding a project ----
-  const onFind: Handler = (input, key) => {
-    const find = ctx.find!
-    const rows = ctx.findRows
-    if (key.escape) return ctx.setFind(null)
-    if (key.upArrow) return ctx.setFind({ ...find, sel: Math.max(0, find.sel - 1) })
-    if (key.downArrow) return ctx.setFind({ ...find, sel: Math.min(rows.length - 1, find.sel + 1) })
-    const row = rows[Math.min(find.sel, rows.length - 1)]
-    if (key.return) {
-      ctx.setFind(null)
-      return row ? act.focusProject(row.key) : setMessage('No project matches.')
-    }
-    // tab starts a conversation there straight away, leaving the list as it was.
+  // ---- Projects: typing finds, ⏎ narrows the list to the one found, tab starts one there ----
+  const onProjects: Handler = (input, key) => {
+    const row = ctx.selectedRow
+    // → as well as esc: the list is the column to the right.
+    if (key.escape || key.rightArrow) return act.go('work')
+    if (key.return) return row ? act.focusProject(row.key) : setMessage('No project matches.')
     if (key.tab) {
       if (!row) return setMessage('No project matches.')
       if (!row.isProject) return setMessage(`${row.key} is a folder. Pick a project in it.`)
-      ctx.setFind(null)
       return act.newConversation(row.key)
     }
-    if (key.backspace || key.delete) return ctx.setFind({ query: find.query.slice(0, -1), sel: 0 })
-    if (typed(input, key)) ctx.setFind({ query: find.query + input.replace(/\s/g, ''), sel: 0 })
+    if (key.upArrow || key.downArrow) {
+      ctx.setEmbedShown(false)
+      const to = ctx.at('projects') + (key.downArrow ? 1 : -1)
+      return setSel((s) => ({ ...s, projects: Math.max(0, Math.min(ctx.lists.projects - 1, to)) }))
+    }
+    const find = (query: string) => {
+      ctx.setQuery(query)
+      setSel((s) => ({ ...s, projects: 0 }))
+    }
+    if (key.backspace || key.delete) return find(ctx.query.slice(0, -1))
+    if (typed(input, key)) find(ctx.query + input.replace(/\s/g, ''))
   }
 
   // ---- the settings screen ----
@@ -510,10 +486,12 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
 
   const onBoard: Handler = (input, key) => {
     const focus = ctx.focus as Panel
+    if (focus === 'projects') return onProjects(input, key)
     const own = focus === 'work' || focus === 'done' ? rowKeys(ctx.selectedItem)[input] : undefined
     if (own) return void own()
+    // esc comes back to the list, then shows every project again. It never goes up to Projects.
     if (key.escape) {
-      if (focus !== 'projects') return act.go('projects')
+      if (focus !== 'work') return act.go('work')
       if (ctx.scope) ctx.setScope(null)
       return
     }
@@ -526,19 +504,18 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       act.go('work')
       return setSel((s) => ({ ...s, work: 0 }))
     }
-    if (input === 'f') return ctx.setFind({ query: '', sel: 0 })
     if (input === '?') return ctx.setHelp({ scroll: 0 })
     if (input === ',') return ctx.setSettings({ sel: 0 })
-    // x sits next to z (fold), so quitting takes a second x straight after.
+    // Quitting takes a second x straight after, so a stray one never closes Hopper.
     if (input === 'x') return ctx.message === QUIT_PROMPT ? ctx.exit() : setMessage(QUIT_PROMPT)
     if (input === 'R') return void ctx.refresh(true)
     if (input === 'T' && ctx.untrusted) return void act.trust()
 
     // ← and → move between columns: projects and accounts, the list, the open conversation.
     // On the list, → is ⏎: it opens what's selected (or goes back into it), so ← → alone get
-    // from the tree into a conversation and back.
+    // from Projects into a conversation and back.
     if (key.rightArrow) {
-      if (focus === 'projects' || focus === 'accounts') return act.go('work')
+      if (focus === 'accounts') return act.go('work')
       if (focus === 'work' || focus === 'done') {
         const it = (focus === 'work' ? ctx.work : ctx.done)[ctx.at(focus)]
         if (it) return act.open(it)
@@ -557,48 +534,22 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         [focus]: Math.max(0, Math.min(ctx.lists[focus] - 1, ctx.at(focus) + d)),
       }))
     }
-    // shift+↑↓ (or J K) jump: in Projects to the nearest folder, in the list to the next group.
+    // shift+↑↓ (or J K) jump to the list's next group.
     const jumpTo = (d: 1 | -1) => {
+      if (focus !== 'work') return
       const from = ctx.at(focus)
-      const marks =
-        focus === 'projects'
-          ? ctx.treeRows.map((r) => r.hasChildren)
-          : focus === 'work'
-            ? ctx.work.map((w, i) => i === 0 || groupOf(w) !== groupOf(ctx.work[i - 1]!))
-            : null
-      if (!marks) return
+      const marks = ctx.work.map((w, i) => i === 0 || groupOf(w) !== groupOf(ctx.work[i - 1]!))
       let i = from + d
       while (i >= 0 && i < marks.length && !marks[i]) i += d
       if (i < 0 || i >= marks.length) return
       ctx.setEmbedShown(false)
       setSel((s) => ({ ...s, [focus]: i }))
     }
-    // option+↑↓ in Projects go a level up: ↑ to the parent folder, ↓ to the parent's next
-    // sibling. At the top level there is nothing higher, so they move between top-level rows.
-    const levelUp = (d: 1 | -1) => {
-      const rows = ctx.treeRows
-      const from = ctx.at('projects')
-      const target = Math.max(0, (rows[from]?.depth ?? 0) - 1)
-      let i = from + d
-      while (i >= 0 && i < rows.length && rows[i]!.depth > target) i += d
-      if (i < 0 || i >= rows.length) return
-      ctx.setEmbedShown(false)
-      setSel((s) => ({ ...s, projects: i }))
-    }
-    if (focus === 'projects' && key.meta && (key.upArrow || key.downArrow))
-      return levelUp(key.downArrow ? 1 : -1)
     if (input === 'J' || (key.shift && key.downArrow)) return jumpTo(1)
     if (input === 'K' || (key.shift && key.upArrow)) return jumpTo(-1)
     if (input === 'j' || key.downArrow) return step(1)
     if (input === 'k' || key.upArrow) return step(-1)
 
-    if (focus === 'projects') {
-      const tree = ctx.selectedRow
-      if (!tree) return
-      if (key.return) return act.focusProject(tree.key)
-      if (input === 'z' && tree.hasChildren) toggleFold(tree.key)
-      return
-    }
     if (focus === 'work' || focus === 'done') return onList(focus, input, key)
     onAccounts(input, key)
   }
@@ -615,7 +566,6 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (ctx.form) return onForm(input, key)
     if (ctx.settings) return onSettings(input, key)
     if (ctx.editing) return onEditing(input, key)
-    if (ctx.find) return onFind(input, key)
     if (ctx.reports) return onReports(input, key)
     onBoard(input, key)
   }

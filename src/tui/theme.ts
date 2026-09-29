@@ -78,3 +78,26 @@ export function stateMark(
 
 export const SPIN_FRAMES = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
 export const SPIN_MS = 120
+
+// A panel without the keys is drawn a step darker, so the eye goes to the one that has them.
+// Every truecolor foreground keeps this much of its brightness; where the terminal has only 256
+// colours, the line is drawn faint instead. Backgrounds and borders are left alone (the border
+// already turns from focus to line).
+const KEEP = 0.62
+const ESC = '\u001b['
+// A foreground colour, at the start of what follows an ESC [.
+const TRUECOLOR = /^38;2;(\d+);(\d+);(\d+)m/
+
+export function dimLine(line: string): string {
+  if (line.includes(ESC + '38;2;'))
+    return line
+      .split(ESC)
+      .map((part) =>
+        part.replace(TRUECOLOR, (_, r: string, g: string, b: string) => {
+          const [x, y, z] = [r, g, b].map((v) => Math.round(Number(v) * KEEP))
+          return `38;2;${x};${y};${z}m`
+        }),
+      )
+      .join(ESC)
+  return line.includes(ESC) ? `${ESC}2m${line}${ESC}22m` : line
+}

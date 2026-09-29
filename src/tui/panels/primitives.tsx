@@ -1,11 +1,11 @@
 import { basename } from 'node:path'
 
 import { Box, Text } from 'ink'
-import { useEffect, useState, type ReactNode } from 'react'
+import { createElement, useEffect, useState, type ReactNode } from 'react'
 
 import type { Config } from '../../config.ts'
 import { OTHER, type Item } from '../../model.ts'
-import { ACCOUNT_COLORS, SPIN_FRAMES, SPIN_MS, stateMark, T } from '../theme.ts'
+import { ACCOUNT_COLORS, dimLine, SPIN_FRAMES, SPIN_MS, stateMark, T } from '../theme.ts'
 
 // The pieces every panel is built from: the frame, list windowing, the glyphs that lead a row,
 // key caps and headings.
@@ -21,10 +21,12 @@ export function Frame(props: {
   width: number
   height: number
   focused?: boolean
+  // Drawn a step darker (dimLine): a panel on the board that hasn't got the keys.
+  dimmed?: boolean
   inset?: 'text' | 'rail' | 'none'
   children?: ReactNode
 }) {
-  const { title, keyHint, meta, width, height, focused, inset = 'text', children } = props
+  const { title, keyHint, meta, width, height, focused, dimmed, inset = 'text', children } = props
   const edge = focused ? T.focus : T.line
   const head = ` ${title} `
   const key = keyHint ? `(${keyHint}) ` : ''
@@ -35,7 +37,7 @@ export function Frame(props: {
       ? ` ${meta.length > metaMax ? meta.slice(0, metaMax - 1) + '…' : meta} `
       : ''
   return (
-    <Box flexDirection="column" width={width} height={height}>
+    <Dim on={!!dimmed} width={width} height={height}>
       <Text wrap="truncate-end">
         <Text color={edge}>╭─</Text>
         <Text color={focused ? T.focus : T.dim} bold={focused}>
@@ -58,8 +60,24 @@ export function Frame(props: {
       >
         {children}
       </Box>
-    </Box>
+    </Dim>
   )
+}
+
+// Frame's outer box. Ink runs a box's transform over every line of text inside it, after the
+// text's own colours; only its internal element takes one, so this is that element with the
+// style Box would give it.
+function Dim(props: { on: boolean; width: number; height: number; children: ReactNode }) {
+  const { on, width, height, children } = props
+  const style = {
+    flexWrap: 'nowrap',
+    flexDirection: 'column',
+    flexGrow: 0,
+    flexShrink: 1,
+    width,
+    height,
+  }
+  return createElement('ink-box', { style, internal_transform: on ? dimLine : undefined }, children)
 }
 
 export function windowed<T>(items: T[], sel: number, n: number): { start: number; slice: T[] } {
