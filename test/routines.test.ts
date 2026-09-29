@@ -8,6 +8,7 @@ import { addAccount, OVERNIGHT_DEFAULTS, setDefaultAccount, type Config } from '
 import { loadConversations } from '../src/conversations.ts'
 import type { AccountState } from '../src/model.ts'
 import {
+  lastRan,
   listReports,
   listRoutines,
   listRuns,
@@ -248,6 +249,20 @@ describe('runRoutine', () => {
 })
 
 describe('runs in the list', () => {
+  it('a routine last ran at its newest run that started or passed, not one that was skipped', () => {
+    const run = (at: number, status: 'started' | 'skipped' | 'passed', routine = 'a') => ({
+      routine,
+      at,
+      status,
+      prompt: 'x',
+    })
+    // Newest first, as listRuns gives them.
+    const runs = [run(4, 'skipped'), run(3, 'started', 'b'), run(2, 'passed'), run(1, 'started')]
+    expect(lastRan(runs, 'a')?.at).toBe(2)
+    expect(lastRan(runs, 'b')?.at).toBe(3)
+    expect(lastRan([run(1, 'skipped')], 'a')).toBeUndefined()
+  })
+
   it('finished runs are filed with their routine, which says when its newest report needs you', async () => {
     const { gather } = await import('../src/model.ts')
     const { initHome } = await import('../src/home.ts')
@@ -362,7 +377,10 @@ describe('runs in the list', () => {
       where: 'routine',
       state: 'manual',
       attention: true,
+      // Its age is since it last ran; a run-now-only routine has no next run.
+      startedAt: 2,
     })
+    expect(snap.items.find((i) => i.kind === 'routine')?.nextAt).toBeUndefined()
     const { markSeen } = await import('../src/seen.ts')
     await markSeen(home, 'inbox-triage', r2)
     const after = await gather(config, snap, false)

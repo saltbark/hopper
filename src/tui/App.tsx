@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { playChime, type Chime } from '../chime.ts'
 import { prefixesOf, saveAccounts, type Config } from '../config.ts'
 import { draftSessionId, gather, inScope, OTHER, routineSessionId, type Item } from '../model.ts'
+import { lastRan } from '../routines/index.ts'
 import { buildRows } from '../settings.ts'
 import { activeRows, buildTree, type TreeRow } from '../tree.ts'
 import { makeActions } from './actions.ts'
@@ -439,6 +440,7 @@ export function App({
         ? {
             routine: r,
             reports: routineReports,
+            last: lastRan(snap.runs, r.name),
             account: selectedItem?.account,
             now: snap.at,
             attention: selectedItem?.attention,

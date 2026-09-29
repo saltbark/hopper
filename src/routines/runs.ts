@@ -47,6 +47,11 @@ export async function listRuns(home: string, routine?: string): Promise<Run[]> {
     .map((x) => x.r)
 }
 
+// A routine's newest run that did something: one that started a conversation or whose check
+// passed. Skipped runs don't count. `runs` is newest first, as listRuns gives it.
+export const lastRan = (runs: Run[], routine: string): Run | undefined =>
+  runs.find((r) => r.routine === routine && r.status !== 'skipped')
+
 async function recordRun(home: string, run: Run): Promise<void> {
   await mkdir(join(home, 'state'), { recursive: true })
   await appendFile(runsFile(home), JSON.stringify(run) + '\n')

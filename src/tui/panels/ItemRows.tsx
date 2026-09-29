@@ -40,8 +40,14 @@ export const ItemRows = memo(function ItemRows(props: {
   // what's left to the name.
   const showAge = w >= 40
   const showModel = w >= 52
+  // A routine's next run gets its own column once there's room; only lists with routines in
+  // them give it up.
+  const showNext = w >= 64 && items.some((it) => it.kind === 'routine')
   const whereW = Math.min(16, Math.max(10, Math.round(w * 0.28)))
-  const nameW = Math.max(8, w - 2 - whereW - 4 - (showAge ? 5 : 0) - (showModel ? 7 : 0))
+  const nameW = Math.max(
+    8,
+    w - 2 - whereW - 4 - (showAge ? 5 : 0) - (showModel ? 7 : 0) - (showNext ? 7 : 0),
+  )
   return (
     <>
       {slice.map((it, i) => {
@@ -73,16 +79,20 @@ export const ItemRows = memo(function ItemRows(props: {
               {showAge ? (
                 <Text color={T.dim}>
                   {cell(
-                    it.kind === 'routine'
-                      ? it.startedAt
-                        ? until(it.startedAt)
-                        : it.state === 'paused'
-                          ? 'off'
-                          : '–'
-                      : ago(it.startedAt),
+                    // A routine's age is since it last ran.
+                    it.kind === 'routine' && it.state === 'paused'
+                      ? 'off'
+                      : it.startedAt
+                        ? ago(it.startedAt)
+                        : '–',
                     5,
                     'right',
                   )}
+                </Text>
+              ) : null}
+              {showNext ? (
+                <Text color={T.faint}>
+                  {cell(it.nextAt ? 'in ' + until(it.nextAt) : '', 7, 'right')}
                 </Text>
               ) : null}
             </Text>

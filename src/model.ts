@@ -16,6 +16,7 @@ import { isWithin } from './paths.ts'
 import {
   listReports,
   listRoutines,
+  lastRan,
   listRuns,
   nextRun,
   readResult,
@@ -70,6 +71,9 @@ export type Item = Session & {
   unattended?: boolean
   // For a routine: its newest report says it needs me, and I haven't opened its reports since.
   attention?: boolean
+  // For a routine: when it next runs; unset when paused or run-now-only. Its startedAt is when
+  // it last ran.
+  nextAt?: number
   // The draft a conversation started from; for a draft, its own id.
   draft?: string
   // A draft's overnight fields (drafts.ts).
@@ -204,8 +208,8 @@ export async function gather(
     kind: 'routine',
     cwd: projects.find((p) => p.key === r.project)?.path ?? '',
     name: r.name,
-    // When it next runs, so the list can say so; 0 for paused or run-now-only routines.
-    startedAt: r.enabled ? (nextRun(r.schedule, now)?.getTime() ?? 0) : 0,
+    // When it last started or passed; 0 if it never has.
+    startedAt: lastRan(runs, r.name)?.at ?? 0,
     state: r.enabled ? (r.schedule ? 'scheduled' : 'manual') : 'paused',
   }))
   const items = toItems(
@@ -214,9 +218,12 @@ export async function gather(
     await loadDone(config.home),
   )
   for (const it of items) {
-    if (it.kind === 'routine') {
-      it.key = routines.find((r) => routineSessionId(r.name) === it.sessionId)?.project ?? it.key
-    }
+    if (it.kind !== 'routine') continue
+    const r = routines.find((x) => routineSessionId(x.name) === it.sessionId)
+    if (!r) continue
+    it.key = r.project
+    const next = r.enabled ? nextRun(r.schedule, now) : null
+    if (next) it.nextAt = next.getTime()
   }
   const meta = await loadConversations(config.home)
   for (const it of items) {

@@ -1,7 +1,7 @@
 import { Text } from 'ink'
 
 import { cell, when, wrapText } from '../../../format.ts'
-import { nextRun, type Report, type Routine } from '../../../routines/index.ts'
+import { nextRun, type Report, type Routine, type Run } from '../../../routines/index.ts'
 import { routineKeys } from '../../keymap.ts'
 import { T } from '../../theme.ts'
 import { Heading, keyLines, Keys, Rail, windowed } from '../primitives.tsx'
@@ -10,6 +10,8 @@ import { row, title } from './parts.tsx'
 export type RoutineView = {
   routine: Routine
   reports: Report[] // newest first
+  // Its newest run that started or passed; skipped runs don't count.
+  last?: Run | undefined
   account?: string | undefined
   now: number
   // Its newest report needs you and you haven't opened its reports since.
@@ -33,7 +35,7 @@ const keysFor = (r: Routine) => routineKeys({ ...r, paused: !r.enabled })
 export function reportRows(view: RoutineView, width: number, height: number, sel?: number) {
   const { routine: r, reports } = view
   const prompt = Math.min(PROMPT_LINES, wrapText(r.prompt, width).length)
-  const top = 5 + (view.account ? 1 : 0) + 1 + 1 + prompt + 1 + 1
+  const top = 6 + (view.account ? 1 : 0) + 1 + 1 + prompt + 1 + 1
   const tail = sel === undefined ? 1 + keyLines(keysFor(r), width).length : 0
   const room = Math.max(1, height - top - tail)
   if (sel !== undefined) return { top, ...windowed(reports, sel, room), more: 0 }
@@ -62,6 +64,11 @@ export function RoutineDetail({
     <>
       {title('↻ ' + r.name)}
       {row('runs', r.schedule || 'only when you run it', r.schedule ? T.text : T.dim)}
+      {row(
+        'last',
+        view.last ? `${when(view.last.at)} · ${view.last.status}` : 'never',
+        view.last ? T.text : T.dim,
+      )}
       {row(
         'next',
         !r.enabled ? 'paused' : next ? when(next.getTime()) : '–',
