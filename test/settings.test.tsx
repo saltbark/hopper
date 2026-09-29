@@ -105,9 +105,21 @@ describe('the settings screen', () => {
       items: [],
     }
     const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
+    const until = async (ok: () => boolean) => {
+      for (let i = 0; i < 300 && !ok(); i++) await new Promise((r) => setTimeout(r, 20))
+    }
     const press = async (k: string) => {
       stdin.write(k)
       await new Promise((r) => setTimeout(r, 40))
+    }
+    // The selection marker sits right before the row's own label in the list; matching on it
+    // (rather than the About panel's wrapped help text) survives the list column's word wrap.
+    const flat = () => (lastFrame() ?? '').replace(/\s+/g, ' ')
+    // Waits for the row moved to to actually render before the next keystroke, so a dropped
+    // keypress can't leave the cursor short of where the test expects it.
+    const pressUntil = async (k: string, marker: string) => {
+      stdin.write(k)
+      await until(() => flat().includes(marker))
     }
     await press('')
     await press(',')
@@ -116,7 +128,11 @@ describe('the settings screen', () => {
     await press('J') // accounts
     await press('J') // sources
     expect(lastFrame()).toContain('SOURCES')
-    for (let i = 0; i < 5; i++) await press('j') // group, prefix, repo, strip, run in
+    await pressUntil('j', '▌ kf/ ·') // group
+    await pressUntil('j', '▌ prefix') // prefix
+    await pressUntil('j', '▌ repo') // repo
+    await pressUntil('j', '▌ strip') // strip
+    await pressUntil('j', '▌ run in') // run in
     expect(lastFrame()).toContain('⏎ next choice')
     await press('\r')
     await new Promise((r) => setTimeout(r, 150))
