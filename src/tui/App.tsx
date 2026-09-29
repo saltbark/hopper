@@ -1,19 +1,18 @@
 import { Box, useApp, useInput, useWindowSize } from 'ink'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { activeRows, rollUp, type ProjectStat } from '../active.ts'
 import { playChime, type Chime } from '../chime.ts'
 import { prefixesOf, saveAccounts, type Config } from '../config.ts'
 import { draftSessionId, gather, inScope, OTHER, routineSessionId, type Item } from '../model.ts'
 import { lastRan } from '../routines/index.ts'
 import { buildRows } from '../settings.ts'
-import { activeRows, buildTree, type TreeRow } from '../tree.ts'
 import { makeActions } from './actions.ts'
 import type { AppCtx } from './context.ts'
 import { rank, withFolders } from './fuzzy.ts'
 import {
   useChime,
   useDraftAutosave,
-  useFoldImported,
   useOpenConversations,
   useSettingsDoc,
   useProjectItems,
@@ -40,7 +39,6 @@ import {
   groupOf,
   groupRank,
   type Editing,
-  type Find,
   type Focus,
   type Hover,
   type Form,
@@ -80,7 +78,7 @@ export function App({
   const { columns, rows } = useWindowSize()
 
   const [config, setConfig] = useState(initialConfig)
-  const [focus, setFocus] = useState<Focus>('projects')
+  const [focus, setFocus] = useState<Focus>('work')
   // The conversations open, the one last gone into first. Each keeps running while you're
   // elsewhere, and shows in the right panel whenever its row is selected.
   const { embeds, setEmbeds, embedsRef } = useOpenConversations()
@@ -95,12 +93,11 @@ export function App({
   })
   const [hover, setHover] = useState<Hover>(null)
   const [scope, setScope] = useState<string | null>(null)
-  const [folded, setFolded] = useState<Set<string>>(() => new Set())
   const [help, setHelp] = useState<{ scroll: number } | null>(null)
   const [settings, setSettings] = useState<{ sel: number } | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [form, setForm] = useState<Form | null>(null)
-  const [find, setFind] = useState<Find | null>(null)
+  const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Editing | null>(null)
   // A draft Claude refused to start because its folder isn't trusted yet; T trusts and starts it.
   const [untrusted, setUntrusted] = useState<{ dir: string; draft: Editing } | null>(null)
@@ -110,7 +107,6 @@ export function App({
   const { snap, snapRef, error, refresh } = useSnapshot(config, load)
   const { usageText, askUsage } = useUsage(config.home, snapRef, refresh)
   useDraftAutosave(editing, config.home)
-  useFoldImported(snap, setFolded)
   useAutopilot(config, snap, refresh, setMessage, autopilot)
   const suspendTerminal = useTabTitle(snap, setTitle, suspendInk)
   const settingsDoc = useSettingsDoc(!!settings, config.home)
@@ -137,50 +133,34 @@ export function App({
     setFollow(null)
   }
 
-  const treeRows = useMemo(() => {
+  // Each project's numbers, and when something last happened there.
+  const projectStats = useMemo<ProjectStat[]>(() => {
     if (!snap) return []
     const count = (key: string, w: Item['where']) =>
       snap.items.filter((i) => i.key === key && i.where === w).length
-    const counts = (key: string, open: number) => ({
-      open,
-      run: count(key, 'queue'),
-      you: count(key, 'needs'),
-    })
-    const entries = snap.projects.map((p) => ({
-      key: p.key,
-      isProject: true,
-      counts: counts(p.key, snap.openCounts.get(p.key) ?? 0),
-    }))
-    if (snap.items.some((i) => i.key === OTHER))
-      entries.push({ key: OTHER, isProject: false, counts: counts(OTHER, 0) })
-    const tree = buildTree(entries, folded)
-    // Above the tree, the projects with something going on, by full key.
     const last = new Map<string, number>()
     for (const i of snap.items) last.set(i.key, Math.max(last.get(i.key) ?? 0, i.startedAt))
-    const active = activeRows(
-      entries
-        .filter((e) => e.isProject)
-        .map((e) => ({ key: e.key, counts: e.counts, last: last.get(e.key) ?? 0 })),
-      scope,
-      snap.at,
-    )
-    return [...active, ...tree]
-  }, [snap, folded, scope])
-
-  // Every project and every folder above one, for finding.
-  const allKeys = useMemo(() => withFolders(projectKeys), [projectKeys])
-  const findRows = useMemo<TreeRow[]>(() => {
-    if (!find) return []
-    return rank(find.query, allKeys).map((key) => ({
-      key,
-      name: key,
-      depth: 0,
-      isProject: projectKeys.includes(key),
-      hasChildren: false,
-      folded: false,
-      counts: treeRows.find((r) => r.key === key)?.counts ?? { open: 0, run: 0, you: 0 },
+    return snap.projects.map((p) => ({
+      key: p.key,
+      counts: {
+        open: snap.openCounts.get(p.key) ?? 0,
+        run: count(p.key, 'queue'),
+        you: count(p.key, 'needs'),
+      },
+      last: last.get(p.key) ?? 0,
     }))
-  }, [find, allKeys, projectKeys, treeRows])
+  }, [snap])
+  // Projects: while it has the keys and something is typed, every project and folder that
+  // matches; otherwise the ones with something going on.
+  const finding = focus === 'projects' ? query : ''
+  const allKeys = useMemo(() => withFolders(projectKeys), [projectKeys])
+  const projectRows = useMemo(
+    () =>
+      finding
+        ? rank(finding, allKeys).map((key) => rollUp(key, projectStats))
+        : activeRows(projectStats, scope, snap?.at ?? 0),
+    [finding, allKeys, projectStats, scope, snap],
+  )
 
   const accountStates = useMemo(
     () =>
@@ -190,13 +170,13 @@ export function App({
     [config, snap],
   )
   const lists: Record<Panel, number> = {
-    projects: treeRows.length,
+    projects: projectRows.length,
     work: work.length,
     done: done.length,
     accounts: accountStates.length,
   }
   const at = (p: Panel) => Math.max(0, Math.min(sel[p], lists[p] - 1))
-  const selectedRow = treeRows[at('projects')]
+  const selectedRow = projectRows[at('projects')]
   const listFocus: Panel = focus === 'session' ? returnTo : focus
   const selectedItem =
     listFocus === 'work' ? work[at('work')] : listFocus === 'done' ? done[at('done')] : undefined
@@ -282,14 +262,9 @@ export function App({
   // add up to the terminal rather than be squeezed by flexbox.
   const rightW = Math.max(20, W - leftW - midW)
   const listW = leftW + midW
-  // Each panel in the band: the top edge, a column header, one line a row, the bottom edge, and
-  // for projects the rule between the active ones and the tree. Past the cap, projects scroll.
-  const hasActive = treeRows.some((r) => r.active)
-  const bandNeeds = Math.max(
-    3 + Math.max(1, accountStates.length),
-    3 + treeRows.length + (hasActive ? 1 : 0),
-  )
-  const bandH = Math.min(bandNeeds, Math.max(8, Math.min(16, Math.round(bodyH * 0.3))))
+  // The band is as tall as its cap whatever Projects lists, so the list under it stays put as
+  // you type. Past the cap, projects and accounts scroll.
+  const bandH = Math.max(8, Math.min(16, Math.round(bodyH * 0.3)))
   const doneH = Math.max(5, Math.min(10, Math.round(bodyH * 0.2)))
   const workH = bodyH - bandH - doneH
   // The conversation fills the right panel inside its border; the title is in the top edge.
@@ -334,7 +309,6 @@ export function App({
     setHover,
     scope,
     setScope,
-    setFolded,
     help,
     setHelp,
     helpMax: helpMaxScroll(W, bodyH),
@@ -346,8 +320,8 @@ export function App({
     setMessage,
     form,
     setForm,
-    find,
-    setFind,
+    query,
+    setQuery,
     editing,
     setEditing,
     untrusted,
@@ -359,8 +333,7 @@ export function App({
     work,
     done,
     projectKeys,
-    treeRows,
-    findRows,
+    projectRows,
     accountStates,
     lists,
     at,
@@ -488,10 +461,9 @@ export function App({
               snap={snap}
               accountStates={accountStates}
               accountSel={at('accounts')}
-              treeRows={treeRows}
-              findRows={findRows}
+              projectRows={projectRows}
               projectSel={at('projects')}
-              find={find}
+              query={finding}
               scope={scope}
               hover={hover}
               focus={keysAt}
@@ -522,7 +494,7 @@ export function App({
       <KeyBar
         form={form}
         editing={editing}
-        find={find}
+        query={finding}
         here={here}
         message={message}
         error={error}

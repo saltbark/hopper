@@ -1,7 +1,7 @@
 import { Box, Text } from 'ink'
 
 import { barKeys, hereKeys, type Hint, type Here } from '../keymap.ts'
-import { FORM_PROMPT, type Editing, type Find, type Form } from '../state.ts'
+import { FORM_PROMPT, type Editing, type Form } from '../state.ts'
 import { T } from '../theme.ts'
 
 // A mode that changes what keys do says so at the left of the key bar.
@@ -22,7 +22,7 @@ const hintText = (list: Hint[]) => list.map(([k, d]) => `${k} ${d}`).join(' · '
 // After the keys for where you are, a few that work from anywhere. The line truncates from the
 // end; ? sits at the right with the panel's name, so it never does.
 const GLOBAL: Hint[] = [
-  ['f', 'find'],
+  ['p', 'find a project'],
   ['tab', 'new conversation'],
   ['n', 'next waiting'],
   ['x x', 'quit'],
@@ -92,12 +92,13 @@ function editingHint(e: Editing, here: Here): string {
 export function KeyBar(props: {
   form: Form | null
   editing: Editing | null
-  find: Find | null
+  // What's typed in Projects, while it has the keys.
+  query: string
   here: Here
   message: string | null
   error: string | null
 }) {
-  const { form, editing, find, here, message, error } = props
+  const { form, editing, query, here, message, error } = props
   const { focus } = here
   if (form) return <FormBar form={form} />
   if (editing) {
@@ -117,16 +118,21 @@ export function KeyBar(props: {
       </Text>
     )
   }
-  if (find) {
+  // Projects finds as you type, so it has a line to type on, and every letter is the query's (?
+  // included). The panel is named at the right, as on the board.
+  if (focus === 'projects') {
     return (
-      <Text wrap="truncate-end">
-        {chip('find')}
-        <Text color={T.hi}>{'  ' + find.query}</Text>
-        <Text inverse> </Text>
-        <Text color={T.dim}>
-          {'  ⏎ focuses it · tab new conversation there · ↑↓ choose · esc cancel'}
+      <Box justifyContent="space-between">
+        <Text wrap="truncate-end">
+          {chip('find')}
+          <Text color={T.hi}>{'  ' + query}</Text>
+          <Text inverse> </Text>
+          {note(message, '  ⏎ focuses it · tab new conversation there · ↑↓ choose · esc back')}
         </Text>
-      </Text>
+        <Box flexShrink={0}>
+          <Text color={T.faint}>{'  projects '}</Text>
+        </Box>
+      </Box>
     )
   }
   if (focus === 'session') {

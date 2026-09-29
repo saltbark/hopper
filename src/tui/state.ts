@@ -101,9 +101,6 @@ export const FORM_PROMPT: Record<Form['kind'], string> = {
     'project key: one a source lists, to set things for it, or a new meta/ key for the home folder',
 }
 
-// Finding a project by typing part of its name.
-export type Find = { query: string; sel: number }
-
 // Text selected in the conversation with the mouse, in its own cells.
 export type Sel = { a: { col: number; row: number }; b: { col: number; row: number } }
 

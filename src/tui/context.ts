@@ -1,13 +1,13 @@
 import type { Dispatch, SetStateAction } from 'react'
 
+import type { ProjectRow } from '../active.ts'
 import type { Chime } from '../chime.ts'
 import type { Account, Config } from '../config.ts'
 import type { AccountState, Item, Snapshot } from '../model.ts'
 import type { Report } from '../routines/index.ts'
 import type { Row } from '../settings.ts'
-import type { TreeRow } from '../tree.ts'
 import type { EmbeddedSession } from './embed.ts'
-import type { Editing, Find, Focus, Form, Hover, Panel, Reports, Sel } from './state.ts'
+import type { Editing, Focus, Form, Hover, Panel, Reports, Sel } from './state.ts'
 
 type Set<T> = Dispatch<SetStateAction<T>>
 
@@ -49,7 +49,6 @@ export type AppCtx = {
   setSel: Set<Record<Panel, number>>
   scope: string | null
   setScope: Set<string | null>
-  setFolded: Set<globalThis.Set<string>>
   // The help screen (?), and how far it is scrolled.
   help: { scroll: number } | null
   setHelp: Set<{ scroll: number } | null>
@@ -63,8 +62,9 @@ export type AppCtx = {
   setMessage: Set<string | null>
   form: Form | null
   setForm: Set<Form | null>
-  find: Find | null
-  setFind: Set<Find | null>
+  // What's typed in Projects, which finds as you type while it has the keys.
+  query: string
+  setQuery: Set<string>
   editing: Editing | null
   setEditing: Set<Editing | null>
   untrusted: { dir: string; draft: Editing } | null
@@ -79,12 +79,11 @@ export type AppCtx = {
   work: Item[]
   done: Item[]
   projectKeys: string[]
-  treeRows: TreeRow[]
-  findRows: TreeRow[]
+  projectRows: ProjectRow[]
   accountStates: AccountState[]
   lists: Record<Panel, number>
   at: (p: Panel) => number
-  selectedRow: TreeRow | undefined
+  selectedRow: ProjectRow | undefined
   selectedItem: Item | undefined
   scopeProject: string | null
   showingEmbed: boolean

@@ -22,8 +22,7 @@ export function ProjectDetail({ project, width }: { project: ProjectView; width:
       <Keys
         keys={[
           ['⏎', 'focus it'],
-          ['tab', 'new conversation here'],
-          ['z', 'fold'],
+          ...(project.path ? [['tab', 'new conversation here'] as [string, string]] : []),
         ]}
       />
       <Text> </Text>

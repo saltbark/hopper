@@ -30,7 +30,7 @@ describe('the help screen', () => {
     const frame = draw(here, 0)
     expect(frame).toContain('ANYWHERE')
     expect(frame).toMatch(/│ ANYWHERE +A ROUTINE/)
-    expect(frame).toMatch(/│ +f {2}find a project +/)
+    expect(frame).toMatch(/│ +p {2}projects: type to find one +/)
     expect(frame).toContain('THE LIST  you are here')
     const draft = { kind: 'draft' } as Item
     expect(draw({ ...here, item: draft }, 0, 100, 70)).toContain('A DRAFT  you are here')

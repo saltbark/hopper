@@ -20,17 +20,12 @@ describe('hereKeys', () => {
     expect(keysOf({ item: conversation, embedOpen: true })).toEqual(['⏎ →', 'i', 'd', 'J K'])
     expect(keysOf({ focus: 'done', item: conversation })).toEqual(['⏎ →', 'd'])
   })
-  it('offers fold only on folders, and esc only when the list is narrowed', () => {
-    const row = { key: 'sb', hasChildren: true, folded: true } as Here['row']
-    expect(keysOf({ focus: 'projects', row, scope: 'sb' })).toEqual([
-      '⏎',
-      'tab',
-      'z',
-      'J K',
-      'opt+↑↓',
-      'esc',
-    ])
-    expect(hereKeys({ ...base, focus: 'projects', row }).hints).toContainEqual(['z', 'unfold'])
+  it('offers tab in Projects only on a project, and esc on the list only when it is narrowed', () => {
+    const row = (isProject: boolean) => ({ key: 'sb', isProject }) as Here['row']
+    expect(keysOf({ focus: 'projects', row: row(true) })).toEqual(['⏎', 'tab', '↑↓', 'esc'])
+    expect(keysOf({ focus: 'projects', row: row(false) })).toEqual(['⏎', '↑↓', 'esc'])
+    expect(keysOf({ item: conversation, scope: 'sb' })).toEqual(['⏎ →', 'd', 'J K', 'esc'])
+    expect(keysOf({ item: conversation })).not.toContain('esc')
   })
   it("offers a report's conversation only while Claude still has it", () => {
     const list = hereKeys({ ...base, reports: { reading: false, conversation: false } })

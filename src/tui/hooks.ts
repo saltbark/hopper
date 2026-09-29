@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, useState, type SetStateAction } from 'react'
 
 import { autopilot, AUTOPILOT_START, type AutopilotState } from '../autopilot.ts'
 import { DEFAULT_SOUND, newlyWaiting, type Chime } from '../chime.ts'
@@ -131,24 +131,6 @@ export function useUsage(
   return { usageText, askUsage }
 }
 
-// A draft saves itself a moment after you stop typing, so nothing written is lost. Routines
-// save when you step out (esc) instead.
-// A meta repo's registry runs to dozens of projects, so the top folder each one lands in starts
-// collapsed. Once per folder: after that, folding is the person's.
-export function useFoldImported(
-  snap: Snapshot | null,
-  setFolded: Dispatch<SetStateAction<Set<string>>>,
-) {
-  const seen = useRef(new Set<string>())
-  useEffect(() => {
-    const tops = (snap?.projects ?? []).filter((p) => p.meta).map((p) => p.key.split('/')[0] ?? '')
-    const fresh = [...new Set(tops)].filter((t) => t && !seen.current.has(t))
-    if (!fresh.length) return
-    for (const t of fresh) seen.current.add(t)
-    setFolded((f) => new Set([...f, ...fresh]))
-  }, [snap, setFolded])
-}
-
 type SettingsDoc = { doc: ProjectsDoc | null; missing: string[]; error: string | null }
 
 async function loadSettingsDoc(home: string): Promise<SettingsDoc> {
@@ -181,6 +163,8 @@ export function useSettingsDoc(open: boolean, home: string) {
   return { ...state, reload }
 }
 
+// A draft saves itself a moment after you stop typing, so nothing written is lost. Routines
+// save when you step out (esc) instead.
 export function useDraftAutosave(editing: Editing | null, home: string) {
   useEffect(() => {
     if (!editing || editing.routine || !editing.text.trim()) return

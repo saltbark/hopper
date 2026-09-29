@@ -114,12 +114,12 @@ const focusOf = (frame: string | undefined) =>
   (frame ?? '').trimEnd().split('\n').at(-1)?.trim().split(/\s+/).at(-1)
 
 describe('App', () => {
-  it('opens on Projects and shows both accounts, the queue and what needs you', async () => {
+  it('opens on Conversations and shows both accounts, the queue and what needs you', async () => {
     const { lastFrame, unmount } = render(<App config={config} load={async () => snapshot} />)
     await tick()
     const f = lastFrame() ?? ''
-    expect(focusOf(f)).toBe('projects')
-    expect(f).toContain('f find')
+    expect(focusOf(f)).toBe('conversations')
+    expect(f).toContain('p find a project')
     expect(f).toContain('41%')
     expect(f).toContain('sb  not signed in')
     expect(f).toContain('Sort t')
@@ -138,36 +138,24 @@ describe('App', () => {
     unmount()
   })
 
-  it('lists projects with something going on first, by full key, above the tree', async () => {
+  it('lists only the projects with something going on, by full key', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,
     )
     await tick()
-    const lines = (lastFrame() ?? '').split('\n')
-    const first = lines.findIndex((l) => l.includes('meta/inbox'))
-    const tree = lines.findIndex((l) => /▾ meta\b/.test(l))
-    expect(first).toBeGreaterThan(0)
-    expect(tree).toBeGreaterThan(first)
-    expect(lines.slice(first, tree).join('\n')).toMatch(/ all ─/)
-    await press(stdin, '\r') // ⏎ on it narrows the list to it, as on the tree
+    expect(lastFrame()).toContain('meta/inbox')
+    expect(lastFrame()).not.toMatch(/\bideas\b/)
+    await press(stdin, 'p')
+    await press(stdin, '\r') // ⏎ on it narrows the list to it
     expect(lastFrame()).toMatch(/\(c\) ─+ meta\/inbox/)
     unmount()
   })
 
-  it('K jumps up to the nearest folder, and x quits only when pressed twice', async () => {
+  it('x quits only when pressed twice', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,
     )
     await tick()
-    await press(stdin, 'j')
-    await press(stdin, 'j') // meta/inbox
-    await press(stdin, 'K') // up to meta
-    await press(stdin, '\u001b[1;3B') // option+↓: past meta's children to elsewhere, the next top row
-    await press(stdin, '\u001b\u001b[A') // option+↑ (the other form terminals send): back to meta
-    await press(stdin, 'j') // meta/ideas
-    await press(stdin, '\u001b[1;3A') // option+↑ from a child: its parent
-    await press(stdin, '\r')
-    expect(lastFrame()).toContain('── meta ─╮')
     await press(stdin, 'x')
     expect(lastFrame()).toContain('Press x again to quit.')
     await press(stdin, 'j') // anything else lets it go
@@ -175,26 +163,48 @@ describe('App', () => {
     unmount()
   })
 
-  it('j and enter focus a project; esc goes back to Projects, then clears the focus', async () => {
+  it('p finds as you type and ⏎ focuses it; esc comes back to the list, then shows every project', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,
     )
     await tick()
-    // Past meta/inbox, listed first because something is running there, and the meta folder,
-    // to meta/ideas. Straight away: Projects already has focus.
-    await press(stdin, 'j')
-    await press(stdin, 'j')
+    await press(stdin, 'p')
+    expect(focusOf(lastFrame())).toBe('projects')
+    expect(lastFrame()).toContain(' find ')
+    await press(stdin, 'ide')
+    expect(lastFrame()).toContain(' find   ide')
+    expect(lastFrame()).toContain(' 1 found ─╮')
     await press(stdin, '\r')
     expect(focusOf(lastFrame())).toBe('conversations')
     expect(lastFrame()).toMatch(/\(c\) ─+ meta\/ideas/)
     expect(lastFrame()).toContain('Nothing going on.')
+    // Back in Projects nothing is typed, and esc leaves the list as it was.
+    await press(stdin, 'p')
+    expect(lastFrame()).not.toContain('found ─╮')
     await press(stdin, '\u001b')
-    expect(focusOf(lastFrame())).toBe('projects')
+    expect(focusOf(lastFrame())).toBe('conversations')
     expect(lastFrame()).toMatch(/\(c\) ─+ meta\/ideas/)
     await press(stdin, '\u001b')
-    expect(focusOf(lastFrame())).toBe('projects')
+    expect(focusOf(lastFrame())).toBe('conversations')
     expect(lastFrame()).toMatch(/\(c\) ─+ all projects/)
     expect(lastFrame()).toContain('Sort t')
+    // It never goes up to Projects.
+    await press(stdin, '\u001b')
+    expect(focusOf(lastFrame())).toBe('conversations')
+    unmount()
+  })
+
+  it('a folder found narrows the list to every project in it, and tab there says to pick one', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App config={config} load={async () => snapshot} />,
+    )
+    await tick()
+    await press(stdin, 'p')
+    await press(stdin, 'meta')
+    await press(stdin, '\t')
+    expect(lastFrame()).toContain('meta is a folder. Pick a project in it.')
+    await press(stdin, '\r')
+    expect(lastFrame()).toMatch(/\(c\) ─+ meta ─/)
     unmount()
   })
 
@@ -203,9 +213,9 @@ describe('App', () => {
       <App config={config} load={async () => snapshot} />,
     )
     await tick()
-    await press(stdin, 'c') // the list has the keyboard, so the first click is only a select
-    // Mouse lines count from 1; so do the frame's.
-    const y = (lastFrame() ?? '').split('\n').findIndex((l) => /\bideas\b/.test(l)) + 1
+    // The list has the keyboard, so the first click is only a select. Mouse lines count from 1;
+    // so do the frame's.
+    const y = (lastFrame() ?? '').split('\n').findIndex((l) => /meta\/inbox +\d/.test(l)) + 1
     const click = `\u001b[<0;40;${y}M`
     await press(stdin, `\u001b[<35;40;${y}M`) // moving over it changes nothing
     expect(focusOf(lastFrame())).toBe('conversations')
@@ -213,24 +223,7 @@ describe('App', () => {
     expect(focusOf(lastFrame())).toBe('projects')
     expect(lastFrame()).toMatch(/\(c\) ─+ all projects/)
     await press(stdin, click)
-    expect(lastFrame()).toMatch(/\(c\) ─+ meta\/ideas/)
-    unmount()
-  })
-
-  it('a click on a folder’s ▾ folds it, and on its ▸ unfolds it', async () => {
-    const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
-    )
-    await tick()
-    const lines = (lastFrame() ?? '').split('\n')
-    const y = lines.findIndex((l) => /▾ meta\b/.test(l))
-    const x = lines[y]!.indexOf('▾') + 1
-    await press(stdin, `\u001b[<0;${x};${y + 1}M`)
-    expect(lastFrame()).toMatch(/▸ meta\b/)
-    expect(lastFrame()).not.toMatch(/\bideas\b/)
-    await press(stdin, `\u001b[<0;${x};${y + 1}M`)
-    expect(lastFrame()).toMatch(/▾ meta\b/)
-    expect(lastFrame()).toMatch(/\bideas\b/)
+    expect(lastFrame()).toMatch(/\(c\) ─+ meta\/inbox/)
     unmount()
   })
 
@@ -268,8 +261,9 @@ describe('App', () => {
     await tick()
     // The list's frame starts on line 9: a heading, the waiting session, a gap, a heading, then
     // the running one on line 14.
+    await press(stdin, 'v')
     await press(stdin, '\u001b[<35;20;14M')
-    expect(focusOf(lastFrame())).toBe('projects')
+    expect(focusOf(lastFrame())).toBe('done')
     await press(stdin, '\u001b[<0;20;14M')
     expect(focusOf(lastFrame())).toBe('conversations')
     expect(lastFrame()).toMatch(/│ Sort the inbox  +│/)
@@ -291,6 +285,7 @@ describe('App', () => {
     const snap = { ...snapshot, drafts: [d], items: [item] }
     const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
     await tick()
+    await press(stdin, 'v') // from Done, so the first click only gives the list the keyboard
     await press(stdin, '\u001b[<0;20;11M')
     expect(focusOf(lastFrame())).toBe('conversations')
     expect(lastFrame()).not.toContain('NEW CONVERSATION')
@@ -299,15 +294,15 @@ describe('App', () => {
     unmount()
   })
 
-  it('→ and ← move between the projects column and the list', async () => {
+  it('← and → move between the list and the projects column', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,
     )
     await tick()
-    await press(stdin, '\u001b[C')
-    expect(focusOf(lastFrame())).toBe('conversations')
     await press(stdin, '\u001b[D')
     expect(focusOf(lastFrame())).toBe('projects')
+    await press(stdin, '\u001b[C')
+    expect(focusOf(lastFrame())).toBe('conversations')
     unmount()
   })
 
@@ -323,7 +318,6 @@ describe('App', () => {
     const snap = { ...snapshot, drafts: [d], items: [item] }
     const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
     await tick()
-    await press(stdin, '\u001b[C') // projects → the list
     await press(stdin, '\u001b[C') // → opens the draft, as ⏎ would
     expect(lastFrame()).toContain(' draft ')
     expect(lastFrame()).toContain('a waiting draft')
@@ -342,7 +336,7 @@ describe('App', () => {
     const snap = { ...snapshot, drafts: [d], items: [item] }
     const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
     await tick()
-    await press(stdin, '\u001b[C') // projects → the list; the draft's details are on the right
+    // The list has the keyboard; the draft's details are on the right.
     expect(lastFrame()).not.toContain('NEW CONVERSATION')
     // At 100 columns the right panel starts at column 69.
     await press(stdin, '\u001b[<0;80;6M')
@@ -351,34 +345,21 @@ describe('App', () => {
     unmount()
   })
 
-  it('f finds a project by a few letters and focuses it', async () => {
+  it('tab in Projects starts a conversation in the one found, and esc then comes back to the list', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,
     )
     await tick()
-    await press(stdin, 'f')
-    expect(lastFrame()).toContain(' find ')
-    await press(stdin, 'ide')
-    expect(lastFrame()).toContain(' find   ide')
-    expect(lastFrame()).toContain(' 1 found ─╮')
-    await press(stdin, '\r')
-    expect(focusOf(lastFrame())).toBe('conversations')
-    expect(lastFrame()).toMatch(/\(c\) ─+ meta\/ideas/)
-    unmount()
-  })
-
-  it('tab in find starts a conversation in the project found, without focusing it', async () => {
-    const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
-    )
-    await tick()
-    await press(stdin, 'f')
+    await press(stdin, 'p')
     await press(stdin, 'ide')
     await press(stdin, '\t')
     expect(lastFrame()).toContain('NEW CONVERSATION')
     expect(lastFrame()).toContain('meta/ideas')
     // The list wasn't narrowed to it.
     expect(lastFrame()).toContain('all proje')
+    await press(stdin, '\u001b')
+    expect(lastFrame()).not.toContain('NEW CONVERSATION')
+    expect(focusOf(lastFrame())).toBe('conversations')
     unmount()
   })
 
