@@ -72,6 +72,7 @@ export function SessionPane(props: {
       width={width}
       height={height}
       focused={focused}
+      dimmed={!focused}
       inset="none"
     >
       {rows.map((r, y) => (

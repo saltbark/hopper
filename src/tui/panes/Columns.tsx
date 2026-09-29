@@ -47,6 +47,7 @@ export function Band(props: {
         width={accountsW}
         height={height}
         focused={focus === 'accounts'}
+        dimmed={focus !== 'accounts'}
         inset="rail"
       >
         {accountStates.length ? (
@@ -82,6 +83,7 @@ export function Band(props: {
         width={projectsW}
         height={height}
         focused={focus === 'projects'}
+        dimmed={focus !== 'projects'}
         inset="rail"
       >
         <ProjectRows
@@ -127,6 +129,7 @@ export function ListColumn(props: {
         width={width}
         height={workH}
         focused={focus === 'work'}
+        dimmed={focus !== 'work'}
         inset="rail"
       >
         {work.length ? (
@@ -152,6 +155,7 @@ export function ListColumn(props: {
         width={width}
         height={doneH}
         focused={focus === 'done'}
+        dimmed={focus !== 'done'}
         inset="rail"
       >
         <ItemRows

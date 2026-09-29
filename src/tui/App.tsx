@@ -425,6 +425,7 @@ export function App({
         width={rightW}
         height={bodyH}
         focused={!!reports}
+        dimmed={!reports}
       >
         <Detail
           item={selectedItem}
