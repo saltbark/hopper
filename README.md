@@ -18,7 +18,7 @@ one list of every conversation that isn't done, grouped: waiting on you, drafts,
 (`w` `d` `r` `u` jump to each). Done sits below it.
 
 `tab` starts a new conversation as a draft: a real text box (arrows, option+arrows by word,
-shift to select, ⏎ for new lines), saved as you type. `esc`, then `s` starts it, `p` moves it,
+shift to select, ⏎ for new lines), saved as you type. `esc`, then `s` starts it, `w` moves it,
 `y` copies it, `x` throws it away, or `esc` keeps it.
 
 Conversations open in the right-hand panel: the real Claude session, every key going to Claude,
@@ -57,7 +57,7 @@ project's own folder instead. Projects in the home folder (`meta/`) run from the
 
 Drafts: `tab` opens one; `esc` saves it and leaves it selected in the list, its text on the
 right. From its row: `s` starts it, `u` queues it (below), `m` `e` choose the model and effort,
-`p` moves it to another project, `y` copies it, `d` throws it away; ⏎ is the only way back to
+`w` moves it to another project, `y` copies it, `d` throws it away; ⏎ is the only way back to
 writing it.
 
 Routines: a prompt that runs on a schedule, each run its own conversation. Write it as a draft,
