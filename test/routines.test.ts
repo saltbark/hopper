@@ -171,6 +171,8 @@ describe('runRoutine', () => {
         fetchedAt: Date.now(),
       },
       sessionError: null,
+      sessions: [],
+      sessionsAt: null,
       counts: { queue: 0, needs: 0, done: 0, live: 0 },
     })
     const projects = [

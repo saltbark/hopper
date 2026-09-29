@@ -18,6 +18,8 @@ const account = (name: string, over: Partial<AccountState> = {}): AccountState =
     fetchedAt: now,
   },
   sessionError: null,
+  sessions: [],
+  sessionsAt: null,
   counts: { queue: 0, needs: 0, done: 0, live: 0 },
   ...over,
 })

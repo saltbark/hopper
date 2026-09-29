@@ -57,6 +57,8 @@ const signedIn = (week?: number): AccountState => ({
       ? null
       : { fiveHour: null, sevenDay: { pct: week, resetsAt: null }, fetchedAt: Date.now() },
   sessionError: null,
+  sessions: [],
+  sessionsAt: null,
   counts: { queue: 0, needs: 0, done: 0, live: 0 },
 })
 
