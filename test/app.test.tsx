@@ -836,9 +836,12 @@ describe('conversations', () => {
     await press(stdin, 'o')
     expect(lastFrame()).toContain('⏎ → read it')
     const f = lastFrame() ?? ''
-    expect(f.indexOf('needs yo')).toBeGreaterThan(0)
-    expect(f.indexOf('needs yo')).toBeLessThan(f.indexOf('nothing'))
-    expect(f).toMatch(/▌.*needs yo/)
+    // Each row is its time, in full, then its summary; newest first, the selected one lit.
+    expect(f).toContain('Mon 28 Sept, 07:00')
+    expect(f.indexOf('Two re')).toBeGreaterThan(0)
+    expect(f.indexOf('Two re')).toBeLessThan(f.indexOf('Quiet'))
+    expect(f).toMatch(/▌Mon 28 Sept, 07:00 {2}Two re/)
+    expect(f).not.toContain('needs you')
     // The arrows move as j k do; ⏎ reads the one selected.
     await press(stdin, '\u001b[B')
     await press(stdin, '\u001b[A')

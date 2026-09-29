@@ -1,6 +1,6 @@
 import { Text } from 'ink'
 
-import { cell, when, wrapText } from '../../../format.ts'
+import { when, wrapText } from '../../../format.ts'
 import { nextRun, type Report, type Routine, type Run } from '../../../routines/index.ts'
 import { routineKeys } from '../../keymap.ts'
 import { T } from '../../theme.ts'
@@ -107,13 +107,15 @@ export function RoutineDetail({
           <Text key={rep.path} wrap="truncate-end">
             <Rail on={lit} bg={bg} />
             <Text color={lit ? T.hi : T.dim} backgroundColor={bg}>
-              {cell(when(rep.at), 18)}
+              {when(rep.at) + '  '}
             </Text>
-            <Text color={o.color} backgroundColor={bg}>
-              {cell(o.text, 11)}
-            </Text>
-            <Text color={lit ? T.hi : T.text} backgroundColor={bg}>
-              {rep.summary || ' '}
+            {/* The time is what tells reports apart, so it's never cut; one that needs you
+                shows by its colour rather than a column of words. */}
+            <Text
+              color={lit ? T.hi : rep.needs === 'you' ? T.waiting : T.text}
+              backgroundColor={bg}
+            >
+              {rep.summary || o.text}
             </Text>
           </Text>
         )
