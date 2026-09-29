@@ -511,9 +511,9 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (input === 'R') return void ctx.refresh(true)
     if (input === 'T' && ctx.untrusted) return void act.trust()
 
-    // ← and → move between columns: projects and accounts, the list, the open conversation.
-    // On the list, → is ⏎: it opens what's selected (or goes back into it), so ← → alone get
-    // from Projects into a conversation and back.
+    // → and ← are between the list and the conversation on the right: on the list → is ⏎, it
+    // opens what's selected (or goes back into it), and ← at Claude's empty prompt comes back.
+    // ← on the list does nothing; Projects is p.
     if (key.rightArrow) {
       if (focus === 'accounts') return act.go('work')
       if (focus === 'work' || focus === 'done') {
@@ -523,10 +523,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       }
       return
     }
-    if (key.leftArrow) {
-      if (focus === 'work' || focus === 'done') act.go('projects')
-      return
-    }
+    if (key.leftArrow) return
     const step = (d: number) => {
       ctx.setEmbedShown(false)
       setSel((s) => ({

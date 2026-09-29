@@ -36,7 +36,7 @@ export const ANYWHERE: Hint[] = [
   ['c', 'conversations'],
   ['v', 'done'],
   ['a', 'accounts'],
-  ['← →', 'between columns'],
+  ['→ ←', 'into a conversation and back'],
   [',', 'settings'],
   ['R', 'refresh'],
   ['esc', 'back'],

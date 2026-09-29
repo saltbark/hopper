@@ -14,7 +14,7 @@ hopper                    # the app
 Everyday: Hopper opens on Conversations: one list of every conversation that isn't done, grouped:
 waiting on you, drafts, running, up next (`w` `d` `r` `u` jump to each). Done sits below it. Above
 it, beside Accounts, Projects lists the projects with something waiting, running or used today, by
-full key. `p` (or ←) goes there ready to find: type a few letters and it lists every project and
+full key. `p` goes there ready to find: type a few letters and it lists every project and
 folder that matches; ⏎ narrows the list to it, `tab` starts a conversation there, `esc` comes back
 to the list. `esc` on the list shows every project again, and never goes up to Projects.
 
@@ -32,10 +32,10 @@ to trust it once (`T`).
 Mouse: the wheel scrolls whatever is under the pointer (a list, or the conversation), and a click
 focuses a panel. In every panel's list the row under the pointer lights up; a click selects it,
 and a second click does what ⏎ would: opens a conversation, focuses a project, signs in an account
-that isn't signed in. A click on a folder's ▸ or ▾ folds it. A click on a conversation gives it the keyboard, and a click on the
+that isn't signed in. A click on a conversation gives it the keyboard, and a click on the
 details of one that isn't open opens it. Drag inside a conversation to select; letting go copies it.
 Elsewhere, hold your terminal's selection modifier (often Option or Shift) to select by dragging.
-← and → move between the columns.
+→ on the list goes into the conversation on the right, and ← at Claude's empty prompt comes back.
 
 Models: in a draft, after `esc`, `m` picks the model and `e` the effort. Projects can set defaults
 in `projects.toml` (`model = "haiku"`, `effort = "low"`). The list shows what each conversation
@@ -117,10 +117,9 @@ limit's bar has a tick at how far through its window we are: a fill short of the
 less than an even pace. When there's room, a second line says when each limit resets.
 
 Keys: `p` `c` `v` `a` jump to projects, conversations, done, accounts; `n` the first thing waiting on
-you; `J` `K` (or shift+↑↓) the nearest folder in Projects, the next group in the list; `d` on a
+you; `J` `K` (or shift+↑↓) the next group in the list; `d` on a
 conversation marks it done (in Done, brings it back);
-option+↑↓ in Projects go up a level (↑ the parent, ↓ the parent's next sibling); on the list →
-opens a conversation like ⏎ and ← comes back, so the arrows alone get around; `x` twice
+on the list → opens a conversation like ⏎ and ← comes back, so the arrows alone get around; `x` twice
 quits. The bottom line shows the keys for what is selected that nothing on screen already
 shows; `?` shows them all, starting there.
 

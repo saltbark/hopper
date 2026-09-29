@@ -294,15 +294,16 @@ describe('App', () => {
     unmount()
   })
 
-  it('← and → move between the list and the projects column', async () => {
+  it('← on the list stays on the list; Projects is p', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App config={config} load={async () => snapshot} />,
     )
     await tick()
     await press(stdin, '\u001b[D')
-    expect(focusOf(lastFrame())).toBe('projects')
-    await press(stdin, '\u001b[C')
     expect(focusOf(lastFrame())).toBe('conversations')
+    await press(stdin, 'v')
+    await press(stdin, '\u001b[D')
+    expect(focusOf(lastFrame())).toBe('done')
     unmount()
   })
 
