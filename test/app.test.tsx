@@ -10,7 +10,7 @@ import type { Session } from '../src/claude.ts'
 import { addAccount, OVERNIGHT_DEFAULTS, setPrefixes, type Config } from '../src/config.ts'
 import { initHome, loadProjects } from '../src/home.ts'
 import { draftSession, toItems, type Snapshot } from '../src/model.ts'
-import { App } from '../src/tui/App.tsx'
+import { App, byGroup } from '../src/tui/App.tsx'
 import { fakeClaude } from './helpers.ts'
 
 let config: Config = {
@@ -112,6 +112,17 @@ const onList = (frame: () => string | undefined) =>
 // The key bar names the focused panel at its right end.
 const focusOf = (frame: string | undefined) =>
   (frame ?? '').trimEnd().split('\n').at(-1)?.trim().split(/\s+/).at(-1)
+
+describe('the list order', () => {
+  it('puts routines soonest to run first, then the ones with no next run, each by name', () => {
+    const r = (name: string, nextAt?: number) =>
+      ({ kind: 'routine', name, startedAt: 0, ...(nextAt ? { nextAt } : {}) }) as never
+    const got = [r('paused-b'), r('late', 300), r('paused-a'), r('b-soon', 100), r('a-soon', 100)]
+      .sort(byGroup)
+      .map((i: { name: string }) => i.name)
+    expect(got).toEqual(['a-soon', 'b-soon', 'late', 'paused-a', 'paused-b'])
+  })
+})
 
 describe('App', () => {
   it('opens on Conversations and shows both accounts, the queue and what needs you', async () => {
@@ -760,7 +771,7 @@ describe('conversations', () => {
     unmount()
   })
 
-  it("o lists a routine's reports on the right; ⏎ reads one there, c opens its conversation", async () => {
+  it('⏎ on a routine goes into its prompt and reports, on the newest unread; ⏎ reads one, c opens its conversation', async () => {
     const { home, cfg, snap, projects, log } = await setup()
     const { saveRoutine, listReports } = await import('../src/routines/index.ts')
     const routine = {
@@ -791,7 +802,13 @@ describe('conversations', () => {
       ...snap,
       routines: [routine],
       runs: [run],
-      reports: { triage: await listReports(home, 'triage', [run]) },
+      // The older report is unread.
+      reports: {
+        triage: (await listReports(home, 'triage', [run])).map((r, i) => ({
+          ...r,
+          unread: i === 1,
+        })),
+      },
       items: toItems(
         [
           {
@@ -808,29 +825,41 @@ describe('conversations', () => {
         ],
         projects,
         new Set(['s-triage run']),
-      ),
+      ).map((i) => (i.kind === 'routine' ? { ...i, unread: 1 } : i)),
     }
     const { lastFrame, stdin, unmount } = render(
       <App config={cfg} load={async () => withReports} />,
     )
     await tick()
     await press(stdin, 'c')
+    // The routine's row carries a dot for its unread report.
+    expect(lastFrame()).toMatch(/● triage/)
     // The panel is narrow here, so the routine's keys leave room only to say there are reports.
-    expect(lastFrame()).toContain('2 reports · o to read them')
-    expect(lastFrame()).toContain('o  its reports')
-    // With the keyboard, the panel drops the routine's keys for the reports, newest first.
-    await press(stdin, 'o')
+    expect(lastFrame()).toContain('2 reports · ⏎ to read them')
+    expect(lastFrame()).toContain('REPORTS · 1 UNREAD')
+    expect(lastFrame()).toContain('edit the prompt')
+    expect(lastFrame()).not.toContain('needs you')
+    // ⏎ gives the list the keyboard, on the newest unread report.
+    await press(stdin, '\r')
     expect(lastFrame()).toContain('⏎ → read it')
     const f = lastFrame() ?? ''
     // Each row is its time, in full, then its summary; newest first, the selected one lit.
     expect(f).toContain('Mon 28 Sept, 07:00')
-    expect(f.indexOf('Two re')).toBeGreaterThan(0)
-    expect(f.indexOf('Two re')).toBeLessThan(f.indexOf('Quiet'))
-    expect(f).toMatch(/▌Mon 28 Sept, 07:00 {2}Two re/)
-    expect(f).not.toContain('needs you')
-    // The arrows move as j k do; ⏎ reads the one selected.
-    await press(stdin, '\u001b[B')
+    expect(f.indexOf('Two')).toBeGreaterThan(0)
+    expect(f.indexOf('Two')).toBeLessThan(f.indexOf('Quie'))
+    expect(f).toMatch(/▌● Sun 27 Sept, 07:00 {2}Quie/)
+    // ↑ goes to the newer one, and again to the prompt's line.
     await press(stdin, '\u001b[A')
+    expect(lastFrame()).toMatch(/▌ {2}Mon 28 Sept, 07:00 {2}Two/)
+    await press(stdin, '\u001b[A')
+    expect(lastFrame()).toContain('⏎ → edit the prompt')
+    // ⏎ there edits it; closing the editor comes back to the list.
+    await press(stdin, '\r')
+    await until(() => (lastFrame() ?? '').includes('ROUTINE triage'))
+    await press(stdin, '\u001b')
+    await until(() => (lastFrame() ?? '').includes('⏎ → edit the prompt'))
+    // ↓ back to the newest; ⏎ reads the one selected.
+    await press(stdin, '\u001b[B')
     await press(stdin, '\r')
     await until(() => (lastFrame() ?? '').includes('REPORT '))
     expect(lastFrame()).toContain('Line one of the detail.')
@@ -845,9 +874,10 @@ describe('conversations', () => {
     expect(lastFrame()).not.toContain('Line one of the detail.')
     expect(lastFrame()).toContain('⏎ → read it')
     await press(stdin, '\u001b')
-    expect(lastFrame()).toContain('o  its reports')
+    expect(lastFrame()).toContain('⏎  open it')
     // c from the reports opens the conversation that wrote the selected one.
-    await press(stdin, 'o')
+    await press(stdin, '\r')
+    await press(stdin, '\u001b[A')
     await press(stdin, 'c')
     await until(() => (lastFrame() ?? '').includes('fake claude screen'))
     expect(await readFile(log, 'utf8')).toContain('attach')

@@ -30,7 +30,7 @@ describe('hereKeys', () => {
   it("offers a report's conversation only while Claude still has it", () => {
     const list = hereKeys({ ...base, reports: { reading: false, conversation: false } })
     expect(list.label).toBe('routine reports')
-    expect(list.hints.map(([k]) => k)).toEqual(['j k ↑↓', '⏎ →', 'esc ←'])
+    expect(list.hints.map(([k]) => k)).toEqual(['j k ↑↓', '⏎ →', 'm', 'M', 'esc ←'])
     const reading = hereKeys({ ...base, reports: { reading: true, conversation: true } })
     expect(reading.label).toBe('a report')
     expect(reading.hints).toContainEqual(['c', 'its conversation'])

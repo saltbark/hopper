@@ -22,16 +22,12 @@ export type Chime = (sound: string) => void
 
 // The conversations that were running last time and wait on me now, other than the one on screen.
 // The first look (prev null) says nothing: everything already waiting was waiting before Hopper.
-// A routine counts when its newest report starts needing me.
+// A routine's new report doesn't: its row's dot says it.
 export function newlyWaiting(prev: Item[] | null, next: Item[], onScreen: string | null): Item[] {
   if (!prev) return []
   const running = new Set(prev.filter((i) => i.where === 'queue').map((i) => i.sessionId))
-  const marked = new Set(prev.filter((i) => i.attention).map((i) => i.sessionId))
   return next.filter(
-    (i) =>
-      ((i.where === 'needs' && running.has(i.sessionId)) ||
-        (i.attention && !marked.has(i.sessionId))) &&
-      i.sessionId !== onScreen,
+    (i) => i.where === 'needs' && running.has(i.sessionId) && i.sessionId !== onScreen,
   )
 }
 

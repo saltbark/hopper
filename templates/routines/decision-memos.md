@@ -26,6 +26,5 @@ Turn the person's open decisions into yes/no questions.
    **Recommendation** in one line that could be answered yes or no. Read the linked docs and
    the code the decision touches before recommending.
 4. In the result, list the memos written or rewritten, one line each with the recommendation.
-   First line `needs: you` if you wrote any.
 
 Do not edit any `_open.md` or other planning file.

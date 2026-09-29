@@ -221,7 +221,7 @@ export function useTabTitle(
   setTitle: (text: string) => void,
   suspendTerminal: (fn: () => Promise<void>) => Promise<void>,
 ) {
-  const text = titleText(snap?.items.filter((i) => i.where === 'needs' || i.attention).length ?? 0)
+  const text = titleText(snap?.items.filter((i) => i.where === 'needs').length ?? 0)
   const last = useRef(text)
   useEffect(() => {
     last.current = text

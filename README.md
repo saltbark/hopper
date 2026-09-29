@@ -64,13 +64,15 @@ writing it.
 Routines: a prompt that runs on a schedule, each run its own conversation. Write it as a draft,
 then `esc`, `r`: name it and say when it runs (`daily 7:00`, `weekdays 7:00, 13:00`,
 `weekly mon 9:00`, `monthly 1st 9:00`, or blank for run-now only). Routines have their own group
-in the list; from a routine's row `s` runs it now, `S` changes the schedule, `P` pauses, `d`
-removes it, and ⏎ edits the prompt.
+in the list, the soonest to run first, then paused and run-now-only ones, each by name. From a
+routine's row `s` runs it now, `S` changes the schedule, `P` pauses, `d` removes it, and `M`
+marks its reports read.
 Each run writes a report under `<home>/routines/<name>/runs/`. A run shows under running while
-it works; once it finishes it is filed with its routine rather than listed or put in Done, and
-`o` on the routine reads its reports (⏎ on one opens the conversation that wrote it). When the
-newest report says it needs you, the routine's own row turns the waiting colour and counts in
-the tab title until you open its reports. A run blocked on a question stays in waiting, since
+it works; once it finishes it is filed with its routine rather than listed or put in Done. The
+routine's details on the right list "edit the prompt", then its reports, newest first; ⏎ on the
+routine goes into that list, on the newest unread report. ↑↓ move, ⏎ edits the prompt or reads
+a report, `m` marks one read, `c` opens the conversation that wrote it, esc comes back. A
+routine with unread reports has a dot on its row; reading a report marks it read. A run blocked on a question stays in waiting, since
 its conversation is where to answer. Routines run only while Hopper is open: at its time, or when Hopper
 opens within an hour of it (later than that, it waits for its next time). A run is skipped when
 every account for its project is full.

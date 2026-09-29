@@ -89,7 +89,7 @@ function hereLabel(here: Here): string {
   const label = hereKeys(here).label
   if (label === 'the list' && here.item?.kind === 'draft') return 'a draft'
   if (label === 'the list' && here.item?.kind === 'routine') return 'a routine'
-  if (label === 'a report') return 'routine reports'
+  if (label === 'a report' || label === 'routine') return 'routine reports'
   return label
 }
 
