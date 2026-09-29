@@ -162,7 +162,7 @@ export function draftKeys(
     ...(e.proposed ? [['U', 'queue every proposal tonight'] as Hint] : []),
     ['m', `model (${e.model ?? 'default'})`],
     ['e', `effort (${e.effort ?? 'default'})`],
-    ['p', 'move to a project'],
+    ['w', 'move to a project'],
     ['r', 'make it a routine'],
     ['y', 'copy'],
     ['d', 'throw away'],
@@ -178,7 +178,7 @@ export function routineKeys(e: Choices & { paused?: boolean }): Hint[] {
     ['P', e.paused ? 'resume' : 'pause'],
     ['m', `model (${e.model ?? 'default'})`],
     ['e', `effort (${e.effort ?? 'default'})`],
-    ['p', 'project'],
+    ['w', 'project'],
     ['y', 'copy'],
     ['d', 'remove'],
   ]

@@ -873,7 +873,7 @@ describe('conversations', () => {
     unmount()
   })
 
-  it('p moves a draft to another project before it starts', async () => {
+  it('w moves a draft to another project before it starts', async () => {
     const { home, cfg, live } = await setup()
     const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
     await tick()
@@ -881,7 +881,7 @@ describe('conversations', () => {
     await press(stdin, 'an idea')
     await press(stdin, '\u001b')
     await onList(lastFrame)
-    await press(stdin, 'p')
+    await press(stdin, 'w')
     expect(lastFrame()).toContain('MOVE TO PROJECT')
     await press(stdin, 'con')
     await press(stdin, '\r')
@@ -889,6 +889,21 @@ describe('conversations', () => {
     await until(async () => (await listDrafts(home))[0]?.project === 'kf/console')
     expect((await listDrafts(home))[0]?.project).toBe('kf/console')
     expect(lastFrame()).toContain('Moved to kf/console')
+    done()
+    unmount()
+  })
+
+  it('p still goes to Projects with a draft selected', async () => {
+    const { cfg, live } = await setup()
+    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
+    await tick()
+    await press(stdin, '\t')
+    await press(stdin, 'an idea')
+    await press(stdin, '\u001b')
+    await onList(lastFrame)
+    await press(stdin, 'p')
+    expect(lastFrame()).not.toContain('MOVE TO PROJECT')
+    expect(focusOf(lastFrame())).toBe('projects')
     done()
     unmount()
   })

@@ -407,7 +407,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
 
   // ---- the board: panels, lists and accounts ----
   // A draft's and a routine's keys work on its row, without opening it: ⏎ is the only way into
-  // the editor. They come before the board's letters, so p and s mean the row's here.
+  // the editor. They come before the board's letters, so none of them may be a jump (p c v a).
   const rowKeys = (it: Item | undefined): Record<string, () => unknown> => {
     const e = act.editingOf(it)
     if (!it || !e) return {}
@@ -422,7 +422,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         const effort = nextOf(EFFORTS, e.effort)
         return act.saveEdit({ ...e, effort }, `Effort: ${effort ?? 'default'}.`)
       },
-      p: () => setEditing({ ...e, stage: 'pick', query: '', pickSel: 0 }),
+      w: () => setEditing({ ...e, stage: 'pick', query: '', pickSel: 0 }),
       y: () => {
         copyToClipboard(e.text)
         setMessage(r ? 'Prompt copied.' : 'Draft copied.')
