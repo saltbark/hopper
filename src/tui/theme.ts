@@ -94,7 +94,22 @@ const TRUECOLOR = /^38;2;(\d+);(\d+);(\d+)m/
 // brightness in a darker panel. Only matched in truecolor; with 256 colours it dims with the rest.
 const SEL_BG = `${ESC}48;2;${[1, 3, 5].map((i) => parseInt(T.sel.slice(i, i + 2), 16)).join(';')}m`
 
+// Ink runs this over every line of every dimmed panel on every frame, and most lines are the
+// same as last frame's, so the answers are kept (and forgotten wholesale now and then).
+const dimmed = new Map<string, string>()
+const DIM_KEPT = 4000
+
 export function dimLine(line: string): string {
+  let out = dimmed.get(line)
+  if (out === undefined) {
+    if (dimmed.size >= DIM_KEPT) dimmed.clear()
+    out = darken(line)
+    dimmed.set(line, out)
+  }
+  return out
+}
+
+function darken(line: string): string {
   if (line.includes(SEL_BG)) return line
   if (line.includes(ESC + '38;2;'))
     return line

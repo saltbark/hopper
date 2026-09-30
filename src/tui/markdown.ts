@@ -26,9 +26,6 @@ export function markdownLines(src: string, width: number): Line[] {
   return blocks(marked.lexer(src), Math.max(8, width), true)
 }
 
-// The number of cells a line takes.
-export const lineWidth = (line: Line) => line.reduce((n, s) => n + s.text.length, 0)
-
 // A line's text with the styling dropped: what tests and the mouse read.
 export const plain = (line: Line) => line.map((s) => s.text).join('')
 

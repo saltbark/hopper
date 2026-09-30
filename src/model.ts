@@ -224,9 +224,11 @@ export async function gather(
     projects,
     await loadDone(config.home),
   )
+  const routineOf = new Map(routines.map((r) => [routineSessionId(r.name), r]))
+  const projectKeys = new Set(projects.map((p) => p.key))
   for (const it of items) {
     if (it.kind !== 'routine') continue
-    const r = routines.find((x) => routineSessionId(x.name) === it.sessionId)
+    const r = routineOf.get(it.sessionId)
     if (!r) continue
     it.key = r.project
     const next = r.enabled ? nextRun(r.schedule, now) : null
@@ -243,10 +245,13 @@ export async function gather(
     if (m?.result) it.resultPath = m.result
     // Several projects can run from one folder (a meta repo), so the folder alone can't say
     // which a conversation is for; the project Hopper started it in can.
-    if (m?.project && projects.some((p) => p.key === m.project)) it.key = m.project
+    if (m?.project && projectKeys.has(m.project)) it.key = m.project
   }
-  const reports: Record<string, Report[]> = {}
-  for (const r of routines) reports[r.name] = await listReports(config.home, r.name, runs)
+  const reports: Record<string, Report[]> = Object.fromEntries(
+    await Promise.all(
+      routines.map(async (r) => [r.name, await listReports(config.home, r.name, runs)] as const),
+    ),
+  )
   // An unattended conversation that finished and says nothing needs me goes straight to Done.
   // A routine's run shows while it works; once finished it is filed with its routine's reports.
   // Only a run blocked on a question stays in the list, because
@@ -268,12 +273,13 @@ export async function gather(
     for (const rep of list) if (!isRead(read, name, rep)) rep.unread = true
   for (const it of items) {
     if (it.kind !== 'routine') continue
-    const name = routines.find((r) => routineSessionId(r.name) === it.sessionId)?.name
+    const name = routineOf.get(it.sessionId)?.name
     const n = name ? (reports[name]?.filter((x) => x.unread).length ?? 0) : 0
     if (n) it.unread = n
   }
+  const itemOf = new Map(items.map((i) => [i.sessionId, i]))
   for (const d of drafts) {
-    const it = items.find((x) => x.sessionId === draftSessionId(d.id))
+    const it = itemOf.get(draftSessionId(d.id))
     if (!it) continue
     it.draft = d.id
     if (d.model) it.model = d.model
@@ -291,9 +297,9 @@ export async function gather(
     if (d.proposed) it.proposed = d.proposed
   }
   // A draft's project comes from the draft, not from matching its folder.
+  const draftOf = new Map(drafts.map((d) => [draftSessionId(d.id), d]))
   for (const it of items)
-    if (it.kind === 'draft')
-      it.key = drafts.find((d) => draftSessionId(d.id) === it.sessionId)?.project ?? it.key
+    if (it.kind === 'draft') it.key = draftOf.get(it.sessionId)?.project ?? it.key
   const accounts: AccountState[] = perAccount.map((a) => {
     const mine = items.filter((i) => i.account === a.account.name)
     const n = (w: Where) => mine.filter((i) => i.where === w).length

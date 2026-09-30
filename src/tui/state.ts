@@ -12,8 +12,6 @@ export type Focus = Panel | 'session'
 // The row under the pointer in any of the panels' lists, lit more softly than the selection.
 export type Hover = { panel: Panel; index: number } | null
 
-export const PANELS: Panel[] = ['projects', 'work', 'done', 'accounts']
-
 // Everything not done is one list, in these groups, in this order. J K jump between them; the
 // letters on the list act on the selected row instead.
 export type Group = 'waiting' | 'draft' | 'proposed' | 'running' | 'routines' | 'next'

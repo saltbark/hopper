@@ -56,7 +56,9 @@ export function Frame(props: {
         borderColor={edge}
         paddingLeft={inset === 'text' ? 1 : 0}
         paddingRight={inset === 'none' ? 0 : 1}
-        overflow="hidden"
+        // Only down: every line inside is already truncated or wrapped to the width, and Ink
+        // slices every line of a box that clips across, on every frame, which costs a third of it.
+        overflowY="hidden"
       >
         {children}
       </Box>

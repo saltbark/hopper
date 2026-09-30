@@ -56,19 +56,18 @@ export function useSnapshot(config: Config, load: Loader) {
         return
       }
       busy.current = true
-      try {
-        do {
-          again.current = false
+      do {
+        again.current = false
+        try {
           const next = await load(config, snapRef.current, withAuth)
           snapRef.current = next
           setSnap(next)
           setError(null)
-        } while (again.current)
-      } catch (e) {
-        setError((e as Error).message)
-      } finally {
-        busy.current = false
-      }
+        } catch (e) {
+          setError((e as Error).message)
+        }
+      } while (again.current)
+      busy.current = false
     },
     [config, load],
   )
@@ -95,6 +94,11 @@ export function useUsage(
 ) {
   const [usageText, setUsageText] = useState<Record<string, string[]>>({})
   const asking = useRef(new Set<string>())
+  // Read by the minute's check, which shouldn't start over each time an answer comes in.
+  const answered = useRef(usageText)
+  useEffect(() => {
+    answered.current = usageText
+  }, [usageText])
 
   const askUsage = useCallback(
     async (account: Account) => {
@@ -117,7 +121,8 @@ export function useUsage(
     const check = () => {
       for (const st of snapRef.current?.accounts ?? []) {
         const old = !st.usage || now() - st.usage.fetchedAt > USAGE_MAX_AGE_MS
-        if (st.auth?.loggedIn && (old || !usageText[st.account.name])) void askUsage(st.account)
+        if (st.auth?.loggedIn && (old || !answered.current[st.account.name]))
+          void askUsage(st.account)
       }
     }
     const first = setTimeout(check, 1500)
@@ -126,7 +131,7 @@ export function useUsage(
       clearTimeout(first)
       clearInterval(t)
     }
-  }, [askUsage, usageText, snapRef])
+  }, [askUsage, snapRef])
 
   return { usageText, askUsage }
 }
@@ -174,19 +179,28 @@ export function useDraftAutosave(editing: Editing | null, home: string) {
   }, [editing, home])
 }
 
-// The open items of one project, read when it changes and on every refresh.
+// The open items of one project, read when it changes and on every refresh. What each project's
+// file said last is kept, so coming back to one shows it at once, and a read that finds nothing
+// new doesn't draw the screen again.
 export function useProjectItems(snap: Snapshot | null, key: string | null) {
-  const [items, setItems] = useState<{ key: string; items: OpenItem[] | null } | null>(null)
+  const [read, setRead] = useState<ReadonlyMap<string, OpenItem[] | null>>(() => new Map())
   useEffect(() => {
     const project = snap?.projects.find((p) => p.key === key)
     if (!project) return
     let live = true
-    void readItems(project).then((its) => live && setItems({ key: project.key, items: its }))
+    void readItems(project).then((its) => {
+      if (!live) return
+      setRead((m) => {
+        const had = m.get(project.key)
+        if (had !== undefined && JSON.stringify(had) === JSON.stringify(its)) return m
+        return new Map(m).set(project.key, its)
+      })
+    })
     return () => {
       live = false
     }
   }, [key, snap])
-  return items && items.key === key ? items.items : undefined
+  return key === null ? undefined : read.get(key)
 }
 
 // One sound for each look that finds a conversation, running last time, now waiting on me. Not

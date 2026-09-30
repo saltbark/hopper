@@ -123,7 +123,10 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
 - `src/commands.ts`: `hopper list`, `draft new`, `routine check|templates|install`, `dispatch`;
   `src/cli.tsx` only wires and prints them. `src/dispatch.ts`, `src/start.ts`, `src/guide.ts`.
 - `src/fsutil.ts` (`readIfThere`, `writeAtomic`) and `src/frontmatter.ts`: use these for any
-  state file rather than writing fs code again. Tests share `test/helpers.ts` (`fakeClaude`).
+  state file rather than writing fs code again. A read-change-write of a state file goes through
+  `inTurn` (one at a time) and `readForChange` (a file that doesn't parse is set aside, never
+  written over); a load for showing may still fall back to empty. Tests share
+  `test/helpers.ts` (`fakeClaude`).
 
 ## Its own rules
 

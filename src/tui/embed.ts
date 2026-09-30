@@ -86,6 +86,11 @@ export function atEmptyPrompt(b: xterm.IBuffer): boolean {
 // into longest ago is closed to make room; the conversation itself keeps running.
 export const OPEN_AT_ONCE = 10
 
+// The screen is redrawn at most once a frame, and a quiet one waits this long for the rest of
+// what Claude is writing.
+const FRAME_MS = 33
+const BURST_MS = 4
+
 // The open conversations with `s` put first (in place of any open one with its id), and the
 // ones that no longer fit, for the caller to close.
 export function admit<S extends { id: string }>(
@@ -114,6 +119,8 @@ export class EmbeddedSession {
   private lastSent = 0
   // Set while the agents screen is up, so it's answered once rather than on every redraw.
   private onAgents = false
+  private lastDraw = 0
+  private lastPage = 0
 
   constructor(
     readonly account: Account,
@@ -167,22 +174,27 @@ export class EmbeddedSession {
     })
   }
 
-  // Redraws at most about 30 times a second, however fast Claude writes.
+  // Redraws at most about 30 times a second, however fast Claude writes. After a quiet spell
+  // the first change draws almost at once, so what you type shows without waiting out a frame;
+  // the few milliseconds gather the rest of a burst, so a half-written screen isn't drawn.
   private changed(): void {
+    if (this.closed || this.timer) return
+    const wait = Math.max(BURST_MS, this.lastDraw + FRAME_MS - Date.now())
+    this.timer = setTimeout(() => this.draw(), wait)
+  }
+
+  private draw(): void {
+    this.timer = null
     if (this.closed) return
+    this.lastDraw = Date.now()
     const agents = AGENTS_SCREEN.test(this.bottomText())
     if (agents && !this.onAgents) {
       this.send('\r')
       this.events.onStepBack()
     }
     this.onAgents = agents
-    if (this.timer) return
-    this.timer = setTimeout(() => {
-      this.timer = null
-      if (this.closed) return
-      this.events.onChange?.()
-      for (const l of this.listeners) l()
-    }, 33)
+    this.events.onChange?.()
+    for (const l of this.listeners) l()
   }
 
   // The last few lines with anything on them: where Claude puts its footer. A line the terminal
@@ -203,8 +215,6 @@ export class EmbeddedSession {
     this.close()
     this.events.onLeave()
   }
-
-  private lastPage = 0
 
   // A wheel tick over the conversation. If Claude has asked for the mouse, it gets the event
   // itself; otherwise it gets PgUp/PgDn, which is what it asks for, at most a few a second.

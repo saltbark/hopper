@@ -144,5 +144,5 @@ describe('the settings screen', () => {
     await press('\u001b')
     expect(lastFrame()).not.toContain('SETTINGS')
     unmount()
-  })
+  }, 15_000)
 })

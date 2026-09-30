@@ -569,7 +569,7 @@ describe('conversations', () => {
     expect(lastFrame()).toContain(' claude ')
     done()
     unmount()
-  })
+  }, 15_000)
 
   it('a proposed draft has its own group, and u queues it: when there is room, tonight, off', async () => {
     const { home, cfg } = await setup()

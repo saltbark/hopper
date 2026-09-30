@@ -105,8 +105,6 @@ export async function listDrafts(home: string): Promise<Draft[]> {
 export const saveDraft = (home: string, d: Draft) =>
   writeAtomic(file(home, d.id), serializeDraft(d))
 
-export const DRAFT_ID = /^[a-z0-9]+-[a-z0-9]{2,8}$/
-
 export async function deleteDraft(home: string, id: string): Promise<void> {
   await rm(file(home, id), { force: true })
 }

@@ -13,7 +13,7 @@ import {
   type Account,
   type Config,
 } from '../config.ts'
-import { loadDone, saveDone } from '../done.ts'
+import { setDone } from '../done.ts'
 import { deleteDraft, newDraftId, saveDraft, type Draft } from '../drafts.ts'
 import { when } from '../format.ts'
 import { readIfThere } from '../fsutil.ts'
@@ -266,10 +266,11 @@ export function makeActions(ctx: AppCtx) {
 
   const markDone = async (item: Item | undefined, done: boolean) => {
     if (!item) return
-    const set = await loadDone(config.home)
-    if (done) set.add(item.sessionId)
-    else set.delete(item.sessionId)
-    await saveDone(config.home, set)
+    try {
+      await setDone(config.home, item.sessionId, done)
+    } catch (e) {
+      return setMessage(`Couldn't mark it: ${(e as Error).message}`)
+    }
     setMessage(done ? `Done: ${item.name}` : `Back in Needs you: ${item.name}`)
     await refresh(false)
   }
