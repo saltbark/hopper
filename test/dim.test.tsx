@@ -10,10 +10,14 @@ const coloured = `${E}38;2;200;100;50mhi${E}39m plain`
 
 describe('dimLine', () => {
   it('darkens every truecolor foreground, and leaves backgrounds and plain text alone', () => {
-    expect(dimLine(`${coloured} ${E}48;2;36;48;57m${E}38;2;10;20;30mx${E}49m`)).toBe(
-      `${E}38;2;124;62;31mhi${E}39m plain ${E}48;2;36;48;57m${E}38;2;6;12;19mx${E}49m`,
+    expect(dimLine(`${coloured} ${E}48;2;26;34;39m${E}38;2;10;20;30mx${E}49m`)).toBe(
+      `${E}38;2;124;62;31mhi${E}39m plain ${E}48;2;26;34;39m${E}38;2;6;12;19mx${E}49m`,
     )
     expect(dimLine('no colour at all')).toBe('no colour at all')
+  })
+  it('leaves a row on the selection background bright', () => {
+    const held = `${E}48;2;36;48;57m${coloured}${E}49m`
+    expect(dimLine(held)).toBe(held)
   })
   it('draws the line faint where there are only 256 colours', () => {
     expect(dimLine(`${E}38;5;110mhi${E}39m`)).toBe(`${E}2m${E}38;5;110mhi${E}39m${E}22m`)

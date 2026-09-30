@@ -87,8 +87,12 @@ const KEEP = 0.62
 const ESC = '\u001b['
 // A foreground colour, at the start of what follows an ESC [.
 const TRUECOLOR = /^38;2;(\d+);(\d+);(\d+)m/
+// A row on the selection background is the one the right panel is showing, so it keeps its
+// brightness in a darker panel. Only matched in truecolor; with 256 colours it dims with the rest.
+const SEL_BG = `${ESC}48;2;${[1, 3, 5].map((i) => parseInt(T.sel.slice(i, i + 2), 16)).join(';')}m`
 
 export function dimLine(line: string): string {
+  if (line.includes(SEL_BG)) return line
   if (line.includes(ESC + '38;2;'))
     return line
       .split(ESC)
