@@ -1,5 +1,5 @@
 ---
-project: kf/meta
+project: meta/inbox
 schedule: weekly sat 6:00
 model: opus
 effort: high

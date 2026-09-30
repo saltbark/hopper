@@ -21,9 +21,9 @@ let config: Config = {
   routes: [],
   overnight: OVERNIGHT_DEFAULTS,
 }
-config = addAccount(config, { name: 'kf', label: 'Knowledge Futures', configDir: null })
-config = addAccount(config, { name: 'sb', label: 'Saltbark', configDir: '/tmp/hopper-test-sb' })
-config = setPrefixes(setPrefixes(config, 'kf', ['kf/']), 'sb', ['sb/', 'meta/'])
+config = addAccount(config, { name: 'bh', label: 'Blue Heron', configDir: null })
+config = addAccount(config, { name: 'pm', label: 'Pinemoor', configDir: '/tmp/hopper-test-pm' })
+config = setPrefixes(setPrefixes(config, 'bh', ['bh/']), 'pm', ['pm/', 'meta/'])
 const projects = [
   {
     key: 'meta/inbox',
@@ -40,7 +40,7 @@ const projects = [
 ]
 const now = Date.now()
 const session = (over: Partial<Session>): Session => ({
-  account: 'kf',
+  account: 'bh',
   id: 'abc12345',
   sessionId: 's-' + over.name,
   kind: 'background',
@@ -65,7 +65,7 @@ const snapshot: Snapshot = {
   accounts: [
     {
       account: config.accounts[0]!,
-      auth: { loggedIn: true, email: 'me@kf.org', subscriptionType: 'team' },
+      auth: { loggedIn: true, email: 'me@blueheron.example', subscriptionType: 'team' },
       authError: null,
       usage: {
         fiveHour: { pct: 22, resetsAt: null },
@@ -91,7 +91,7 @@ const snapshot: Snapshot = {
   items: toItems(
     [
       session({ name: 'Sort the inbox', cwd: '/h/projects/meta/inbox', state: 'working' }),
-      session({ name: 'Set up NCBI search demo', cwd: '/w/kf-meta', state: 'blocked' }),
+      session({ name: 'Draft the spring newsletter', cwd: '/w/bh-meta', state: 'blocked' }),
     ],
     projects,
   ),
@@ -132,7 +132,7 @@ describe('App', () => {
     expect(focusOf(f)).toBe('conversations')
     expect(f).toContain('p find a project')
     expect(f).toContain('41%')
-    expect(f).toContain('sb  not signed in')
+    expect(f).toContain('pm  not signed in')
     expect(f).toContain('Sort t')
     expect(f).toContain('WAITING ON YOU 1')
     unmount()
@@ -243,11 +243,11 @@ describe('App', () => {
       <App config={config} load={async () => snapshot} />,
     )
     await tick()
-    const y = (lastFrame() ?? '').split('\n').findIndex((l) => l.includes('sb  not signed in'))
+    const y = (lastFrame() ?? '').split('\n').findIndex((l) => l.includes('pm  not signed in'))
     await press(stdin, `\u001b[<0;5;${y + 1}M`)
     expect(focusOf(lastFrame())).toBe('accounts')
-    expect(lastFrame()).toContain('│▌sb  not signed in')
-    expect(lastFrame()).toContain('sb · Saltbark')
+    expect(lastFrame()).toContain('│▌pm  not signed in')
+    expect(lastFrame()).toContain('pm · Pinemoor')
     unmount()
   })
 
@@ -292,7 +292,7 @@ describe('App', () => {
       created: now,
       updated: now,
     }
-    const item = { ...draftSession(d, projects, 'kf'), where: 'needs' as const, key: 'meta/inbox' }
+    const item = { ...draftSession(d, projects, 'bh'), where: 'needs' as const, key: 'meta/inbox' }
     const snap = { ...snapshot, drafts: [d], items: [item] }
     const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
     await tick()
@@ -326,7 +326,7 @@ describe('App', () => {
       created: now,
       updated: now,
     }
-    const item = { ...draftSession(d, projects, 'kf'), where: 'needs' as const, key: 'meta/inbox' }
+    const item = { ...draftSession(d, projects, 'bh'), where: 'needs' as const, key: 'meta/inbox' }
     const snap = { ...snapshot, drafts: [d], items: [item] }
     const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
     await tick()
@@ -344,7 +344,7 @@ describe('App', () => {
       created: now,
       updated: now,
     }
-    const item = { ...draftSession(d, projects, 'kf'), where: 'needs' as const, key: 'meta/inbox' }
+    const item = { ...draftSession(d, projects, 'bh'), where: 'needs' as const, key: 'meta/inbox' }
     const snap = { ...snapshot, drafts: [d], items: [item] }
     const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
     await tick()
@@ -393,23 +393,23 @@ describe('App', () => {
     )
     await tick()
     await press(stdin, 'a')
-    expect(lastFrame()).toContain('kf/ as choice 1')
+    expect(lastFrame()).toContain('bh/ as choice 1')
     await press(stdin, 'e')
     expect(lastFrame()).toContain('prefixes it runs')
     await press(stdin, ', meta')
     await press(stdin, '\r')
     expect(saved.at(-1)?.routes).toEqual([
-      { prefix: 'kf/', accounts: ['kf'] },
-      { prefix: 'meta/', accounts: ['sb', 'kf'] },
-      { prefix: 'sb/', accounts: ['sb'] },
+      { prefix: 'bh/', accounts: ['bh'] },
+      { prefix: 'meta/', accounts: ['pm', 'bh'] },
+      { prefix: 'pm/', accounts: ['pm'] },
     ])
     await press(stdin, '1')
-    expect(saved.at(-1)?.routes[1]).toEqual({ prefix: 'meta/', accounts: ['kf', 'sb'] })
+    expect(saved.at(-1)?.routes[1]).toEqual({ prefix: 'meta/', accounts: ['bh', 'pm'] })
     await press(stdin, 'j')
     await press(stdin, 'd')
-    expect(lastFrame()).toContain('Remove sb from Hopper?')
+    expect(lastFrame()).toContain('Remove pm from Hopper?')
     await press(stdin, 'y')
-    expect(saved.at(-1)?.accounts.map((a) => a.name)).toEqual(['kf'])
+    expect(saved.at(-1)?.accounts.map((a) => a.name)).toEqual(['bh'])
     unmount()
   })
 
@@ -449,14 +449,14 @@ describe('conversations', () => {
   const setup = async (opts: { untrusted?: boolean } = {}) => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
     await initHome(home)
-    await appendFile(join(home, 'projects.toml'), '\n[[project]]\nkey = "kf/console"\n')
+    await appendFile(join(home, 'projects.toml'), '\n[[project]]\nkey = "bh/atlas"\n')
     const log = join(home, 'calls.log')
     process.env['HOPPER_CLAUDE'] = bin
     process.env['HOPPER_FAKE_LOG'] = log
     if (opts.untrusted) process.env['HOPPER_FAKE_UNTRUSTED'] = '1'
     else delete process.env['HOPPER_FAKE_UNTRUSTED']
     const projects = await loadProjects(home)
-    const cfg: Config = { ...setPrefixes(config, 'kf', ['kf/', 'meta/']), home }
+    const cfg: Config = { ...setPrefixes(config, 'bh', ['bh/', 'meta/']), home }
     const snap: Snapshot = { ...snapshot, projects, items: [] }
     // The signed-in accounts above, with the drafts as they are on disk: esc leaves a draft on
     // the list, and the list's keys act on it there. A conversation the fake has started shows
@@ -467,7 +467,7 @@ describe('conversations', () => {
       const started = (await readFile(log, 'utf8').catch(() => '')).includes('--bg')
       const items = toItems(
         [
-          ...drafts.map((d) => draftSession(d, projects, 'kf')),
+          ...drafts.map((d) => draftSession(d, projects, 'bh')),
           ...(started ? [session({ name: 'started', cwd: projects[0]!.runIn })] : []),
         ],
         projects,
@@ -738,7 +738,7 @@ describe('conversations', () => {
       items: toItems(
         [
           {
-            account: 'kf',
+            account: 'bh',
             id: null,
             sessionId: 'routine:triage',
             kind: 'routine',
@@ -793,7 +793,7 @@ describe('conversations', () => {
       at: 0,
       status: 'started' as const,
       id: 'abc12345',
-      account: 'kf',
+      account: 'bh',
       result: join(dir, '2026-09-28-0700.md'),
       prompt: 'x',
     }
@@ -812,7 +812,7 @@ describe('conversations', () => {
       items: toItems(
         [
           {
-            account: 'kf',
+            account: 'bh',
             id: null,
             sessionId: 'routine:triage',
             kind: 'routine',
@@ -895,12 +895,12 @@ describe('conversations', () => {
     await onList(lastFrame)
     await press(stdin, 'w')
     expect(lastFrame()).toContain('MOVE TO PROJECT')
-    await press(stdin, 'con')
+    await press(stdin, 'atl')
     await press(stdin, '\r')
     const { listDrafts } = await import('../src/drafts.ts')
-    await until(async () => (await listDrafts(home))[0]?.project === 'kf/console')
-    expect((await listDrafts(home))[0]?.project).toBe('kf/console')
-    expect(lastFrame()).toContain('Moved to kf/console')
+    await until(async () => (await listDrafts(home))[0]?.project === 'bh/atlas')
+    expect((await listDrafts(home))[0]?.project).toBe('bh/atlas')
+    expect(lastFrame()).toContain('Moved to bh/atlas')
     done()
     unmount()
   })

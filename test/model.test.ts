@@ -10,7 +10,7 @@ import { classify, gather, inScope, OTHER, projectForCwd, toItems } from '../src
 import { fakeClaude } from './helpers.ts'
 
 const s = (over: Partial<Session>): Session => ({
-  account: 'kf',
+  account: 'bh',
   id: 'a1',
   sessionId: 'x-' + Math.random(),
   kind: 'background',
@@ -27,11 +27,11 @@ const projects = [
     runIn: '/h/projects/meta/inbox',
     openFile: '',
   },
-  { key: 'sb/generaltext', path: '/w/gt', runIn: '/w/gt', openFile: '' },
+  { key: 'pm/lantern', path: '/w/lantern', runIn: '/w/lantern', openFile: '' },
   {
-    key: 'sb/generaltext/apps/crum',
-    path: '/w/gt/apps/crum',
-    runIn: '/w/gt/apps/crum',
+    key: 'pm/lantern/apps/ledger',
+    path: '/w/lantern/apps/ledger',
+    runIn: '/w/lantern/apps/ledger',
     openFile: '',
   },
 ]
@@ -53,8 +53,10 @@ describe('classify', () => {
 
 describe('projectForCwd', () => {
   it('picks the deepest project containing the cwd, and not a sibling with a shared prefix', () => {
-    expect(projectForCwd(projects, '/w/gt/apps/crum/src')?.key).toBe('sb/generaltext/apps/crum')
-    expect(projectForCwd(projects, '/w/gt')?.key).toBe('sb/generaltext')
+    expect(projectForCwd(projects, '/w/lantern/apps/ledger/src')?.key).toBe(
+      'pm/lantern/apps/ledger',
+    )
+    expect(projectForCwd(projects, '/w/lantern')?.key).toBe('pm/lantern')
     expect(projectForCwd(projects, '/w/gtx')).toBeUndefined()
   })
 })
@@ -62,18 +64,18 @@ describe('projectForCwd', () => {
 describe('toItems', () => {
   it('files sessions outside every project under OTHER, newest first', () => {
     const items = toItems(
-      [s({ cwd: '/elsewhere', startedAt: 1 }), s({ cwd: '/w/gt', startedAt: 5 })],
+      [s({ cwd: '/elsewhere', startedAt: 1 }), s({ cwd: '/w/lantern', startedAt: 5 })],
       projects,
     )
-    expect(items.map((i) => i.key)).toEqual(['sb/generaltext', OTHER])
+    expect(items.map((i) => i.key)).toEqual(['pm/lantern', OTHER])
   })
 })
 
 describe('inScope', () => {
   it('matches the scope and everything below it', () => {
-    expect(inScope('kf/aas/bulletin', 'kf')).toBe(true)
-    expect(inScope('kf/aas/bulletin', 'kf/aas')).toBe(true)
-    expect(inScope('kf/aasx', 'kf/aas')).toBe(false)
+    expect(inScope('bh/news/bulletin', 'bh')).toBe(true)
+    expect(inScope('bh/news/bulletin', 'bh/news')).toBe(true)
+    expect(inScope('bh/newsx', 'bh/news')).toBe(false)
     expect(inScope('anything', null)).toBe(true)
   })
 })
@@ -121,7 +123,7 @@ describe('gather', () => {
         routes: [],
         overnight: OVERNIGHT_DEFAULTS,
       }
-      config = addAccount(config, { name: 'kf', label: 'kf', configDir: null })
+      config = addAccount(config, { name: 'bh', label: 'bh', configDir: null })
       const first = await gather(config, null, true)
       expect(first.items.map((i) => i.id)).toEqual(['aaaa1111'])
       const at = first.accounts[0]!.sessionsAt

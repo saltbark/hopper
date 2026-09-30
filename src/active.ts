@@ -7,7 +7,7 @@ export type Counts = { open: number; run: number; you: number }
 
 export type ProjectRow = {
   key: string
-  // A folder above projects matches too (sb/generaltext/apps) and narrows the list to all of them.
+  // A folder above projects matches too (pm/lantern/apps) and narrows the list to all of them.
   isProject: boolean
   counts: Counts
   // When a conversation there last started or a draft was last edited.

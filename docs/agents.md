@@ -11,9 +11,9 @@ Use the `hopper` command.
 
 ## Projects and keys
 
-Every project has a key shaped like a folder: `meta/inbox`, `kf/console`, `sb/hopper`. `meta/`
+Every project has a key shaped like a folder: `meta/inbox`, `bh/atlas`, `pm/tern`. `meta/`
 projects live in this folder (`projects/<key>/_open.md`) and their conversations run here.
-`kf/` and `sb/` projects come from a meta repo's registry; their conversations run from that repo,
+`bh/` and `pm/` projects come from a meta repo's registry; their conversations run from that repo,
 and their open items are in its `planning/<key>/_open.md`, governed by that repo's planning rules.
 
 `hopper list --json` prints every project with its folder, open file and where it runs.
@@ -81,7 +81,7 @@ schedule: daily 7:00
 model: sonnet
 effort: low
 enabled: true
-check: just planning-check
+check: just check
 ---
 The prompt.
 ```

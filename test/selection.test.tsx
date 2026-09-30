@@ -15,11 +15,11 @@ const config: Config = addAccount(
     routes: [],
     overnight: OVERNIGHT_DEFAULTS,
   },
-  { name: 'kf', label: 'KF', configDir: null },
+  { name: 'bh', label: 'BH', configDir: null },
 )
 const now = Date.now()
 const session = (name: string, state: string, age: number): Session => ({
-  account: 'kf',
+  account: 'bh',
   id: 'id-' + name,
   sessionId: 's-' + name,
   kind: 'background',

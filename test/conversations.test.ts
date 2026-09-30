@@ -22,10 +22,10 @@ describe('conversation records', () => {
       model: 'haiku',
       startedAt: 1,
     })
-    await recordConversation(home, 'def456', { project: 'kf/console', startedAt: 2 })
+    await recordConversation(home, 'def456', { project: 'bh/atlas', startedAt: 2 })
     expect(await loadConversations(home)).toEqual({
       abc123: { project: 'meta/inbox', model: 'haiku', startedAt: 1 },
-      def456: { project: 'kf/console', startedAt: 2 },
+      def456: { project: 'bh/atlas', startedAt: 2 },
     })
   })
   it('cycle models and efforts through Claude’s default', () => {

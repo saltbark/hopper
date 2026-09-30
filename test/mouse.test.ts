@@ -22,7 +22,7 @@ describe('parseMouse', () => {
 
 describe('EmbeddedSession.wheel', () => {
   const fake = fakeClaude
-  const account = { name: 'kf', label: 'kf', configDir: null }
+  const account = { name: 'bh', label: 'bh', configDir: null }
   const until = async (ok: () => boolean) => {
     for (let i = 0; i < 160 && !ok(); i++) await new Promise((r) => setTimeout(r, 50))
   }

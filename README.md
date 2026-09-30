@@ -1,138 +1,187 @@
 # Hopper
 
-Toss work in the hopper, hop from item to item. A terminal app for handing work to Claude Code
-agents across projects and Claude logins.
+Toss work in the hopper, hop from item to item.
+
+Hopper is a terminal app for handing work to Claude Code. You keep it open all day in its own
+window. It lists every conversation across your projects and your Claude logins, shows which ones
+are waiting on you, and opens them right there in a panel. It can also run prompts on a schedule
+and work through a queue overnight.
+
+Hopper doesn't do the work itself. Claude Code does. Hopper starts conversations, keeps track of
+them, and gets you back into the one that needs you.
+
+Mac only for now.
+
+## Install
+
+You need Node 22.6 or later, pnpm, and [Claude Code](https://claude.com/claude-code), signed in.
 
 ```sh
+git clone https://github.com/saltbark/hopper.git
+cd hopper
 pnpm install && pnpm build
 pnpm link --global        # puts `hopper` on your PATH
+```
+
+Then:
+
+```sh
 hopper init               # config, home folder, and your current Claude login as the first account
 hopper status             # what Hopper sees, as text
 hopper                    # the app
 ```
 
-Everyday: Hopper opens on Conversations: one list of every conversation that isn't done, grouped:
-waiting on you, drafts, running, up next (`w` `d` `r` `u` jump to each). Done sits below it. Above
-it, beside Accounts, Projects lists the projects with something waiting, running or used today, by
-full key. `p` goes there ready to find: type a few letters and it lists every project and
-folder that matches; ⏎ narrows the list to it, `tab` starts a conversation there, `esc` comes back
-to the list. `esc` on the list shows every project again, and never goes up to Projects.
+## The list
 
-`tab` starts a new conversation as a draft: a real text box (arrows, option+arrows by word,
-shift to select, ⏎ for new lines), saved as you type. `esc`, then `s` starts it, `w` moves it,
-`y` copies it, `x` throws it away, or `esc` keeps it.
+Hopper opens on Conversations: every conversation that isn't done, grouped into waiting on you,
+drafts, running and up next. `w` `d` `r` `u` jump to each group. Done sits below. Above the list,
+beside Accounts, Projects shows the projects with something waiting, running or used today.
 
-Conversations open in the right-hand panel: the real Claude session, every key going to Claude,
-`esc` included. ← at Claude's empty prompt, or ctrl+] from anywhere, comes back to Hopper and
-leaves it open (⏎ goes back in). Inside, ctrl+c interrupts Claude; from the list, `i` sends it
-an esc. `m` marks a conversation done. Ask Claude
-to file items; it knows the project's `_open.md`. The first conversation in a new folder asks you
-to trust it once (`T`).
+`p` goes to Projects, ready to search. Type a few letters and it lists every project and folder
+that matches. ⏎ narrows the list to it, `tab` starts a conversation there, `esc` goes back.
+`esc` on the list shows every project again.
 
-Mouse: the wheel scrolls whatever is under the pointer (a list, or the conversation), and a click
-focuses a panel. In every panel's list the row under the pointer lights up; a click selects it,
-and a second click does what ⏎ would: opens a conversation, focuses a project, signs in an account
-that isn't signed in. A click on a conversation gives it the keyboard, and a click on the
-details of one that isn't open opens it. Drag inside a conversation to select; letting go copies it.
-Elsewhere, hold your terminal's selection modifier (often Option or Shift) to select by dragging.
-→ on the list goes into the conversation on the right, and ← at Claude's empty prompt comes back.
+## Conversations
 
-Models: in a draft, after `esc`, `m` picks the model and `e` the effort. Projects can set defaults
-in `projects.toml` (`model = "haiku"`, `effort = "low"`). The list shows what each conversation
-started with.
+`tab` starts a new conversation as a draft. It's a real text box (arrows, option+arrows by word,
+shift to select, ⏎ for new lines) and it saves as you type. `esc`, then `s` starts it, `w` moves
+it to another project, `y` copies it, `x` throws it away, or `esc` again keeps it.
 
-Projects from a meta repo: a `[[source]]` in `projects.toml` lists every project that repo's
-`paths.local` has on this machine, under a prefix, read fresh each time. Its open items are the
-meta repo's `planning/<key>/_open.md`, and conversations are told to follow that repo's planning
-rules. The meta repo itself is `<prefix>/meta`. A `[[project]]` with an imported key adds to it.
-Conversations run from the meta repo, so its `CLAUDE.md` and conventions apply, and reach the
-code through its `projects/` symlink; `run_in = "project"` on the source runs them in each
-project's own folder instead. Projects in the home folder (`meta/`) run from the home folder; any
+A conversation opens in the right-hand panel. It's the actual Claude session, and every key goes
+to Claude, `esc` included. To come back to Hopper, press ← at Claude's empty prompt, or ctrl+]
+from anywhere. The conversation stays open, and ⏎ goes back in. Inside, ctrl+c interrupts Claude;
+from the list, `i` sends it an esc. `m` marks a conversation done.
+
+Ask Claude to file items and it will: it knows the project's `_open.md`. The first conversation in
+a new folder asks you to trust the folder once (`T`).
+
+Models: in a draft, after `esc`, `m` picks the model and `e` the effort. A project can set its own
+defaults in `projects.toml` (`model = "haiku"`, `effort = "low"`). The list shows what each
+conversation started with.
+
+## Keys and mouse
+
+`p` `c` `v` `a` jump to projects, conversations, done and accounts. `n` jumps to the first thing
+waiting on you. `J` `K` (or shift+↑↓) move to the next group. `d` on a conversation marks it done,
+or in Done brings it back. → on the list opens a conversation and ← comes back, so the arrows
+alone get you around. `x` twice quits.
+
+The bottom line shows the keys for whatever is selected. `?` shows all of them.
+
+The wheel scrolls whatever is under the pointer, and a click focuses a panel. A click selects a
+row, and a second click does what ⏎ would. Drag inside a conversation to select text; letting go
+copies it. Elsewhere, hold your terminal's selection modifier (often Option or Shift) to select.
+
+## Projects
+
+Hopper keeps a home folder (`~/hopper` unless you pick another). Projects inside it are keyed
+`meta/<name>` and their conversations run there.
+
+If you keep several repos under one planning repo (a "meta repo" with a `paths.local` that maps
+project keys to folders, and `planning/<key>/_open.md` for each), a `[[source]]` in
+`projects.toml` brings them all in under a prefix:
+
+```toml
+[[source]]
+prefix = "bh"
+repo = "~/work/blueheron-meta"
+strip = "bh"             # registry key bh/atlas lists as bh/atlas, not bh/bh/atlas
+# run_in = "project"     # run in each project's own folder instead of the meta repo
+```
+
+It's read fresh every time. The meta repo itself shows up as `<prefix>/meta`. Conversations run
+from the meta repo, so its `CLAUDE.md` applies, and they're told to follow its planning rules. Any
 `[[project]]` can set `run_in`.
 
-    [[source]]
-    prefix = "kf"
-    repo = "~/Dropbox/Workspace/proj_kf/proj_kf-meta"
-    strip = "kf"    # registry key kf/console lists as kf/console, not kf/kf/console
-    # run_in = "project"   # run in each project's folder, not the meta repo
+## Accounts
 
-Drafts: `tab` opens one; `esc` saves it and leaves it selected in the list, its text on the
-right. From its row: `s` starts it, `u` queues it (below), `m` `e` choose the model and effort,
-`w` moves it to another project, `y` copies it, `d` throws it away; ⏎ is the only way back to
-writing it.
+Hopper works with more than one Claude login. In the app, `a` then `a` again adds one: a short
+name, its config directory, then Claude's own sign-in. `e` sets the key prefixes it runs
+(`bh/, meta/`, or `*` for everything). When several accounts run a prefix, work goes to the first
+one that is signed in and has room. `1` makes an account first choice. The default account (`*`)
+runs anything no prefix names.
 
-Routines: a prompt that runs on a schedule, each run its own conversation. Write it as a draft,
-then `esc`, `r`: name it and say when it runs (`daily 7:00`, `weekdays 7:00, 13:00`,
-`weekly mon 9:00`, `monthly 1st 9:00`, or blank for run-now only). Routines have their own group
-in the list, the soonest to run first, then paused and run-now-only ones, each by name. From a
-routine's row `s` runs it now, `S` changes the schedule, `P` pauses, `d` removes it, and `M`
-marks its reports read.
-Each run writes a report under `<home>/routines/<name>/runs/`. A run shows under running while
-it works; once it finishes it is filed with its routine rather than listed or put in Done. The
-routine's details on the right list "edit the prompt", then its reports, newest first; ⏎ on the
-routine goes into that list, on the newest unread report. ↑↓ move, ⏎ edits the prompt or reads
-a report, `m` marks one read, `c` opens the conversation that wrote it, esc comes back. A
-routine with unread reports has a dot on its row; reading a report marks it read. A run blocked on a question stays in waiting, since
-its conversation is where to answer. Routines run only while Hopper is open: at its time, or when Hopper
-opens within an hour of it (later than that, it waits for its next time). A run is skipped when
-every account for its project is full.
+Each usage bar has a tick at how far through its window you are. A fill short of the tick means
+you're using less than an even pace. When there's room, a second line says when each limit resets.
 
-    hopper routines          list them and when they next run
-    hopper run <name>        one run, now
-    hopper routine check <name>        is the file valid
-    hopper routine templates           the routines Hopper ships
-    hopper routine install <template>  add one, paused (P in the app resumes it)
+## Routines
 
-A routine with `check: <command>` in its front matter runs the command first, in the project's
-run folder. If it passes, no conversation starts (no model, nothing spent); if it fails, the
-conversation starts with the output. The templates: `daily-brief` (Sonnet, mornings),
-`hopper-review` (Opus, weekly), `groomer` (Sonnet, evenings: proposes tonight's work),
-`decision-memos` (Opus: a memo with a recommendation per Decide item), `checks` (no model unless
-`just planning-check` fails), `drift-check` (Haiku) and `branch-review` (Sonnet, low effort).
-`mail-brief` (Sonnet, 6:30) and `mail-lookback` (Opus, Saturdays) read Gmail through the
-connector, so they run on the account that has it (`kf/meta`, which routes to kf): what needs a
-reply, what's been forgotten, opportunities, and people from long ago worth writing to. They
-share a small ledger in `routines/mail-brief/ledger.md` (names, dates, a few words; never
-message bodies) and never send, draft or change anything in Gmail.
+A routine is a prompt that runs on a schedule, each run its own conversation. Write it as a
+draft, then `esc`, `r`: name it and say when it runs (`daily 7:00`, `weekdays 7:00, 13:00`,
+`weekly mon 9:00`, `monthly 1st 9:00`, or blank to run it only by hand).
 
-Overnight: `u` on a draft queues it (up next: when there's room; `u` again: tonight; again: off).
-Queued drafts run unattended: in auto permission mode, told never to wait for an answer, to work
-on a branch, never push to main or send anything, and to write a result file (`needs: you` or
-`needs: nothing`). A draft can wait for others (`after:`), and a run may queue its own follow-ups
-up to `chain_depth` links; past that they're proposed. Proposed drafts (written by the groomer or
-a review) have their own group: `u` queues one, `U` queues them all for tonight. `hopper dispatch`
-starts whatever is ready. The open app does it on its own as soon as something changes that
-could make a draft ready (you queue one, a conversation finishes, the night begins), and every
-five minutes while work waits; `g` runs it now. Leave Hopper open for queued work to run. It keeps to `max_running` per account, to the night's budget (points of the
-weekly limit one night may use) and to a reserve kept for the day; all of these are under
-Overnight in settings.
+From a routine's row, `s` runs it now, `S` changes the schedule, `P` pauses, `d` removes it and
+`M` marks its reports read. Each run writes a report under `<home>/routines/<name>/runs/`. ⏎ on a
+routine lists its reports and starts on the newest unread one. A routine with unread reports has a dot on its
+row.
 
-    hopper draft new --project <key> [--queue now|night] [--after <id>] [--done "…"] "<message>"
-    hopper list [--json]     everything Hopper sees; what agents read
-    hopper dispatch [--json] start what's ready, and say why the rest wait
+Routines only run while Hopper is open, either at their time or when Hopper opens within an hour
+of it. A run is skipped when every account for its project is full.
 
-Agents: Hopper writes `docs/agents.md` to `<home>/CLAUDE.md`, so every conversation in the home
-folder knows these commands.
+A routine with `check: <command>` in its front matter runs that command first. If it passes, no
+conversation starts and nothing is spent. If it fails, the conversation starts with its output.
 
-Accounts: the default account (`*` in the Accounts panel) runs anything no prefix names. Each
-limit's bar has a tick at how far through its window we are: a fill short of the tick is using
-less than an even pace. When there's room, a second line says when each limit resets.
+```
+hopper routines                    list them and when they next run
+hopper run <name>                  one run, now
+hopper routine check <name>        is the file valid
+hopper routine templates           the routines Hopper ships
+hopper routine install <template>  add one, paused (P in the app resumes it)
+```
 
-Keys: `p` `c` `v` `a` jump to projects, conversations, done, accounts; `n` the first thing waiting on
-you; `J` `K` (or shift+↑↓) the next group in the list; `d` on a
-conversation marks it done (in Done, brings it back);
-on the list → opens a conversation like ⏎ and ← comes back, so the arrows alone get around; `x` twice
-quits. The bottom line shows the keys for what is selected that nothing on screen already
-shows; `?` shows them all, starting there.
+The templates:
 
-Settings: `,` shows every setting in `config.toml`, `accounts.toml` and `projects.toml` in one
-place, what each is now, whether it's set or a default, and what it does. `⏎` edits one (or
-moves a choice on), `d` puts it back to its default or removes an entry, `a` adds an account,
-source or project, `o` opens the file itself in `$EDITOR`. The files stay the truth; writes from
-the screen keep a file's header comment but not comments further down. It also says when no
-account runs a prefix, so conversations there wouldn't start.
+- `daily-brief` (Sonnet, mornings)
+- `hopper-review` (Opus, weekly)
+- `groomer` (Sonnet, evenings): proposes tonight's work
+- `decision-memos` (Opus): a memo with a recommendation for each Decide item
+- `checks`: no model unless `just check` fails
+- `drift-check` (Haiku)
+- `branch-review` (Sonnet, low effort)
+- `mail-brief` (Sonnet, 6:30) and `mail-lookback` (Opus, Saturdays): read Gmail through Claude's
+  Gmail connector for replies you owe, things you've forgotten, and people worth writing to again.
+  Give them a project that routes to the account the connector is on. They keep a small ledger
+  (names, dates, a few words, never message bodies) and never send, draft or change anything.
 
-Accounts: in the app, `a` then `a` again adds a Claude account (a short name, its config directory,
-then Claude's own sign-in). `e` sets the prefixes it runs (`kf/, meta/`, or `*` for everything).
-When several accounts run a prefix, work goes to the first one that is signed in and has room;
-`1` makes an account first choice.
+## Overnight
+
+`u` on a draft queues it: once for when there's room, twice for tonight, three times for off.
+Queued drafts run unattended. They're started in auto permission mode and told never to wait for
+an answer, to work on a branch, never to push to main or send anything, and to write a result file.
+
+A draft can wait for others (`after:`), and a run can queue its own follow-ups up to
+`chain_depth`; past that they're only proposed. Proposed drafts have their own group: `u` queues
+one, `U` queues them all for tonight.
+
+The open app starts queued work as soon as something could make it ready, and checks every five
+minutes while work is waiting. `g` runs it now. It keeps to `max_running` per account, to the
+night's budget (how much of the weekly limit one night may use) and to a reserve kept for the day.
+All of these are under Overnight in settings. Leave Hopper open for queued work to run.
+
+```
+hopper draft new --project <key> [--queue now|night] [--after <id>] [--done "…"] "<message>"
+hopper list [--json]     everything Hopper sees; what agents read
+hopper dispatch [--json] start what's ready, and say why the rest wait
+```
+
+Hopper copies `docs/agents.md` into `<home>/CLAUDE.md`, so every conversation in the home folder
+knows these commands.
+
+## Settings
+
+`,` shows every setting in `config.toml`, `accounts.toml` and `projects.toml` in one place: its
+value, whether it's set or a default, and what it does. ⏎ edits one, `d` resets it or removes an
+entry, `a` adds an account, source or project, and `o` opens the file in `$EDITOR`. The files are
+the source of truth. Edits from the screen keep a file's header comment but not comments further
+down.
+
+## Development
+
+```sh
+pnpm dev          # run from source
+pnpm check        # typecheck, lint, test, build
+```
+
+## License
+
+MIT. See [LICENSE](LICENSE).

@@ -27,11 +27,11 @@ describe('parseProjects', () => {
   })
   it('takes an explicit path and open file', () => {
     const [p] = parseProjects(
-      '[[project]]\nkey = "kf/console"\npath = "/w/console"\nopen_file = "/w/kf-meta/planning/kf/console/_open.md"\n',
+      '[[project]]\nkey = "bh/atlas"\npath = "/w/atlas"\nopen_file = "/w/bh-meta/planning/bh/atlas/_open.md"\n',
       '/h',
     )
-    expect(p?.path).toBe('/w/console')
-    expect(p?.openFile).toBe('/w/kf-meta/planning/kf/console/_open.md')
+    expect(p?.path).toBe('/w/atlas')
+    expect(p?.openFile).toBe('/w/bh-meta/planning/bh/atlas/_open.md')
   })
   it('rejects bad and duplicate keys', () => {
     expect(() => parseProjects('[[project]]\nkey = "Meta Inbox"\n', '/h')).toThrow(
@@ -69,22 +69,22 @@ describe('initHome', () => {
 
 describe('sources', () => {
   // A meta repo with two checked-out projects (one reached through a symlink) and one that
-  // isn't on this machine, and a Hopper home that imports it under "sb".
+  // isn't on this machine, and a Hopper home that imports it under "pm".
   const setup = async (source: string) => {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'hopper-src-')))
-    const meta = join(root, 'sb-meta')
-    await mkdir(join(meta, 'planning', 'saltbark', 'hopper'), { recursive: true })
-    await mkdir(join(root, 'proj_hopper'))
-    await mkdir(join(root, 'gt', 'crum'), { recursive: true })
-    await symlink(join(root, 'gt'), join(root, 'gt-link'))
+    const meta = join(root, 'pm-meta')
+    await mkdir(join(meta, 'planning', 'pinemoor', 'tern'), { recursive: true })
+    await mkdir(join(root, 'tern'))
+    await mkdir(join(root, 'lantern', 'ledger'), { recursive: true })
+    await symlink(join(root, 'lantern'), join(root, 'ln-link'))
     await writeFile(
       join(meta, 'paths.local'),
       [
         '# paths.local',
         '',
-        `saltbark/hopper=${root}/proj_hopper`,
-        `generaltext/apps/crum=${root}/gt-link/crum`,
-        `saltbark/gone=${root}/not-here`,
+        `pinemoor/tern=${root}/tern`,
+        `lantern/apps/ledger=${root}/ln-link/ledger`,
+        `pinemoor/gone=${root}/not-here`,
         'Bad Key=/x',
       ].join('\n'),
     )
@@ -102,55 +102,55 @@ describe('sources', () => {
   })
 
   it('lists what the registry has checked out here, under the prefix, with the meta repo', async () => {
-    const { root, meta, home } = await setup('\n[[source]]\nprefix = "sb"\nrepo = "META"\n')
+    const { root, meta, home } = await setup('\n[[source]]\nprefix = "pm"\nrepo = "META"\n')
     const projects = await loadProjects(home)
     expect(projects.map((p) => p.key)).toEqual([
       'meta/inbox',
-      'sb/meta',
-      'sb/saltbark/hopper',
-      'sb/generaltext/apps/crum',
+      'pm/meta',
+      'pm/pinemoor/tern',
+      'pm/lantern/apps/ledger',
     ])
-    const hopper = projects.find((p) => p.key === 'sb/saltbark/hopper')
+    const hopper = projects.find((p) => p.key === 'pm/pinemoor/tern')
     expect(hopper).toEqual({
-      key: 'sb/saltbark/hopper',
-      path: join(root, 'proj_hopper'),
+      key: 'pm/pinemoor/tern',
+      path: join(root, 'tern'),
       runIn: meta,
-      openFile: join(meta, 'planning', 'saltbark', 'hopper', '_open.md'),
-      meta: { repo: meta, key: 'saltbark/hopper' },
+      openFile: join(meta, 'planning', 'pinemoor', 'tern', '_open.md'),
+      meta: { repo: meta, key: 'pinemoor/tern' },
     })
     // Symlinks resolve, since Claude reports the physical cwd.
-    expect(projects.find((p) => p.key === 'sb/generaltext/apps/crum')?.path).toBe(
-      join(root, 'gt', 'crum'),
+    expect(projects.find((p) => p.key === 'pm/lantern/apps/ledger')?.path).toBe(
+      join(root, 'lantern', 'ledger'),
     )
   })
 
   it('strips the leading segment, and lets a [[project]] add to an imported one', async () => {
     const { home } = await setup(
-      '\n[[source]]\nprefix = "sb"\nrepo = "META"\nstrip = "saltbark"\n\n[[project]]\nkey = "sb/hopper"\nmodel = "opus"\n',
+      '\n[[source]]\nprefix = "pm"\nrepo = "META"\nstrip = "pinemoor"\n\n[[project]]\nkey = "pm/tern"\nmodel = "opus"\n',
     )
     const projects = await loadProjects(home)
-    expect(projects.map((p) => p.key)).toContain('sb/generaltext/apps/crum')
-    const hopper = projects.find((p) => p.key === 'sb/hopper')
+    expect(projects.map((p) => p.key)).toContain('pm/lantern/apps/ledger')
+    const hopper = projects.find((p) => p.key === 'pm/tern')
     expect(hopper?.model).toBe('opus')
-    expect(hopper?.meta?.key).toBe('saltbark/hopper')
-    expect(projects.filter((p) => p.key === 'sb/hopper')).toHaveLength(1)
+    expect(hopper?.meta?.key).toBe('pinemoor/tern')
+    expect(projects.filter((p) => p.key === 'pm/tern')).toHaveLength(1)
   })
 
   it('skips a source not on this machine, and refuses a key from two places', async () => {
-    const missing = await setup('\n[[source]]\nprefix = "kf"\nrepo = "/no/such/meta"\n')
+    const missing = await setup('\n[[source]]\nprefix = "bh"\nrepo = "/no/such/meta"\n')
     expect((await loadProjects(missing.home)).map((p) => p.key)).toEqual(['meta/inbox'])
     const twice = await setup(
-      '\n[[source]]\nprefix = "sb"\nrepo = "META"\n[[source]]\nprefix = "sb"\nrepo = "META"\n',
+      '\n[[source]]\nprefix = "pm"\nrepo = "META"\n[[source]]\nprefix = "pm"\nrepo = "META"\n',
     )
     await expect(loadProjects(twice.home)).rejects.toThrow(/two places/)
   })
 
   it('runs a registry project from the meta repo, through its symlink when there is one', async () => {
-    const { root, meta, home } = await setup('\n[[source]]\nprefix = "sb"\nrepo = "META"\n')
-    await mkdir(join(meta, 'projects', 'saltbark'), { recursive: true })
-    await symlink(join(root, 'proj_hopper'), join(meta, 'projects', 'saltbark', 'hopper'))
-    const hopper = (await loadProjects(home)).find((p) => p.key === 'sb/saltbark/hopper')!
-    expect(hopper.meta?.link).toBe(join(meta, 'projects', 'saltbark', 'hopper'))
+    const { root, meta, home } = await setup('\n[[source]]\nprefix = "pm"\nrepo = "META"\n')
+    await mkdir(join(meta, 'projects', 'pinemoor'), { recursive: true })
+    await symlink(join(root, 'tern'), join(meta, 'projects', 'pinemoor', 'tern'))
+    const hopper = (await loadProjects(home)).find((p) => p.key === 'pm/pinemoor/tern')!
+    expect(hopper.meta?.link).toBe(join(meta, 'projects', 'pinemoor', 'tern'))
     expect(hopperPrompt(hopper)).toContain(
       `code is in ${hopper.meta?.link} (a link to ${hopper.path})`,
     )
@@ -158,17 +158,17 @@ describe('sources', () => {
 
   it('runs in each project with run_in = "project", adding the planning folder instead', async () => {
     const { meta, home } = await setup(
-      '\n[[source]]\nprefix = "sb"\nrepo = "META"\nrun_in = "project"\n',
+      '\n[[source]]\nprefix = "pm"\nrepo = "META"\nrun_in = "project"\n',
     )
-    const hopper = (await loadProjects(home)).find((p) => p.key === 'sb/saltbark/hopper')!
+    const hopper = (await loadProjects(home)).find((p) => p.key === 'pm/pinemoor/tern')!
     expect(hopper.runIn).toBe(hopper.path)
-    expect(extraDirs(hopper)).toEqual([join(meta, 'planning', 'saltbark', 'hopper')])
+    expect(extraDirs(hopper)).toEqual([join(meta, 'planning', 'pinemoor', 'tern')])
   })
 
   it('gives a conversation what it needs outside the meta repo, and points it at the rules', async () => {
-    const { meta, home } = await setup('\n[[source]]\nprefix = "sb"\nrepo = "META"\n')
+    const { meta, home } = await setup('\n[[source]]\nprefix = "pm"\nrepo = "META"\n')
     const projects = await loadProjects(home)
-    const hopper = projects.find((p) => p.key === 'sb/saltbark/hopper')!
+    const hopper = projects.find((p) => p.key === 'pm/pinemoor/tern')!
     // It runs from the meta repo; only its own folder, outside it, needs adding.
     expect(extraDirs(hopper)).toEqual([hopper.path])
     expect(hopperPrompt(hopper)).toContain(`${meta}/CLAUDE.md`)
@@ -176,6 +176,6 @@ describe('sources', () => {
     expect(hopperPrompt(hopper)).not.toContain('"## Open"')
     const inbox = projects.find((p) => p.key === 'meta/inbox')!
     expect(extraDirs(inbox)).toEqual([])
-    expect(extraDirs(projects.find((p) => p.key === 'sb/meta')!)).toEqual([])
+    expect(extraDirs(projects.find((p) => p.key === 'pm/meta')!)).toEqual([])
   })
 })

@@ -2,10 +2,11 @@
 
 A terminal app, open all day in its own window, for work handed to Claude Code agents across
 several projects and several Claude logins. It shows each login's sessions and usage, the projects
-in Hopper's home folder, a queue of what's running, and what needs me. It dispatches and attaches;
+in Hopper's home folder, a queue of what's running, and what needs you. It dispatches and attaches;
 Claude Code does the work. Ink (React for the terminal) on Node, run from `dist/` so it opens fast.
 
-The plan is `../proj_sb-meta/planning/saltbark/hopper/plan-v2.md`. Read it before changing behaviour.
+Plans live outside this repo. If there's a `CLAUDE.local.md` beside this file, read it first: it says
+where they are.
 
 ## Things that are easy to get wrong
 
@@ -130,16 +131,7 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
 
 ## Its own rules
 
-This project owns its architecture, stack, deployment, and naming. It is symlinked into the
-`sb-meta` orchestration repo for convenience, which implies nothing about sharing anything with
-the projects sitting next to it. Do not carry a pattern into this repo from another one merely
-because it was nearby.
-
-The one exception: if this project is TypeScript, the shared toolchain conventions in
-`../proj_sb-meta/conventions/toolchain/` apply. Copy those lint, format, and test configs rather
-than forking them; `just adopt-toolchain saltbark/hopper` does it. Nothing else in that repo governs this
-one.
-
-Plans live in `../proj_sb-meta/planning/saltbark/hopper/`.
-Read `_open.md` there before starting work: it is what's left, and its **Now** line says what's in
-flight. When something ships, move its line to `_done.md` in the same session.
+This project owns its architecture, stack, deployment, and naming. Lint and format are oxlint and
+oxfmt; `pnpm check` runs typecheck, lint, tests and build. Tests need `FORCE_COLOR=0` when the
+shell forces colour. Examples and fixtures use made-up names (`bh/atlas`, `pm/tern`, Blue Heron,
+Pinemoor); keep real accounts, clients and projects out of the repo.

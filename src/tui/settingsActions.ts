@@ -199,7 +199,7 @@ export function makeSettingsActions(ctx: AppCtx, commit: Commit) {
       const [prefix, ...rest] = f.value.trim().split(/\s+/)
       const repo = rest.join(' ')
       if (!prefix || !repo)
-        return setMessage('Give a prefix and the meta repo folder: kf ~/path/kf-meta')
+        return setMessage('Give a prefix and the meta repo folder: bh ~/path/bh-meta')
       return writeProjects(
         (d) => addEntry(d, 'source', { prefix: prefix.replace(/\/$/, ''), repo }),
         `Added ${prefix}/.`,

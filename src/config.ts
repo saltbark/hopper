@@ -64,7 +64,7 @@ export type Config = {
 
 export const DEFAULT_CONFIG = `# Hopper settings. The home folder holds Hopper's own state: the project list, the queue order,
 # conversations marked done and its log. It is not a git repo.
-home = "~/Dropbox/Workspace/hopper"
+home = "~/hopper"
 
 # Played when a conversation stops running and waits on you: a macOS sound (Glass, Ping, Pop,
 # Tink, Hero, Submarine, ...), "bell" for the terminal's own, or "off". Glass when not set.
@@ -290,7 +290,7 @@ export function relabel(config: Config, name: string, label: string): Config {
   }
 }
 
-// "kf/, meta" → ["kf/", "meta/"]; "*" means every key.
+// "bh/, meta" → ["bh/", "meta/"]; "*" means every key.
 export function parsePrefixList(text: string): string[] {
   const out: string[] = []
   for (const raw of text.split(/[,\s]+/)) {
@@ -298,7 +298,7 @@ export function parsePrefixList(text: string): string[] {
     if (!p) continue
     const prefix = p === '*' ? '' : p.endsWith('/') ? p : p + '/'
     if (prefix && !/^[a-z0-9-]+(\/[a-z0-9-]+)*\/$/.test(prefix))
-      throw new ConfigError(`"${p}" is not a prefix like kf/ or kf/aas/.`)
+      throw new ConfigError(`"${p}" is not a prefix like bh/ or bh/news/.`)
     if (!out.includes(prefix)) out.push(prefix)
   }
   return out
@@ -358,7 +358,7 @@ export function preferFirst(config: Config, name: string): Config {
   }
 }
 
-// A short name from what the login says about itself: "Knowledge Futures" → kf.
+// A short name from what the login says about itself: "Blue Heron" → bh.
 export function suggestName(
   hint: { orgName?: string; email?: string } | null,
   taken: string[],

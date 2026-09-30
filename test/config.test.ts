@@ -28,9 +28,9 @@ const base = (): Config => ({
   overnight: OVERNIGHT_DEFAULTS,
 })
 const two = (): Config => {
-  let c = addAccount(base(), { name: 'kf', label: 'KF', configDir: null })
-  c = addAccount(c, { name: 'kf2', label: 'KF two', configDir: '/x/.claude-kf2' })
-  return setPrefixes(setPrefixes(c, 'kf', ['kf/', 'meta/']), 'kf2', ['kf/'])
+  let c = addAccount(base(), { name: 'bh', label: 'BH', configDir: null })
+  c = addAccount(c, { name: 'bh2', label: 'BH two', configDir: '/x/.claude-bh2' })
+  return setPrefixes(setPrefixes(c, 'bh', ['bh/', 'meta/']), 'bh2', ['bh/'])
 }
 
 describe('settings', () => {
@@ -67,7 +67,7 @@ describe('accounts.toml', () => {
   })
   it('rejects a route to an unknown account, and two default logins', () => {
     expect(() =>
-      parseAccounts('[[route]]\nprefix = "kf/"\naccounts = ["nope"]\n', '/a.toml'),
+      parseAccounts('[[route]]\nprefix = "bh/"\naccounts = ["nope"]\n', '/a.toml'),
     ).toThrow(/unknown account/)
     const twoDefaults =
       '[[account]]\nname = "a"\nconfig_dir = "default"\n[[account]]\nname = "b"\nconfig_dir = "default"\n'
@@ -78,8 +78,8 @@ describe('accounts.toml', () => {
 describe('edits', () => {
   it('refuses a taken name or a directory another account uses', () => {
     const c = two()
-    expect(() => addAccount(c, { name: 'kf', label: '', configDir: '/y' })).toThrow(ConfigError)
-    expect(() => addAccount(c, { name: 'sb', label: '', configDir: null })).toThrow(/default login/)
+    expect(() => addAccount(c, { name: 'bh', label: '', configDir: '/y' })).toThrow(ConfigError)
+    expect(() => addAccount(c, { name: 'pm', label: '', configDir: null })).toThrow(/default login/)
     expect(() => addAccount(c, { name: 'Bad Name', label: '', configDir: '/z' })).toThrow(
       /lowercase/,
     )
@@ -87,45 +87,45 @@ describe('edits', () => {
   it('puts an account joining a route last, and preferFirst moves it up', () => {
     const c = two()
     expect(c.routes).toEqual([
-      { prefix: 'kf/', accounts: ['kf', 'kf2'] },
-      { prefix: 'meta/', accounts: ['kf'] },
+      { prefix: 'bh/', accounts: ['bh', 'bh2'] },
+      { prefix: 'meta/', accounts: ['bh'] },
     ])
-    expect(preferFirst(c, 'kf2').routes[0]).toEqual({ prefix: 'kf/', accounts: ['kf2', 'kf'] })
-    expect(prefixesOf(c, 'kf2')).toEqual([{ prefix: 'kf/', rank: 1 }])
+    expect(preferFirst(c, 'bh2').routes[0]).toEqual({ prefix: 'bh/', accounts: ['bh2', 'bh'] })
+    expect(prefixesOf(c, 'bh2')).toEqual([{ prefix: 'bh/', rank: 1 }])
   })
   it('setPrefixes takes an account off routes it no longer lists, and drops empty routes', () => {
-    const c = setPrefixes(two(), 'kf', ['kf/'])
-    expect(c.routes).toEqual([{ prefix: 'kf/', accounts: ['kf', 'kf2'] }])
+    const c = setPrefixes(two(), 'bh', ['bh/'])
+    expect(c.routes).toEqual([{ prefix: 'bh/', accounts: ['bh', 'bh2'] }])
   })
   it('removing an account takes it off every route', () => {
-    const c = removeAccount(two(), 'kf')
-    expect(c.accounts.map((a) => a.name)).toEqual(['kf2'])
-    expect(c.routes).toEqual([{ prefix: 'kf/', accounts: ['kf2'] }])
+    const c = removeAccount(two(), 'bh')
+    expect(c.accounts.map((a) => a.name)).toEqual(['bh2'])
+    expect(c.routes).toEqual([{ prefix: 'bh/', accounts: ['bh2'] }])
   })
 })
 
 describe('parsePrefixList', () => {
   it('normalises, dedupes, and reads * as everything', () => {
-    expect(parsePrefixList('kf, kf/aas/  meta/, kf/, *')).toEqual(['kf/', 'kf/aas/', 'meta/', ''])
+    expect(parsePrefixList('bh, bh/news/  meta/, bh/, *')).toEqual(['bh/', 'bh/news/', 'meta/', ''])
   })
   it('rejects things that are not prefixes', () => {
-    expect(() => parsePrefixList('KF Stuff')).toThrow(ConfigError)
+    expect(() => parsePrefixList('BH Stuff')).toThrow(ConfigError)
   })
 })
 
 describe('suggestName', () => {
   it('uses the org initials, the email, or claude, and avoids taken names', () => {
-    expect(suggestName({ orgName: 'Knowledge Futures' }, [])).toBe('kf')
-    expect(suggestName({ orgName: 'Knowledge Futures' }, ['kf'])).toBe('kf2')
-    expect(suggestName({ orgName: 'Saltbark' }, [])).toBe('saltba')
-    expect(suggestName({ email: 'travis@x.org' }, [])).toBe('travis')
+    expect(suggestName({ orgName: 'Blue Heron' }, [])).toBe('bh')
+    expect(suggestName({ orgName: 'Blue Heron' }, ['bh'])).toBe('bh2')
+    expect(suggestName({ orgName: 'Pinemoor' }, [])).toBe('pinemo')
+    expect(suggestName({ email: 'sam@example.com' }, [])).toBe('sam')
     expect(suggestName(null, [])).toBe('claude')
   })
 })
 
 describe('providers', () => {
   it('defaults to claude-code, writes it out, and refuses one this build does not know', () => {
-    const c = parseAccounts('[[account]]\nname = "kf"\n', '/a.toml')
+    const c = parseAccounts('[[account]]\nname = "bh"\n', '/a.toml')
     expect(serializeAccounts({ ...c })).toContain('provider = "claude-code"')
     expect(() =>
       parseAccounts('[[account]]\nname = "local"\nprovider = "ollama"\n', '/a.toml'),
@@ -139,12 +139,12 @@ describe('the default account', () => {
     const { routeFor } = await import('../src/routing.ts')
     let c = two()
     expect(defaultAccount(c)).toBeUndefined()
-    c = setDefaultAccount(c, 'kf2')
-    expect(defaultAccount(c)).toBe('kf2')
-    expect(routeFor(c, 'sb/crum')?.accounts).toEqual(['kf2'])
-    expect(routeFor(c, 'kf/console')?.prefix).toBe('kf/') // a named route still wins
-    c = setDefaultAccount(c, 'kf')
-    expect(c.routes.find((r) => r.prefix === '')?.accounts).toEqual(['kf', 'kf2'])
+    c = setDefaultAccount(c, 'bh2')
+    expect(defaultAccount(c)).toBe('bh2')
+    expect(routeFor(c, 'pm/ledger')?.accounts).toEqual(['bh2'])
+    expect(routeFor(c, 'bh/atlas')?.prefix).toBe('bh/') // a named route still wins
+    c = setDefaultAccount(c, 'bh')
+    expect(c.routes.find((r) => r.prefix === '')?.accounts).toEqual(['bh', 'bh2'])
     expect(() => setDefaultAccount(c, 'nope')).toThrow(/No account/)
   })
 })
@@ -153,12 +153,12 @@ describe('account order', () => {
   it('keeps accounts alphabetical, as read and as added', async () => {
     const { addAccount, parseAccounts } = await import('../src/config.ts')
     const read = parseAccounts(
-      '[[account]]\nname = "sb"\nconfig_dir = "~/.claude-sb"\n[[account]]\nname = "kf"\n',
+      '[[account]]\nname = "pm"\nconfig_dir = "~/.claude-pm"\n[[account]]\nname = "bh"\n',
       '/c/accounts.toml',
     )
-    expect(read.accounts.map((a) => a.name)).toEqual(['kf', 'sb'])
+    expect(read.accounts.map((a) => a.name)).toEqual(['bh', 'pm'])
     const config = { path: '', accountsPath: '', home: '', overnight: OVERNIGHT_DEFAULTS, ...read }
-    const added = addAccount(config, { name: 'gt', label: 'gt', configDir: '/tmp/gt' })
-    expect(added.accounts.map((a) => a.name)).toEqual(['gt', 'kf', 'sb'])
+    const added = addAccount(config, { name: 'ax', label: 'ax', configDir: '/tmp/ax' })
+    expect(added.accounts.map((a) => a.name)).toEqual(['ax', 'bh', 'pm'])
   })
 })

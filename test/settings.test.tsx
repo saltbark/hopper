@@ -26,8 +26,8 @@ const base = (home: string): Config => {
     routes: [],
     overnight: OVERNIGHT_DEFAULTS,
   }
-  c = addAccount(c, { name: 'kf', label: 'Knowledge Futures', configDir: null })
-  c = addAccount(c, { name: 'sb', label: 'sb', configDir: '/tmp/hopper-test-sb' })
+  c = addAccount(c, { name: 'bh', label: 'Blue Heron', configDir: null })
+  c = addAccount(c, { name: 'pm', label: 'pm', configDir: '/tmp/hopper-test-pm' })
   return c
 }
 
@@ -39,8 +39,8 @@ key = "meta/inbox"
 model = "opus"
 
 [[source]]
-prefix = "kf"
-repo = "/no/such/kf-meta"
+prefix = "bh"
+repo = "/no/such/bh-meta"
 `
 
 describe('projects.toml as a document', () => {
@@ -51,7 +51,7 @@ describe('projects.toml as a document', () => {
     const text = serializeProjectsDoc(setField(set, 'project', 0, 'model', null))
     expect(text.startsWith('# my header\n# second line\n\n')).toBe(true)
     const back = parseProjectsDoc(text)
-    expect(back.source[0]).toEqual({ prefix: 'kf', repo: '/no/such/kf-meta', run_in: 'project' })
+    expect(back.source[0]).toEqual({ prefix: 'bh', repo: '/no/such/bh-meta', run_in: 'project' })
     expect(back.project[0]).toEqual({ key: 'meta/inbox' })
   })
   it('cycles choices through the default', () => {
@@ -62,18 +62,18 @@ describe('projects.toml as a document', () => {
 
 describe('rows', () => {
   it('says when no account runs a prefix, and marks what is set', () => {
-    const config = setPrefixes(base('/h'), 'sb', ['sb/'])
+    const config = setPrefixes(base('/h'), 'pm', ['pm/'])
     const projects = [
       { key: 'meta/inbox', path: '/h/projects/meta/inbox', runIn: '/h', openFile: '' },
       {
-        key: 'sb/hopper',
+        key: 'pm/tern',
         path: '/w/hopper',
-        runIn: '/w/sb-meta',
+        runIn: '/w/pm-meta',
         openFile: '',
-        meta: { repo: '/w/sb-meta', key: 'saltbark/hopper' },
+        meta: { repo: '/w/pm-meta', key: 'pinemoor/tern' },
       },
     ]
-    const rows = buildRows(config, parseProjectsDoc(TOML), projects, ['kf'])
+    const rows = buildRows(config, parseProjectsDoc(TOML), projects, ['bh'])
     expect(rows.find((r) => r.id === 'accounts.uncovered')?.label).toBe('! nothing runs meta/')
     const model = rows.find((r) => r.id === 'project.0.model')
     expect(model).toMatchObject({ value: 'opus', isSet: true })
@@ -90,7 +90,7 @@ describe('the settings screen', () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-settings-'))
     await initHome(home)
     await writeFile(join(home, 'projects.toml'), TOML)
-    const config = setPrefixes(base(home), 'kf', ['', 'kf/'])
+    const config = setPrefixes(base(home), 'bh', ['', 'bh/'])
     const projects = await loadProjects(home)
     const snap: Snapshot = {
       at: Date.now(),
@@ -128,7 +128,7 @@ describe('the settings screen', () => {
     await press('J') // accounts
     await press('J') // sources
     expect(lastFrame()).toContain('SOURCES')
-    await pressUntil('j', '▌ kf/ ·') // group
+    await pressUntil('j', '▌ bh/ ·') // group
     await pressUntil('j', '▌ prefix') // prefix
     await pressUntil('j', '▌ repo') // repo
     await pressUntil('j', '▌ strip') // strip

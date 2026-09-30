@@ -55,7 +55,7 @@ export const serializeDraft = (d: Draft): string =>
     d.text,
   )
 
-// A file with no front matter is a note dropped in from elsewhere (the phone, through Dropbox):
+// A file with no front matter is a note dropped in from elsewhere (the phone, through a synced folder):
 // it files to meta/inbox and takes its times from the file. It gets front matter on first save.
 export function parseDraft(id: string, text: string, fileTime = 0): Draft | null {
   const parsed = parseFrontmatter(text.replace(/\r\n/g, '\n'))

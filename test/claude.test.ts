@@ -11,8 +11,8 @@ import {
   parseUsage,
 } from '../src/claude.ts'
 
-const dflt = { name: 'kf', label: 'KF', configDir: null }
-const other = { name: 'sb', label: 'Saltbark', configDir: '/tmp/claude-sb' }
+const dflt = { name: 'bh', label: 'BH', configDir: null }
+const other = { name: 'pm', label: 'Pinemoor', configDir: '/tmp/claude-pm' }
 
 describe('envFor', () => {
   it('unsets CLAUDE_CONFIG_DIR for the default login, even if Hopper inherited one', () => {
@@ -21,14 +21,14 @@ describe('envFor', () => {
     delete process.env['CLAUDE_CONFIG_DIR']
   })
   it('sets it for any other login', () => {
-    expect(envFor(other)['CLAUDE_CONFIG_DIR']).toBe('/tmp/claude-sb')
+    expect(envFor(other)['CLAUDE_CONFIG_DIR']).toBe('/tmp/claude-pm')
   })
 })
 
 describe('claudeJsonPath', () => {
   it('is ~/.claude.json for the default login and inside the dir otherwise', () => {
     expect(claudeJsonPath(dflt)).toBe(`${homedir()}/.claude.json`)
-    expect(claudeJsonPath(other)).toBe('/tmp/claude-sb/.claude.json')
+    expect(claudeJsonPath(other)).toBe('/tmp/claude-pm/.claude.json')
   })
 })
 
@@ -37,29 +37,29 @@ describe('parseSessions', () => {
   const raw = [
     {
       id: '8074a3dd',
-      cwd: '/w/gt-meta',
+      cwd: '/w/ln-meta',
       kind: 'background',
       startedAt: 10,
       sessionId: '8074a3dd-9f47',
-      name: 'Audit text launch',
+      name: 'Audit the launch copy',
       state: 'blocked',
     },
     {
       pid: 57526,
-      cwd: '/w/kf-meta',
+      cwd: '/w/bh-meta',
       kind: 'interactive',
       startedAt: 20,
       sessionId: '9b4a9a1d-d52e',
-      name: 'proj-kf-meta-f1',
+      name: 'proj-bh-meta-f1',
       status: 'idle',
     },
     { cwd: '/w/no-session-id' },
   ]
   it('reads background and interactive sessions and skips malformed ones', () => {
-    const s = parseSessions(raw, 'kf')
+    const s = parseSessions(raw, 'bh')
     expect(s).toHaveLength(2)
     expect(s[0]).toMatchObject({
-      account: 'kf',
+      account: 'bh',
       id: '8074a3dd',
       kind: 'background',
       state: 'blocked',
@@ -67,7 +67,7 @@ describe('parseSessions', () => {
     expect(s[1]).toMatchObject({ id: null, kind: 'interactive', state: 'idle' })
   })
   it('returns nothing for a non-array', () => {
-    expect(parseSessions({}, 'kf')).toEqual([])
+    expect(parseSessions({}, 'bh')).toEqual([])
   })
 })
 
@@ -76,14 +76,14 @@ describe('parseAuth', () => {
     const a = parseAuth({
       loggedIn: true,
       email: 'a@b.org',
-      orgName: 'KF',
+      orgName: 'BH',
       subscriptionType: 'team',
       configDirectory: '/x',
     })
     expect(a).toEqual({
       loggedIn: true,
       email: 'a@b.org',
-      orgName: 'KF',
+      orgName: 'BH',
       subscriptionType: 'team',
       configDirectory: '/x',
     })

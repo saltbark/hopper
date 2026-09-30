@@ -4,3 +4,5 @@ dist/
 coverage/
 # Claude Code worktrees: full checkouts of their own branch.
 .claude/worktrees/
+# Private notes for your own sessions: where plans live, local setup.
+CLAUDE.local.md

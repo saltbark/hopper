@@ -1,4 +1,4 @@
-// Subsequence match, so "con" finds kf/console and "mi" finds meta/inbox.
+// Subsequence match, so "atl" finds bh/atlas and "mi" finds meta/inbox.
 export function fuzzy(query: string, key: string): boolean {
   let i = 0
   for (const ch of key.toLowerCase()) if (ch === query[i]?.toLowerCase()) i++
@@ -16,7 +16,7 @@ export const rank = (query: string, keys: string[]) =>
         a.localeCompare(b),
     )
 
-// Every key and every folder above one: kf/aas/bulletin gives kf, kf/aas and kf/aas/bulletin.
+// Every key and every folder above one: bh/news/bulletin gives bh, bh/news and bh/news/bulletin.
 export function withFolders(keys: string[]): string[] {
   const out = new Set<string>()
   for (const k of keys) {

@@ -1,10 +1,10 @@
 ---
-project: sb/meta
+project: meta/inbox
 schedule: daily 5:00
 model: sonnet
 effort: low
 enabled: true
-check: just planning-check
+check: just check
 ---
 
 The nightly check failed; its output is below. Find out why.

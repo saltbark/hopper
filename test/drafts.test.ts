@@ -27,8 +27,8 @@ describe('drafts', () => {
       updated: 42,
     })
     expect(parseDraft('x', '  \n')).toBeNull()
-    expect(parseDraft('x', '---\r\nproject: kf/console\r\n---\r\nhi', 7)).toMatchObject({
-      project: 'kf/console',
+    expect(parseDraft('x', '---\r\nproject: bh/atlas\r\n---\r\nhi', 7)).toMatchObject({
+      project: 'bh/atlas',
       text: 'hi',
       created: 7,
     })

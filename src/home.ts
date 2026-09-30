@@ -5,7 +5,7 @@ import { parse } from 'smol-toml'
 
 import { expandHome, isWithin } from './paths.ts'
 
-// A project Hopper knows about. Keys are folder-like: meta/inbox, kf/aas/bulletin.
+// A project Hopper knows about. Keys are folder-like: meta/inbox, bh/news/bulletin.
 export type Project = {
   key: string
   // Its own folder: what sessions are matched against, and where the work is.
@@ -24,13 +24,13 @@ export type Project = {
   meta?: { repo: string; key: string | null; link?: string }
 }
 
-// A meta repo (kf-meta, sb-meta) whose registered projects Hopper lists under a prefix, read
+// A meta repo whose registered projects Hopper lists under a prefix, read
 // fresh from its paths.local each time so the registry stays the one source of truth.
 export type Source = {
   prefix: string
   repo: string
-  // A registry key starting with this segment loses it: strip = "kf" turns kf/console into
-  // <prefix>/console rather than <prefix>/kf/console.
+  // A registry key starting with this segment loses it: strip = "bh" turns bh/atlas into
+  // <prefix>/atlas rather than <prefix>/bh/atlas.
   strip?: string
   // "repo" (the default) runs every conversation from the meta repo; "project" from its own folder.
   runIn: 'repo' | 'project'
@@ -46,9 +46,9 @@ export const DEFAULT_PROJECTS = `# Every project Hopper knows about. A key is Ho
 # A [[source]] lists every project a meta repo has on this machine (its paths.local), under a
 # prefix, with open files in its planning/ tree:
 #   [[source]]
-#   prefix = "kf"
-#   repo = "~/Workspace/kf-meta"
-#   strip = "kf"   # optional: registry key kf/console lists as kf/console, not kf/kf/console
+#   prefix = "bh"
+#   repo = "~/Workspace/bh-meta"
+#   strip = "bh"   # optional: registry key bh/atlas lists as bh/atlas, not bh/bh/atlas
 #   run_in = "project"   # optional: run in each project's folder instead of the meta repo
 # A source whose repo isn't on this machine is skipped.
 # A [[project]] with the same key as an imported one adds to it (say, a model).
@@ -99,7 +99,7 @@ export function parseSources(text: string): Source[] {
     const prefix = s['prefix']
     const repo = s['repo']
     if (typeof prefix !== 'string' || !KEY.test(prefix)) {
-      throw new Error(`projects.toml source ${i + 1}: prefix must look like "kf"`)
+      throw new Error(`projects.toml source ${i + 1}: prefix must look like "bh"`)
     }
     if (typeof repo !== 'string' || !repo) {
       throw new Error(`projects.toml source ${i + 1}: repo is the meta repo's folder`)
@@ -196,7 +196,7 @@ export async function loadProjects(home: string): Promise<Project[]> {
   return projects
 }
 
-// Open items are unchecked task lines, the kf-meta `_open.md` shape: `- [ ] **Title** — body`.
+// Open items are unchecked task lines, the usual `_open.md` shape: `- [ ] **Title** — body`.
 export function countOpen(markdown: string): number {
   let n = 0
   for (const line of markdown.split('\n')) if (/^\s*[-*] \[ \] /.test(line)) n++

@@ -94,7 +94,7 @@ export const FORM_PROMPT: Record<Form['kind'], string> = {
   'draft-remove': '',
   setting: 'new value (blank for the default)',
   'setting-remove': '',
-  'setting-add-source': 'prefix and meta repo folder, like: kf ~/Workspace/kf-meta',
+  'setting-add-source': 'prefix and meta repo folder, like: bh ~/Workspace/bh-meta',
   'setting-add-project':
     'project key: one a source lists, to set things for it, or a new meta/ key for the home folder',
 }

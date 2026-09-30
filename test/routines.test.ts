@@ -101,7 +101,7 @@ describe('results', () => {
       at: 0,
       status: 'started' as const,
       id: 'abc12345',
-      account: 'kf',
+      account: 'bh',
       result: join(runs, '2026-09-28-0700.md'),
       prompt: 'x',
     }
@@ -112,7 +112,7 @@ describe('results', () => {
       'Two replies to check.',
       'Quiet.',
     ])
-    expect(got[1]).toMatchObject({ needs: 'you', id: 'abc12345', account: 'kf' })
+    expect(got[1]).toMatchObject({ needs: 'you', id: 'abc12345', account: 'bh' })
     expect(got[2]).toMatchObject({ needs: 'nothing', id: undefined })
     expect(got[2]!.at).toBe(new Date(2026, 8, 27, 7, 0).getTime())
     expect(await listReports(home, 'nothing-here', [])).toEqual([])
@@ -125,14 +125,14 @@ describe('launchd', () => {
     process.env['HOPPER_LAUNCHD_DIR'] = agents
     process.env['HOPPER_NO_LAUNCHCTL'] = '1'
     for (const n of [
-      'com.saltbark.hopper.kf-weekly.plist',
+      'com.saltbark.hopper.bh-weekly.plist',
       'com.saltbark.hopper-dispatch.plist',
       'com.other.thing.plist',
     ])
       await writeFile(join(agents, n), '<plist/>')
     expect((await removeLaunchd()).sort()).toEqual([
       'com.saltbark.hopper-dispatch',
-      'com.saltbark.hopper.kf-weekly',
+      'com.saltbark.hopper.bh-weekly',
     ])
     expect(await readdir(agents)).toEqual(['com.other.thing.plist'])
     delete process.env['HOPPER_LAUNCHD_DIR']
@@ -158,8 +158,8 @@ describe('runRoutine', () => {
       overnight: OVERNIGHT_DEFAULTS,
     }
     config = setDefaultAccount(
-      addAccount(config, { name: 'kf', label: 'kf', configDir: null }),
-      'kf',
+      addAccount(config, { name: 'bh', label: 'bh', configDir: null }),
+      'bh',
     )
     const state = (pct: number): AccountState => ({
       account: config.accounts[0]!,
@@ -197,14 +197,14 @@ describe('runRoutine', () => {
       sessions: [],
       systemPrompt: () => 'P.',
     })
-    expect(out).toEqual({ status: 'started', id: 'a1b2c3d4', account: 'kf' })
+    expect(out).toEqual({ status: 'started', id: 'a1b2c3d4', account: 'bh' })
     const call = await readFile(log, 'utf8')
     expect(call).toContain('--bg --name ↻ inbox-triage')
     expect(call).toContain('--model haiku') // the routine's model beats the project's
     expect(call).toMatch(/--add-dir \S*\/routines --/)
     expect(call).toContain('a scheduled run of the Hopper routine "inbox-triage"')
     const [run] = await listRuns(home, 'inbox-triage')
-    expect(run).toMatchObject({ status: 'started', id: 'a1b2c3d4', account: 'kf', model: 'haiku' })
+    expect(run).toMatchObject({ status: 'started', id: 'a1b2c3d4', account: 'bh', model: 'haiku' })
     expect(run?.result).toMatch(/routines\/inbox-triage\/runs\/.*\.md$/)
     expect((await loadConversations(home))['a1b2c3d4']).toMatchObject({ routine: 'inbox-triage' })
     delete process.env['HOPPER_CLAUDE']
@@ -364,7 +364,7 @@ describe('runs in the list', () => {
       routes: [],
       overnight: OVERNIGHT_DEFAULTS,
     }
-    config = addAccount(config, { name: 'kf', label: 'kf', configDir: null })
+    config = addAccount(config, { name: 'bh', label: 'bh', configDir: null })
     const snap = await gather(config, null, true)
     const where = (id: string) => snap.items.find((i) => i.id === id)?.where
     // Finished runs leave the list and Done; a run blocked on a question stays, to be answered.

@@ -1,5 +1,5 @@
 ---
-project: kf/meta
+project: meta/inbox
 schedule: daily 6:30
 model: sonnet
 effort: medium
@@ -14,8 +14,8 @@ Memory lives in `routines/mail-brief/ledger.md` under Hopper's home: one line pe
 thread worth tracking, `- <name> <address> · last contact <YYYY-MM-DD> · <the open loop, a few
 words> · follow up <YYYY-MM-DD or –>`. Read it first; create it if it's missing. Keep it to
 names, dates and a few words per line. Never copy message bodies, and nothing sensitive
-(money, health, credentials, anything personal) goes in it. The home folder syncs through
-Dropbox.
+(money, health, credentials, anything personal) goes in it. The home folder may sync to
+other machines.
 
 1. **Since the last run** (the previous result's date, or the last two days): read the inbox and
    sent mail. Skip newsletters, notifications and receipts unless one needs action.

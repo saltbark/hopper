@@ -105,7 +105,7 @@ describe('admit', () => {
 
 describe('EmbeddedSession', () => {
   const fake = fakeClaude
-  const account = { name: 'kf', label: 'kf', configDir: null }
+  const account = { name: 'bh', label: 'bh', configDir: null }
 
   it('shows what the session draws, with colour, and passes keys through', async () => {
     process.env['HOPPER_CLAUDE'] = await fake(

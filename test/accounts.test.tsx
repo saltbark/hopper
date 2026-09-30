@@ -38,7 +38,7 @@ describe('paceAt', () => {
 
 describe('accountLines', () => {
   it('gives each account two lines when they all fit, else one', () => {
-    const three = ['kf', 'sb', 'xx'].map((n) => account(n))
+    const three = ['bh', 'pm', 'xx'].map((n) => account(n))
     expect(accountLines(three, 0, 9).perAccount).toBe(2)
     expect(accountLines(three, 0, 9).slice).toHaveLength(3)
     expect(accountLines(three, 2, 8).perAccount).toBe(1)
@@ -50,7 +50,7 @@ describe('AccountRow', () => {
   const row = (resets: boolean) =>
     render(
       <AccountRow
-        a={account('kf')}
+        a={account('bh')}
         width={60}
         nameW={4}
         color="white"

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 
 import type { Project } from './home.ts'
 
-// An open item, as kf-meta writes them: `- [ ] **Title** — body`. Plain `- [ ] text` works too.
+// An open item, as a meta repo's planning files write them: `- [ ] **Title** — body`. Plain `- [ ] text` works too.
 export type OpenItem = { title: string; body: string }
 
 const TASK = /^\s*[-*] \[ \] (.*)$/

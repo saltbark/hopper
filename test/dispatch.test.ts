@@ -17,7 +17,7 @@ import { hopperPrompt, unattendedPrompt } from '../src/prompts.ts'
 import { listRuns, runRoutine, type Routine } from '../src/routines/index.ts'
 import type { startDraft } from '../src/start.ts'
 
-const kf = { name: 'kf', label: 'KF', configDir: null }
+const bh = { name: 'bh', label: 'BH', configDir: null }
 
 async function setup(overnight: Partial<Config['overnight']> = {}) {
   const home = await mkdtemp(join(tmpdir(), 'hopper-dispatch-'))
@@ -26,8 +26,8 @@ async function setup(overnight: Partial<Config['overnight']> = {}) {
     path: join(home, 'config.toml'),
     accountsPath: '',
     home,
-    accounts: [kf],
-    routes: [{ prefix: '', accounts: ['kf'] }],
+    accounts: [bh],
+    routes: [{ prefix: '', accounts: ['bh'] }],
     overnight: { ...OVERNIGHT_DEFAULTS, ...overnight },
   }
   const project: Project = {
@@ -49,7 +49,7 @@ const draft = (id: string, fields: Partial<Draft> = {}): Draft => ({
 })
 
 const signedIn = (week?: number): AccountState => ({
-  account: kf,
+  account: bh,
   auth: { loggedIn: true },
   authError: null,
   usage:
@@ -64,7 +64,7 @@ const signedIn = (week?: number): AccountState => ({
 
 const convo = (id: string, where: Item['where'], state = 'done'): Item =>
   ({
-    account: 'kf',
+    account: 'bh',
     id,
     sessionId: 's-' + id,
     kind: 'background',
@@ -208,7 +208,7 @@ describe('dispatch', () => {
       deps: { start, usage: noUsage },
     })
     expect(started).toEqual([])
-    expect(report.waiting[0]?.reason).toBe('kf already runs 1')
+    expect(report.waiting[0]?.reason).toBe('bh already runs 1')
   })
 
   it('stops at the night budget, measured from where the week stood when the night began', async () => {
@@ -227,12 +227,12 @@ describe('dispatch', () => {
     await run(40, night, 'a') // the night begins at 40%
     expect(JSON.parse(await readFile(join(config.home, 'state', 'night.json'), 'utf8'))).toEqual({
       night: '2026-09-28',
-      start: { kf: 40 },
+      start: { bh: 40 },
     })
     await run(55, new Date(2026, 8, 29, 1), 'b') // 15 points in: still room
     const late = await run(61, new Date(2026, 8, 29, 3), 'c') // 21 points: over
     expect(started).toEqual(['a', 'b'])
-    expect(late.waiting[0]?.reason).toBe("kf spent tonight's budget (21 points)")
+    expect(late.waiting[0]?.reason).toBe("bh spent tonight's budget (21 points)")
   })
 
   it('keeps the reserve, day or night', async () => {
