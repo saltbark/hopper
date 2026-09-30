@@ -74,6 +74,10 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   carries a dot while any report is unread; it doesn't chime or count in the title. Reports
   older than `read.json` count as read, so a new file lights nothing. ⏎ on a routine hands the
   keyboard to the list in its details (`reports` in App, `sel` -1 is "edit the prompt").
+- **Reports are laid out, not printed.** `src/tui/markdown.ts` reads a report with `marked`'s
+  lexer and turns it into lines of styled spans already wrapped to the panel, one per line on
+  screen, since the scroll keys count them (`reportLines`, `reportMaxScroll`). Links show their
+  text and carry the URL as an OSC 8 hyperlink; Ink measures those correctly.
 - **Up next is drafts with `queue:`.** `src/dispatch.ts` decides what is ready (`after:` names
   drafts; a dependency is finished when its conversation is in Done) and on which account
   (route order, `max_running`, the reserve, and at night the budget measured from

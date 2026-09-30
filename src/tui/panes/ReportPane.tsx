@@ -1,26 +1,29 @@
 import { Text } from 'ink'
 
-import { when, wrapText } from '../../format.ts'
+import { when } from '../../format.ts'
 import type { Report } from '../../routines/index.ts'
+import { type Line, markdownLines } from '../markdown.ts'
 import { Frame } from '../panels/primitives.tsx'
 import { T } from '../theme.ts'
 
-// A routine's report, open for reading in the right panel. Markdown is shown as its text:
-// headings lit, everything else as written, wrapped to the panel.
+// A routine's report, open for reading in the right panel, its markdown laid out
+// (`markdown.ts`) and wrapped to the panel.
 
-type Line = { text: string; heading: boolean }
+// The last layout, for the scroll keys and the render that follow one another at the same width.
+let last: { text: string; width: number; lines: Line[] } | undefined
 
 // The report's lines as the panel shows them, less an older report's "needs:" line.
 export function reportLines(text: string, width: number): Line[] {
+  if (last?.text === text && last.width === width) return last.lines
   const body = text.replace(/^---\n[\s\S]*?\n---\n?/, '').replace(/^\s*needs:.*\n?/i, '')
-  const out: Line[] = []
-  for (const raw of body.replace(/\s+$/, '').split('\n')) {
-    const h = /^#{1,6}\s+(.*)$/.exec(raw)
-    if (h) out.push({ text: h[1]!, heading: true })
-    else for (const l of wrapText(raw, width)) out.push({ text: l, heading: false })
-  }
-  return out
+  const lines = markdownLines(body, width)
+  last = { text, width, lines }
+  return lines
 }
+
+// A terminal hyperlink around the text (OSC 8): the URL opens on a click where the terminal
+// supports it, and shows as nothing where it doesn't.
+const hyperlink = (url: string, text: string) => `\u001b]8;;${url}\u0007${text}\u001b]8;;\u0007`
 
 // The panel's inside, less its two header lines: the room the report scrolls in.
 const HEAD = 2
@@ -64,8 +67,20 @@ export function ReportPane(props: {
       </Text>
       <Text> </Text>
       {shown.map((l, i) => (
-        <Text key={top + i} wrap="truncate-end" bold={l.heading} color={l.heading ? T.hi : T.text}>
-          {l.text || ' '}
+        <Text key={top + i} wrap="truncate-end" color={T.text}>
+          {l.length
+            ? l.map((s, j) => (
+                <Text
+                  key={j}
+                  bold={s.bold}
+                  italic={s.italic}
+                  strikethrough={s.strike}
+                  color={s.color}
+                >
+                  {s.link ? hyperlink(s.link, s.text) : s.text}
+                </Text>
+              ))
+            : ' '}
         </Text>
       ))}
     </Frame>

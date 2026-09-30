@@ -24,6 +24,9 @@ export const T = {
   blocked: '#ec7a6f',
   draft: '#c69ce8',
   running: '#7fcf8f',
+  // In a report: code, and the text of a link.
+  code: '#a3c3f0',
+  link: '#7eaaea',
 } as const
 
 // Accounts are told apart by colour; soft enough to sit next to the state colours.
