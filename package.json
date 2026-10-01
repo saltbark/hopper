@@ -20,6 +20,9 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
+    "site:capture": "FORCE_COLOR=3 tsx site/capture.tsx",
+    "site:build": "tsx site/build.ts",
+    "site:deploy": "pnpm site:build && pnpm dlx wrangler@4 deploy --config site/wrangler.jsonc",
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true"
   },
   "dependencies": {

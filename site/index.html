@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hopper</title>
+    <meta
+      name="description"
+      content="A terminal app for handing work to Claude Code across your projects and your Claude logins."
+    />
+    <meta property="og:title" content="Hopper" />
+    <meta
+      property="og:description"
+      content="A terminal app for handing work to Claude Code across your projects and your Claude logins."
+    />
+    <meta name="theme-color" content="#0c1012" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c1012'/%3E%3Cpath d='M7 9h18l-6 9v6l-6 2v-8z' fill='none' stroke='%236fcac3' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0c1012;
+        --panel: #12181b;
+        --term-bg: #0f1416;
+        --term-fg: #c7cfca;
+        --text: #c7cfca;
+        --hi: #f1f4f2;
+        --dim: #7b8580;
+        --line: #232c30;
+        --focus: #6fcac3;
+        --waiting: #e5c06a;
+        --running: #7fcf8f;
+        --draft: #c69ce8;
+        --blocked: #ec7a6f;
+        --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+        --sans: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.6 var(--sans);
+        overflow-x: hidden;
+      }
+      a {
+        color: var(--focus);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      code,
+      kbd,
+      pre {
+        font-family: var(--mono);
+      }
+      .wrap {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      header.top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 22px 0;
+      }
+      .mark {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--hi);
+        font: 700 18px var(--mono);
+      }
+      .mark svg {
+        width: 26px;
+        height: 26px;
+      }
+      nav a {
+        color: var(--dim);
+        margin-left: 22px;
+        font-size: 15px;
+      }
+      nav a:hover {
+        color: var(--hi);
+        text-decoration: none;
+      }
+
+      .hero {
+        padding: 56px 0 36px;
+        max-width: 760px;
+      }
+      .hero h1 {
+        margin: 0 0 18px;
+        color: var(--hi);
+        font-size: clamp(36px, 6vw, 60px);
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        font-weight: 700;
+      }
+      .hero p {
+        margin: 0;
+        font-size: clamp(17px, 2.2vw, 20px);
+        color: var(--text);
+        max-width: 620px;
+      }
+      .hero .actions {
+        margin-top: 28px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 18px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 15px;
+        background: var(--focus);
+        color: #0a0c0d;
+      }
+      .btn:hover {
+        text-decoration: none;
+        filter: brightness(1.08);
+      }
+      .btn.ghost {
+        background: transparent;
+        color: var(--hi);
+        border: 1px solid var(--line);
+      }
+      .btn.ghost:hover {
+        border-color: var(--dim);
+      }
+
+      /* The terminal */
+      .demo {
+        margin: 28px 0 8px;
+      }
+      .window {
+        background: var(--term-bg);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow:
+          0 30px 80px -20px rgba(0, 0, 0, 0.7),
+          0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+        overflow: hidden;
+        outline: none;
+      }
+      .window:focus-visible,
+      .window.live {
+        border-color: #2f5a57;
+      }
+      .chrome {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
+        font: 12px var(--mono);
+        color: var(--dim);
+      }
+      .chrome i {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #2a3337;
+        display: inline-block;
+      }
+      .chrome span {
+        margin-left: 8px;
+      }
+      .chrome .state {
+        margin-left: auto;
+        color: var(--dim);
+      }
+      .window.live .chrome .state {
+        color: var(--focus);
+      }
+      .screen {
+        padding: 12px 14px 14px;
+        overflow: hidden;
+      }
+      pre.term {
+        margin: 0;
+        color: var(--term-fg);
+        font-size: 12px;
+        line-height: 1.22;
+        letter-spacing: 0;
+        white-space: pre;
+        font-variant-ligatures: none;
+      }
+      .keys {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-top: 14px;
+        font-size: 14px;
+        color: var(--dim);
+      }
+      .keys button {
+        font: 600 13px var(--mono);
+        color: var(--hi);
+        background: #1a2124;
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 6px;
+        padding: 4px 9px;
+        cursor: pointer;
+        min-width: 32px;
+      }
+      .keys button:hover {
+        border-color: var(--dim);
+      }
+      .keys button span {
+        font: 400 13px var(--sans);
+        color: var(--dim);
+        margin-left: 6px;
+      }
+      .keys .hint {
+        margin-right: 4px;
+      }
+
+      section.features {
+        padding: 72px 0 24px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 24px 24px 22px;
+      }
+      .card h3 {
+        margin: 0 0 8px;
+        color: var(--hi);
+        font-size: 18px;
+        font-weight: 600;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .card h3 b {
+        font: 700 15px var(--mono);
+      }
+      .card p {
+        margin: 0;
+        color: var(--text);
+        font-size: 15.5px;
+      }
+      .card kbd,
+      p kbd,
+      li kbd {
+        font-size: 13px;
+        color: var(--hi);
+        background: #1a2124;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 0 5px;
+      }
+
+      section.install {
+        padding: 64px 0 40px;
+      }
+      h2 {
+        color: var(--hi);
+        font-size: clamp(26px, 3.4vw, 34px);
+        letter-spacing: -0.01em;
+        margin: 0 0 10px;
+      }
+      .lede {
+        margin: 0 0 24px;
+        max-width: 640px;
+      }
+      .code {
+        position: relative;
+        background: var(--term-bg);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px 18px;
+        overflow-x: auto;
+      }
+      .code pre {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--hi);
+      }
+      .code .c {
+        color: var(--dim);
+      }
+      .code button.copy {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font: 12px var(--sans);
+        color: var(--dim);
+        background: #1a2124;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 4px 9px;
+        cursor: pointer;
+      }
+      .code button.copy:hover {
+        color: var(--hi);
+      }
+      .needs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 26px;
+        margin: 0 0 18px;
+        padding: 0;
+        list-style: none;
+        font-size: 15px;
+      }
+      .needs li::before {
+        content: '·';
+        color: var(--focus);
+        margin-right: 8px;
+        font-weight: 700;
+      }
+      .then {
+        margin-top: 18px;
+      }
+      .note {
+        color: var(--dim);
+        font-size: 14.5px;
+        margin-top: 16px;
+      }
+
+      footer {
+        border-top: 1px solid var(--line);
+        margin-top: 64px;
+        padding: 26px 0 40px;
+        color: var(--dim);
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      footer a {
+        color: var(--dim);
+      }
+      footer a:hover {
+        color: var(--hi);
+      }
+
+      @media (max-width: 760px) {
+        .wrap {
+          padding: 0 16px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .hero {
+          padding-top: 28px;
+        }
+        nav a:not(.gh) {
+          display: none;
+        }
+        .screen {
+          padding: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <a class="mark" href="/" aria-label="Hopper">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="7" fill="#12181b" />
+            <path
+              d="M7 9h18l-6 9v6l-6 2v-8z"
+              fill="none"
+              stroke="#6fcac3"
+              stroke-width="2.4"
+              stroke-linejoin="round"
+            />
+          </svg>
+          hopper
+        </a>
+        <nav>
+          <a href="#features">What it does</a>
+          <a href="#install">Install</a>
+          <a class="gh" href="https://github.com/saltbark/hopper">GitHub</a>
+        </nav>
+      </header>
+
+      <section class="hero">
+        <h1>Toss work in the hopper.</h1>
+        <p>
+          Hopper is a terminal app for handing work to Claude Code. One window shows every
+          conversation across your projects and your Claude logins, which ones are waiting on you,
+          and opens them right there.
+        </p>
+        <div class="actions">
+          <a class="btn" href="#install">Install for Mac</a>
+          <a class="btn ghost" href="https://github.com/saltbark/hopper">Source on GitHub</a>
+        </div>
+      </section>
+
+      <section class="demo" aria-label="Hopper, running">
+        <div
+          class="window"
+          id="win"
+          tabindex="0"
+          aria-label="A Hopper window. Focus it and use the keys below."
+        >
+          <div class="chrome">
+            <i></i><i></i><i></i><span>hopper</span
+            ><span class="state" id="state">click to drive it</span>
+          </div>
+          <div class="screen" id="screen"><pre class="term" id="term"></pre></div>
+        </div>
+        <div class="keys" id="keys">
+          <span class="hint">Try it:</span>
+          <button data-key="ArrowDown">↓<span>next</span></button>
+          <button data-key="ArrowUp">↑<span>back</span></button>
+          <button data-key="p">p<span>projects</span></button>
+          <button data-key="a">a<span>accounts</span></button>
+          <button data-key="v">v<span>done</span></button>
+          <button data-key="Tab">tab<span>new</span></button>
+          <button data-key=",">,<span>settings</span></button>
+          <button data-key="?">?<span>all keys</span></button>
+          <button data-key="Escape">esc<span>back</span></button>
+        </div>
+      </section>
+
+      <section class="features" id="features">
+        <h2>What it does</h2>
+        <p class="lede">
+          Claude Code does the work. Hopper keeps track of it, and gets you back into the
+          conversation that needs you.
+        </p>
+        <div class="grid">
+          <div class="card">
+            <h3><b style="color: var(--waiting)">?</b> One list of everything</h3>
+            <p>
+              Every conversation that isn't done, from every project and every login, grouped into
+              waiting on you, drafts, running and up next. <kbd>n</kbd> jumps to the next one that
+              needs you.
+            </p>
+          </div>
+          <div class="card">
+            <h3><b style="color: var(--focus)">⏎</b> The real session, in place</h3>
+            <p>
+              A conversation opens in the right-hand panel as the actual Claude session, every key
+              going to Claude. <kbd>ctrl+]</kbd> comes back to the list and leaves it running.
+            </p>
+          </div>
+          <div class="card">
+            <h3><b style="color: #7eaaea">bh</b> Several logins, routed</h3>
+            <p>
+              Add each Claude login once and say which projects it runs. Work goes to the first one
+              that's signed in and has room, and each shows its usage against the week.
+            </p>
+          </div>
+          <div class="card">
+            <h3><b style="color: var(--draft)">☾</b> Routines and overnight</h3>
+            <p>
+              Prompts that run on a schedule, and drafts queued for tonight. They work on a branch,
+              never push to main, and leave a report for the morning.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="install" id="install">
+        <h2>Install</h2>
+        <p class="lede">Mac only for now. You need:</p>
+        <ul class="needs">
+          <li>Node 22.6 or later</li>
+          <li>pnpm</li>
+          <li><a href="https://claude.com/claude-code">Claude Code</a>, signed in</li>
+        </ul>
+        <div class="code">
+          <button class="copy" data-copy="install">Copy</button>
+          <pre id="install-code">
+git clone https://github.com/saltbark/hopper.git
+cd hopper
+pnpm install &amp;&amp; pnpm build
+pnpm link --global</pre>
+        </div>
+        <div class="code then">
+          <pre><span>hopper init</span>     <span class="c"># config, home folder, and your Claude login</span>
+<span>hopper</span>          <span class="c"># the app</span></pre>
+        </div>
+        <p class="note">A one-line installer and versioned releases are on the way.</p>
+      </section>
+
+      <footer>
+        <span>Hopper is MIT licensed. Made by <a href="https://saltbark.com">Saltbark</a>.</span>
+        <span>The window above is Hopper itself, captured running on made-up projects.</span>
+      </footer>
+    </div>
+
+    <script id="frames" type="application/json">
+      /*FRAMES*/
+    </script>
+    <script>
+      ;(() => {
+        const data = JSON.parse(document.getElementById('frames').textContent)
+        const term = document.getElementById('term')
+        const screen = document.getElementById('screen')
+        const win = document.getElementById('win')
+        const state = document.getElementById('state')
+        const LIST = data.listLength
+        let scene = 'list-0'
+
+        const show = (id) => {
+          if (!data.frames[id]) return
+          scene = id
+          term.innerHTML = data.frames[id]
+        }
+
+        // Fit the terminal's columns to the width there is.
+        const probe = document.createElement('span')
+        probe.textContent = 'M'.repeat(100)
+        probe.style.cssText =
+          'position:absolute;visibility:hidden;white-space:pre;font-size:100px;font-family:var(--mono)'
+        document.body.appendChild(probe)
+        const fit = () => {
+          const charAt100 = probe.getBoundingClientRect().width / 100
+          const avail = screen.clientWidth - parseFloat(getComputedStyle(screen).paddingLeft) * 2
+          const size = Math.min(13.5, avail / data.columns / (charAt100 / 100))
+          term.style.fontSize = size.toFixed(2) + 'px'
+        }
+
+        const listIndex = () => (scene.startsWith('list-') ? +scene.slice(5) : -1)
+        const press = (key) => {
+          const i = listIndex()
+          if (scene === 'help') return (show('list-0'), true)
+          if (scene === 'projects' && /^[a-z]$/i.test(key) && key !== 'p')
+            return (show('find'), true)
+          switch (key) {
+            case 'ArrowDown':
+            case 'j':
+              if (i >= 0) show('list-' + Math.min(LIST - 1, i + 1))
+              else show('list-0')
+              return true
+            case 'ArrowUp':
+            case 'k':
+              if (i >= 0) show('list-' + Math.max(0, i - 1))
+              else show('list-0')
+              return true
+            case 'Escape':
+            case 'c':
+            case 'ArrowLeft':
+              show(scene === 'find' ? 'projects' : 'list-0')
+              return true
+            case 'p':
+              show('projects')
+              return true
+            case 'a':
+              show('accounts')
+              return true
+            case 'v':
+              show('done')
+              return true
+            case 'Tab':
+              show('draft')
+              return true
+            case ',':
+              show('settings')
+              return true
+            case '?':
+              show('help')
+              return true
+            case 'n':
+              show('list-0')
+              return true
+          }
+          return false
+        }
+
+        win.addEventListener('keydown', (e) => {
+          if (e.metaKey || e.ctrlKey || e.altKey) return
+          if (press(e.key)) e.preventDefault()
+        })
+        win.addEventListener('focus', () => {
+          win.classList.add('live')
+          state.textContent = 'keys go to Hopper · tab out to leave'
+        })
+        win.addEventListener('blur', () => {
+          win.classList.remove('live')
+          state.textContent = 'click to drive it'
+        })
+        document.getElementById('keys').addEventListener('click', (e) => {
+          const b = e.target.closest('button[data-key]')
+          if (b) press(b.dataset.key)
+        })
+        // Tab inside the window would leave it; keep Tab for "new" and let shift+tab leave.
+        win.addEventListener('keydown', (e) => {
+          if (e.key === 'Tab' && e.shiftKey) win.blur()
+        })
+
+        document.querySelectorAll('button.copy').forEach((b) =>
+          b.addEventListener('click', async () => {
+            const text = document.getElementById(b.dataset.copy + '-code').textContent
+            try {
+              await navigator.clipboard.writeText(text)
+              b.textContent = 'Copied'
+            } catch {
+              b.textContent = 'Select it'
+            }
+            setTimeout(() => (b.textContent = 'Copy'), 1500)
+          }),
+        )
+
+        show('list-0')
+        const ready = document.fonts ? document.fonts.ready : Promise.resolve()
+        ready.then(fit)
+        fit()
+        addEventListener('resize', fit)
+      })()
+    </script>
+  </body>
+</html>

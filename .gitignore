@@ -6,3 +6,7 @@ coverage/
 .claude/worktrees/
 # Private notes for your own sessions: where plans live, local setup.
 CLAUDE.local.md
+# The website's build, and wrangler's cache.
+site/dist/
+.wrangler/
+.env
