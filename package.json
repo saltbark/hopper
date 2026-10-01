@@ -20,6 +20,8 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
+    "release": "tsx scripts/release.ts",
+    "release:pack": "pnpm build && ./scripts/pack.sh",
     "site:capture": "FORCE_COLOR=3 tsx site/capture.tsx",
     "site:build": "tsx site/build.ts",
     "site:deploy": "pnpm site:build && pnpm dlx wrangler@4 deploy --config site/wrangler.jsonc",

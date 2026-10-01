@@ -10,3 +10,5 @@ CLAUDE.local.md
 site/dist/
 .wrangler/
 .env
+# What scripts/pack.sh makes.
+release/

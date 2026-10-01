@@ -1,0 +1,45 @@
+# A tag vX.Y.Z (from pnpm release) checks, packs and publishes that release. Run by hand, it packs
+# the branch and keeps the tarball as the run's artifact, publishing nothing.
+name: release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: The tag is package.json's version
+        if: github.ref_type == 'tag'
+        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      - run: pnpm check
+        env:
+          FORCE_COLOR: '0'
+      - run: ./scripts/pack.sh
+      - uses: actions/upload-artifact@v4
+        if: github.ref_type != 'tag'
+        with:
+          name: hopper
+          path: release/hopper.tar.gz*
+      - name: Publish
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          # This version's entry in CHANGELOG.md, without its heading.
+          awk -v v="$v" '$0 ~ "^## " v " " {on=1; next} /^## / {on=0} on' CHANGELOG.md >notes.md
+          gh release create "$GITHUB_REF_NAME" release/hopper.tar.gz release/hopper.tar.gz.sha256 \
+            --title "Hopper $v" --notes-file notes.md

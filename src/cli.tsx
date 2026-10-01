@@ -37,6 +37,7 @@ import { listRoutines, loadRoutine, nextRun, runRoutine, removeLaunchd } from '.
 import { App } from './tui/App.tsx'
 import { MOUSE_OFF, MOUSE_ON } from './tui/mouse.ts'
 import { TITLE_RESTORE, TITLE_SAVE, titleSeq } from './tui/title.ts'
+import { version } from './version.ts'
 
 const HELP = `hopper: toss work in the hopper, hop from item to item.
 
@@ -56,6 +57,7 @@ const HELP = `hopper: toss work in the hopper, hop from item to item.
   hopper routine install <template> [--name n] [--project key] [--schedule "…"]
                    [--check "cmd"] [--enable]   add one (paused unless --enable)
   hopper dispatch [--json]               start queued drafts that are ready now
+  hopper version         which Hopper this is (also --version)
   hopper help            this
 
 For agents: docs/agents.md, written to <home>/CLAUDE.md.
@@ -336,6 +338,7 @@ try {
   else if (cmd === 'draft') await draft(rest[0], rest.slice(1))
   else if (cmd === 'routine') await routine(rest[0], rest.slice(1))
   else if (cmd === 'dispatch') await dispatchCmd(rest)
+  else if (cmd === 'version' || cmd === '--version' || cmd === '-v') console.log(version())
   else if (cmd === 'help' || cmd === '--help' || cmd === '-h') console.log(HELP)
   else {
     console.error(`Unknown command "${cmd}".\n\n${HELP}`)
