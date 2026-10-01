@@ -21,6 +21,8 @@ export const T = {
   cap: '#2a3337',
   onFill: '#0a0c0d',
   waiting: '#e5c06a',
+  // On hold: waiting's amber, stepped back, so it still reads as yours but asks for nothing.
+  held: '#8c7a4f',
   blocked: '#ec7a6f',
   draft: '#c69ce8',
   running: '#7fcf8f',
@@ -72,7 +74,9 @@ export function stateMark(
     if (state === 'unread') return { mark: '●', color: T.focus, bold: true }
     return state === 'paused' ? { mark: '○', color: T.dim } : { mark: '↻', color: T.focus }
   }
-  // Waiting on you: a question is your turn, not a fault, so only a failure is red.
+  // Waiting on you: a question is your turn, not a fault, so only a failure is red. On hold is
+  // a pause sign, whatever it was waiting with.
+  if (state === 'held') return { mark: '‖', color: T.held }
   if (state === 'blocked') return { mark: '?', color: T.waiting, bold: true }
   if (state === 'failed' || state === 'stopped') return { mark: '✕', color: T.blocked }
   if (state === 'done') return { mark: '✓', color: T.waiting }

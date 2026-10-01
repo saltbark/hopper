@@ -8,6 +8,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { Session } from '../src/claude.ts'
 import { addAccount, OVERNIGHT_DEFAULTS, setPrefixes, type Config } from '../src/config.ts'
+import { loadHeld } from '../src/held.ts'
 import { initHome, loadProjects } from '../src/home.ts'
 import { draftSession, toItems, type Snapshot } from '../src/model.ts'
 import { App, byGroup } from '../src/tui/App.tsx'
@@ -1012,6 +1013,37 @@ describe('conversations', () => {
       sessions: ['sess-1'],
     })
     done()
+    unmount()
+  })
+})
+
+describe('on hold', () => {
+  it('h puts a waiting conversation on hold, out of waiting on you, and h takes it off', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
+    // What gather would make of held.json, on the snapshot above.
+    const load = async (): Promise<Snapshot> => {
+      const held = await loadHeld(home)
+      const items = snapshot.items.map((i) => ({
+        ...i,
+        ...(i.where === 'needs' && held.has(i.sessionId) ? { held: true } : {}),
+      }))
+      return { ...snapshot, items }
+    }
+    const { lastFrame, stdin, unmount } = render(<App config={{ ...config, home }} load={load} />)
+    await tick()
+    expect(lastFrame()).toContain('WAITING ON YOU 1')
+    await press(stdin, 'n')
+    await press(stdin, 'h')
+    await until(() => (lastFrame() ?? '').includes('ON HOLD 1'))
+    expect(lastFrame()).not.toContain('WAITING ON YOU')
+    expect(lastFrame()).toContain('‖')
+    expect([...(await loadHeld(home)).keys()]).toEqual(['s-Draft the spring newsletter'])
+    await press(stdin, 'n')
+    expect(lastFrame()).toContain('Nothing waiting on you.')
+    await press(stdin, 'h')
+    await until(() => (lastFrame() ?? '').includes('WAITING ON YOU 1'))
+    expect(lastFrame()).not.toContain('ON HOLD')
+    expect((await loadHeld(home)).size).toBe(0)
     unmount()
   })
 })

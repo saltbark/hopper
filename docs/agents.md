@@ -106,6 +106,8 @@ runs, and the last dispatch. A draft's or routine's `model` and `effort` are nul
 none; it then runs with `defaults`, the project's (on each project) or Hopper's (at the top).
 `hopper status --json` adds accounts and usage.
 
-Groups a conversation can be in: `waiting` (on the person), `draft`, `proposed`, `running`,
+Groups a conversation can be in: `waiting` (on the person), `held` (waiting, but the person has
+put it on hold until they can act, a meeting first; it counts nowhere, and a reply ends it),
+`draft`, `proposed`, `running`,
 `routines`, `next` (queued), `done`, and `filed`: a routine's run that has finished, which
 lives with its routine's reports rather than in the list.

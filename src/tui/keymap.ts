@@ -6,7 +6,7 @@ import type { ProjectRow } from '../active.ts'
 import { choiceText, type Choice } from '../config.ts'
 import type { Item } from '../model.ts'
 import type { Row } from '../settings.ts'
-import type { Editing, Focus } from './state.ts'
+import { groupOf, type Editing, type Focus } from './state.ts'
 
 export type Hint = [key: string, does: string]
 
@@ -65,6 +65,7 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
       ['J K', 'next group (shift+↑↓)'],
       ['⏎ →', 'open it, or go back in'],
       ['d', 'mark done'],
+      ['h', 'on hold, or off it (a reply takes it off too)'],
       ['i', 'interrupt (sends esc)'],
       ['u', 'a draft: up next, tonight, off'],
       ['U', 'queue every proposal tonight'],
@@ -256,18 +257,25 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   }
   if (it && it.kind !== 'draft' && it.kind !== 'routine')
     hints.push(['d', done ? 'bring it back' : 'mark done'])
+  if (it && !done) hints.push(...holdKey(it))
   if (!done) hints.push(['J K', 'groups'])
   if (!done && h.scope) hints.push(['esc', 'every project'])
   return { label: done ? 'done' : 'the list', hints: [...trust, ...hints] }
 }
 
 // Keys each summary on the right lists itself (panels/detail/), so the key bar leaves them out.
+// h on a conversation waiting on you, or on hold; nothing on anything else.
+export function holdKey(it: Item): Hint[] {
+  const g = groupOf(it)
+  return g === 'waiting' ? [['h', 'on hold']] : g === 'held' ? [['h', 'off hold']] : []
+}
+
 function summaryKeys(h: Here): Set<string> {
   if (h.focus === 'projects') return new Set(['⏎', 'tab'])
   if (h.focus === 'accounts') return new Set(PANEL_KEYS[3]![1].map(([k]) => k))
   if (h.item?.kind === 'routine') return new Set(routineKeys(h).map(([k]) => k))
   if (h.item?.kind === 'draft') return new Set(draftKeys(h).map(([k]) => k))
-  if (h.item?.id) return new Set(['⏎', 'd', 'i'])
+  if (h.item?.id) return new Set(['⏎', 'd', 'i', ...holdKey(h.item).map(([k]) => k)])
   return new Set()
 }
 

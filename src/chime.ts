@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 
-import type { Item } from './model.ts'
+import { waitsOnMe, type Item } from './model.ts'
 
 // A sound when a conversation stops running and waits on me. config.toml's `sound` is one of
 // macOS's system sounds, "bell" for the terminal's own, or "off".
@@ -26,9 +26,7 @@ export type Chime = (sound: string) => void
 export function newlyWaiting(prev: Item[] | null, next: Item[], onScreen: string | null): Item[] {
   if (!prev) return []
   const running = new Set(prev.filter((i) => i.where === 'queue').map((i) => i.sessionId))
-  return next.filter(
-    (i) => i.where === 'needs' && running.has(i.sessionId) && i.sessionId !== onScreen,
-  )
+  return next.filter((i) => waitsOnMe(i) && running.has(i.sessionId) && i.sessionId !== onScreen)
 }
 
 export const playChime: Chime = (sound) => {

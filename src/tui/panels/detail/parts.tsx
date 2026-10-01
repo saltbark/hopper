@@ -48,7 +48,13 @@ export function OpenItems({
 
 // What Claude's state means to Hopper, in words.
 export const stateWords = (it: Item) =>
-  it.where === 'done' ? 'marked done' : it.state === 'done' ? 'answered, waiting on you' : it.state
+  it.where === 'done'
+    ? 'marked done'
+    : it.held
+      ? 'on hold: you know about it'
+      : it.state === 'done'
+        ? 'answered, waiting on you'
+        : it.state
 
 // The right panel's title names what it is showing.
 export function detailTitle(item: Item | undefined, project: unknown, account: unknown): string {

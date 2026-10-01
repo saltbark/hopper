@@ -2,7 +2,7 @@ import { access, open, readdir, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-// Which model a conversation's replies actually came from. Hopper asks for an alias (opus,
+// Which model a conversation's replies actually came from, and when the newest came. Hopper asks for an alias (opus,
 // opus[1m]) and Claude Code resolves it; each reply in the session's transcript carries the full
 // id it ran on (claude-opus-5-5). The transcript doesn't say whether [1m] was on: that is a
 // setting of the request, not part of the model's name.
@@ -57,24 +57,34 @@ export async function findTranscript(
 const TAIL = 256 * 1024
 // A reply's model, written as JSON. Quotes inside a tool's output are escaped, so they don't match.
 const MODEL = /"model":"([^"]+)"/g
+// When Claude Code wrote the entry, on the same line.
+const STAMP = /"timestamp":"([^"]+)"/
 // What Claude Code writes for a message it made up itself (an error, an interruption).
 const SYNTHETIC = '<synthetic>'
 
-function lastIn(text: string): string | null {
-  let last: string | null = null
-  for (const m of text.matchAll(MODEL)) if (m[1] && m[1] !== SYNTHETIC) last = m[1]
+export type Reply = { model: string; at: number | null }
+
+function lastIn(text: string): Reply | null {
+  let last: Reply | null = null
+  for (const line of text.split('\n')) {
+    let model: string | null = null
+    for (const m of line.matchAll(MODEL)) if (m[1] && m[1] !== SYNTHETIC) model = m[1]
+    if (!model) continue
+    const at = Date.parse(STAMP.exec(line)?.[1] ?? '')
+    last = { model, at: Number.isNaN(at) ? null : at }
+  }
   return last
 }
 
 // Read again only when the file has changed, since every poll asks.
-const cache = new Map<string, { size: number; mtimeMs: number; model: string | null }>()
+const cache = new Map<string, { size: number; mtimeMs: number; reply: Reply | null }>()
 
-// The model of the newest reply, or null when there is no transcript or no reply yet.
-export async function lastModel(path: string): Promise<string | null> {
+// The newest reply's model and when it came, or null when there is no transcript or no reply yet.
+export async function lastReply(path: string): Promise<Reply | null> {
   const s = await stat(path).catch(() => null)
   if (!s) return null
   const hit = cache.get(path)
-  if (hit && hit.size === s.size && hit.mtimeMs === s.mtimeMs) return hit.model
+  if (hit && hit.size === s.size && hit.mtimeMs === s.mtimeMs) return hit.reply
   const f = await open(path, 'r')
   try {
     const read = async (from: number) => {
@@ -82,10 +92,10 @@ export async function lastModel(path: string): Promise<string | null> {
       await f.read(buf, 0, buf.length, from)
       return buf.toString('utf8')
     }
-    let model = lastIn(await read(Math.max(0, s.size - TAIL)))
-    if (!model && s.size > TAIL) model = lastIn(await read(0))
-    cache.set(path, { size: s.size, mtimeMs: s.mtimeMs, model })
-    return model
+    let reply = lastIn(await read(Math.max(0, s.size - TAIL)))
+    if (!reply && s.size > TAIL) reply = lastIn(await read(0))
+    cache.set(path, { size: s.size, mtimeMs: s.mtimeMs, reply })
+    return reply
   } finally {
     await f.close()
   }

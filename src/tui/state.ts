@@ -14,9 +14,11 @@ export type Hover = { panel: Panel; index: number } | null
 
 // Everything not done is one list, in these groups, in this order. J K jump between them; the
 // letters on the list act on the selected row instead.
-export type Group = 'waiting' | 'draft' | 'proposed' | 'running' | 'routines' | 'next'
+export type Group = 'waiting' | 'held' | 'draft' | 'proposed' | 'running' | 'routines' | 'next'
 export const GROUPS: { id: Group; label: string }[] = [
   { id: 'waiting', label: 'waiting on you' },
+  // Waiting too, but I know about them and can't act yet (h). Not counted anywhere.
+  { id: 'held', label: 'on hold' },
   { id: 'draft', label: 'drafts' },
   // Drafts an agent wrote for me to approve (the groomer, a review, a chain past its depth).
   { id: 'proposed', label: 'proposed' },
@@ -37,7 +39,9 @@ export const groupOf = (i: Item): Group =>
       ? 'routines'
       : i.where === 'queue'
         ? 'running'
-        : 'waiting'
+        : i.held
+          ? 'held'
+          : 'waiting'
 export const groupRank = (g: Group) => GROUPS.findIndex((x) => x.id === g)
 
 // A conversation before it starts, or a routine's prompt, open in the editor. Writing is roomy

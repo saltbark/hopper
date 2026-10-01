@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { findTranscript, lastModel, transcriptPath } from '../src/transcript.ts'
+import { findTranscript, lastReply, transcriptPath } from '../src/transcript.ts'
 
 const reply = (model: string, text = 'ok') =>
   JSON.stringify({
@@ -21,16 +21,32 @@ describe('transcripts', () => {
   })
   it('reads the newest reply’s model, skipping made-up messages and quoted text', async () => {
     const path = join(await mkdtemp(join(tmpdir(), 'hopper-transcript-')), 's.jsonl')
-    expect(await lastModel(path)).toBeNull()
+    expect(await lastReply(path)).toBeNull()
     await writeFile(path, JSON.stringify({ type: 'user', message: { content: 'hi' } }) + '\n')
-    expect(await lastModel(path)).toBeNull()
+    expect(await lastReply(path)).toBeNull()
     await appendFile(path, reply('claude-sonnet-5-5'))
     await appendFile(path, reply('claude-opus-5-5', 'it said "model":"claude-haiku" once'))
     await appendFile(path, reply('<synthetic>'))
-    expect(await lastModel(path)).toBe('claude-opus-5-5')
+    expect((await lastReply(path))?.model).toBe('claude-opus-5-5')
     // A change to the file is read again.
     await appendFile(path, reply('claude-fable-5-1'))
-    expect(await lastModel(path)).toBe('claude-fable-5-1')
+    expect((await lastReply(path))?.model).toBe('claude-fable-5-1')
+  })
+  it('says when the newest reply came, from its own line', async () => {
+    const path = join(await mkdtemp(join(tmpdir(), 'hopper-transcript-')), 's.jsonl')
+    const at = (model: string, timestamp: string) =>
+      JSON.stringify({ type: 'assistant', message: { model }, timestamp }) + '\n'
+    await writeFile(path, at('claude-opus-5-5', '2026-09-30T10:00:00.000Z'))
+    await appendFile(
+      path,
+      JSON.stringify({ type: 'user', timestamp: '2026-09-30T11:00:00Z' }) + '\n',
+    )
+    expect(await lastReply(path)).toEqual({
+      model: 'claude-opus-5-5',
+      at: Date.parse('2026-09-30T10:00:00.000Z'),
+    })
+    await appendFile(path, reply('claude-opus-5-5'))
+    expect((await lastReply(path))?.at).toBeNull()
   })
   it('finds one that moved to a worktree’s folder', async () => {
     const login = await mkdtemp(join(tmpdir(), 'hopper-login-'))

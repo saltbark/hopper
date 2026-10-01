@@ -11,6 +11,7 @@ import { loadConversations } from './conversations.ts'
 import { inWindow, readiness } from './dispatch.ts'
 import { loadDone } from './done.ts'
 import { listDrafts, type Draft } from './drafts.ts'
+import { loadHeld } from './held.ts'
 import { loadProjects, readOpenCount, type Project } from './home.ts'
 import { isWithin } from './paths.ts'
 import {
@@ -27,7 +28,7 @@ import {
 } from './routines/index.ts'
 import { pickAccount } from './routing.ts'
 import { isRead, loadRead } from './seen.ts'
-import { findTranscript, lastModel } from './transcript.ts'
+import { findTranscript, lastReply } from './transcript.ts'
 
 // Sessions whose cwd is under no project are grouped here, so outside work still shows.
 // The leading ~ sorts it after every real key in the tree.
@@ -50,6 +51,10 @@ export function classify(s: Session, done: Set<string> = new Set()): Where {
   return 'queue'
 }
 
+// What counts as waiting on me: in the title, the project's numbers, the chime and `n`. A
+// conversation on hold waits too, but I already know about it.
+export const waitsOnMe = (i: Item) => i.where === 'needs' && !i.held
+
 export function projectForCwd(projects: Project[], cwd: string): Project | undefined {
   let best: Project | undefined
   for (const p of projects) {
@@ -64,8 +69,11 @@ export type Item = Session & {
   // Recorded by Hopper when it started the conversation.
   model?: string
   effort?: string
-  // The full id of the model its newest reply came from, read from its transcript.
+  // The full id of the model its newest reply came from, read from its transcript, and when.
   ranOn?: string
+  repliedAt?: number
+  // Waiting on me, but on hold (held.ts): I know about it and can't act yet.
+  held?: boolean
   routine?: string
   // For a routine's run or an unattended conversation: what its result file says.
   result?: Result | null
@@ -256,8 +264,9 @@ export async function gather(
       const account = config.accounts.find((a) => a.name === it.account)
       if (!account) return
       const path = await findTranscript(account.configDir, it.cwd, it.sessionId)
-      const ran = path ? await lastModel(path) : null
-      if (ran) it.ranOn = ran
+      const reply = path ? await lastReply(path) : null
+      if (reply) it.ranOn = reply.model
+      if (reply?.at) it.repliedAt = reply.at
     }),
   )
   const reports: Record<string, Report[]> = Object.fromEntries(
@@ -280,6 +289,14 @@ export async function gather(
         it.where = 'filed'
     } else if (it.where === 'needs' && it.state === 'done' && it.result?.needs === 'nothing')
       it.where = 'done'
+  }
+  // A hold lasts while the conversation waits and Claude hasn't answered since: replying to it
+  // ends it, so what comes back is new.
+  const held = await loadHeld(config.home)
+  for (const it of items) {
+    const at = held.get(it.sessionId)
+    if (at === undefined || it.where !== 'needs' || it.kind === 'draft') continue
+    if (!it.repliedAt || it.repliedAt <= at) it.held = true
   }
   const read = await loadRead(config.home)
   for (const [name, list] of Object.entries(reports))
@@ -315,7 +332,7 @@ export async function gather(
     if (it.kind === 'draft') it.key = draftOf.get(it.sessionId)?.project ?? it.key
   const accounts: AccountState[] = perAccount.map((a) => {
     const mine = items.filter((i) => i.account === a.account.name)
-    const n = (w: Where) => mine.filter((i) => i.where === w).length
+    const n = (w: Where) => mine.filter((i) => i.where === w && !i.held).length
     return {
       ...a,
       counts: { queue: n('queue'), needs: n('needs'), done: n('done'), live: n('live') },

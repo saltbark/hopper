@@ -6,7 +6,7 @@ import { ago, wrapText } from '../../../format.ts'
 import type { OpenItem } from '../../../items.ts'
 import { OTHER, type Item } from '../../../model.ts'
 import { tildify } from '../../../paths.ts'
-import { draftKeys } from '../../keymap.ts'
+import { draftKeys, holdKey } from '../../keymap.ts'
 import { modelLabel } from '../../state.ts'
 import { stateMark, T } from '../../theme.ts'
 import { Heading, Keys, Mark } from '../primitives.tsx'
@@ -74,13 +74,14 @@ export function ConversationDetail(props: {
   width: number
 }) {
   const { item, openItems, width } = props
-  const { color } = stateMark(item.state, item.kind)
+  const state = item.held ? 'held' : item.state
+  const { color } = stateMark(state, item.kind)
   const inList = item.where !== 'done'
   return (
     <>
       {title(item.name)}
       <Text wrap="truncate-end">
-        {inList ? <Mark state={item.state} kind={item.kind} /> : <Text color={T.faint}>✓</Text>}
+        {inList ? <Mark state={state} kind={item.kind} /> : <Text color={T.faint}>✓</Text>}
         <Text color={inList ? color : T.dim}>{' ' + stateWords(item)}</Text>
         <Text color={T.dim}>{` · started ${ago(item.startedAt)} ago`}</Text>
       </Text>
@@ -101,11 +102,7 @@ export function ConversationDetail(props: {
         <Keys
           keys={
             inList
-              ? [
-                  ['⏎', 'open here'],
-                  ['d', 'mark done'],
-                  ['i', 'interrupt'],
-                ]
+              ? [['⏎', 'open here'], ['d', 'mark done'], ...holdKey(item), ['i', 'interrupt']]
               : [
                   ['⏎', 'open here'],
                   ['d', 'bring it back'],

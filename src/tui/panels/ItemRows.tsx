@@ -63,14 +63,14 @@ export const ItemRows = memo(function ItemRows(props: {
               </Text>
             ) : (
               <Mark
-                state={it.unread ? 'unread' : it.state}
+                state={it.unread ? 'unread' : it.held ? 'held' : it.state}
                 kind={it.kind}
                 {...(bg ? { bg } : {})}
               />
             )}
             <Text backgroundColor={bg}>
               {' '}
-              <Text color={lit ? T.hi : done ? T.dim : T.text} bold={lit}>
+              <Text color={lit ? T.hi : done || it.held ? T.dim : T.text} bold={lit}>
                 {cell(shortName(it), nameW)}
               </Text>
               <Text color={T.dim}>{cell(where(it), whereW)}</Text>

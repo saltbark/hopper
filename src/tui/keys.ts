@@ -481,6 +481,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     }
     if (key.return) return act.open(it)
     if (input === 'd') return void act.markDone(it, panel === 'work')
+    if (input === 'h' && panel === 'work') return void act.hold(it)
     if (input === 'g') return void act.dispatchNow()
   }
 
@@ -534,8 +535,10 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     // In Accounts, a is its own key again: add an account.
     if (jump[input] && !(input === 'a' && focus === 'accounts')) return act.go(jump[input])
     if (input === 'n') {
-      // Straight to the first thing waiting on me.
+      // Straight to the first thing waiting on me. Waiting comes first, so it is the top row;
+      // on hold comes next and doesn't count.
       act.go('work')
+      if (!ctx.work[0] || groupOf(ctx.work[0]) !== 'waiting') setMessage('Nothing waiting on you.')
       return setSel((s) => ({ ...s, work: 0 }))
     }
     if (input === '?') return ctx.setHelp({ scroll: 0 })

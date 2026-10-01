@@ -1,12 +1,22 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
 import type { Session } from '../src/claude.ts'
 import { addAccount, type Config, OVERNIGHT_DEFAULTS } from '../src/config.ts'
-import { classify, gather, inScope, OTHER, projectForCwd, toItems } from '../src/model.ts'
+import { setHeld } from '../src/held.ts'
+import {
+  classify,
+  gather,
+  inScope,
+  OTHER,
+  projectForCwd,
+  toItems,
+  waitsOnMe,
+} from '../src/model.ts'
+import { transcriptPath } from '../src/transcript.ts'
 import { fakeClaude } from './helpers.ts'
 
 const s = (over: Partial<Session>): Session => ({
@@ -133,6 +143,52 @@ describe('gather', () => {
       const failed = await gather(config, first, false)
       expect(failed.items.map((i) => i.id)).toEqual(['aaaa1111'])
       expect(failed.accounts[0]).toMatchObject({ sessionError: 'timed out', sessionsAt: at })
+    } finally {
+      delete process.env['HOPPER_CLAUDE']
+    }
+  })
+
+  it('holds a waiting conversation until Claude answers it again', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-model-'))
+    const login = join(home, 'login')
+    const listed = [
+      { id: 'aaaa1111', sessionId: 's-held', cwd: home, kind: 'background', state: 'done' },
+      { id: 'bbbb2222', sessionId: 's-new', cwd: home, kind: 'background', state: 'done' },
+    ]
+    const answer = join(home, 'answer.json')
+    await writeFile(answer, JSON.stringify(listed))
+    const bin = await fakeClaude(
+      `case "$1" in auth) echo '{"loggedIn":true}';; agents) cat '${answer}';; esac`,
+    )
+    const transcript = transcriptPath(login, home, 's-held')
+    await mkdir(dirname(transcript), { recursive: true })
+    const reply = (timestamp: string) =>
+      JSON.stringify({ type: 'assistant', message: { model: 'claude-opus-5-5' }, timestamp }) + '\n'
+    await writeFile(transcript, reply('2026-09-30T10:00:00Z'))
+    process.env['HOPPER_CLAUDE'] = bin
+    try {
+      let config: Config = {
+        path: join(home, 'c.toml'),
+        accountsPath: '',
+        home,
+        accounts: [],
+        routes: [],
+        overnight: OVERNIGHT_DEFAULTS,
+      }
+      config = addAccount(config, { name: 'bh', label: 'bh', configDir: login })
+      await setHeld(home, 's-held', true, Date.parse('2026-09-30T11:00:00Z'))
+      const held = await gather(config, null, true)
+      const byId = (snap: typeof held, id: string) => snap.items.find((i) => i.sessionId === id)!
+      expect(byId(held, 's-held')).toMatchObject({ where: 'needs', held: true })
+      expect(byId(held, 's-new').held).toBeUndefined()
+      expect(held.items.filter(waitsOnMe).map((i) => i.sessionId)).toEqual(['s-new'])
+      expect(held.accounts[0]!.counts.needs).toBe(1)
+
+      // A reply after the hold: it waits on me again, as new.
+      await appendFile(transcript, reply('2026-09-30T12:00:00Z'))
+      const answered = await gather(config, held, false)
+      expect(byId(answered, 's-held').held).toBeUndefined()
+      expect(answered.accounts[0]!.counts.needs).toBe(2)
     } finally {
       delete process.env['HOPPER_CLAUDE']
     }

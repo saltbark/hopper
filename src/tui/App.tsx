@@ -4,7 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { activeRows, rollUp, type ProjectStat } from '../active.ts'
 import { playChime, type Chime } from '../chime.ts'
 import { defaultsFor, prefixesOf, saveAccounts, type Config } from '../config.ts'
-import { draftSessionId, gather, inScope, OTHER, routineSessionId, type Item } from '../model.ts'
+import {
+  draftSessionId,
+  gather,
+  inScope,
+  OTHER,
+  routineSessionId,
+  waitsOnMe,
+  type Item,
+} from '../model.ts'
 import { lastRan } from '../routines/index.ts'
 import { buildRows } from '../settings.ts'
 import { makeActions } from './actions.ts'
@@ -154,7 +162,7 @@ export function App({
       counts: {
         open: snap.openCounts.get(p.key) ?? 0,
         run: count(p.key, 'queue'),
-        you: count(p.key, 'needs'),
+        you: snap.items.filter((i) => i.key === p.key && waitsOnMe(i)).length,
       },
       last: last.get(p.key) ?? 0,
     }))

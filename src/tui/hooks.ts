@@ -10,7 +10,7 @@ import { dispatchOnce } from '../commands.ts'
 import type { Account, Config } from '../config.ts'
 import { saveDraft } from '../drafts.ts'
 import { readItems, type OpenItem } from '../items.ts'
-import type { gather, Item, Snapshot } from '../model.ts'
+import { waitsOnMe, type gather, type Item, type Snapshot } from '../model.ts'
 import { expandHome } from '../paths.ts'
 import { hopperPrompt } from '../prompts.ts'
 import { runRoutine } from '../routines/index.ts'
@@ -235,7 +235,7 @@ export function useTabTitle(
   setTitle: (text: string) => void,
   suspendTerminal: (fn: () => Promise<void>) => Promise<void>,
 ) {
-  const text = titleText(snap?.items.filter((i) => i.where === 'needs').length ?? 0)
+  const text = titleText(snap?.items.filter(waitsOnMe).length ?? 0)
   const last = useRef(text)
   useEffect(() => {
     last.current = text

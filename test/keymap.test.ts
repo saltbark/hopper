@@ -13,20 +13,26 @@ const base: Here = {
   editing: null,
   defaults: CHOICE_DEFAULTS,
 }
-const conversation = { id: 'abc', kind: 'background' } as Item
+const conversation = { id: 'abc', kind: 'background', where: 'needs' } as Item
 const keysOf = (h: Partial<Here>) => hereKeys({ ...base, ...h }).hints.map(([k]) => k)
 
 describe('hereKeys', () => {
   it('follows what is selected in the list', () => {
-    expect(keysOf({ item: conversation })).toEqual(['⏎ →', 'd', 'J K'])
-    expect(keysOf({ item: conversation, embedOpen: true })).toEqual(['⏎ →', 'i', 'd', 'J K'])
+    expect(keysOf({ item: conversation })).toEqual(['⏎ →', 'd', 'h', 'J K'])
+    expect(keysOf({ item: conversation, embedOpen: true })).toEqual(['⏎ →', 'i', 'd', 'h', 'J K'])
     expect(keysOf({ focus: 'done', item: conversation })).toEqual(['⏎ →', 'd'])
+  })
+  it('offers h on what waits on you, off hold on what is held, and nothing on running work', () => {
+    expect(hereKeys({ ...base, item: conversation }).hints).toContainEqual(['h', 'on hold'])
+    const held = { ...conversation, held: true } as Item
+    expect(hereKeys({ ...base, item: held }).hints).toContainEqual(['h', 'off hold'])
+    expect(keysOf({ item: { ...conversation, where: 'queue' } as Item })).not.toContain('h')
   })
   it('offers tab in Projects only on a project, and esc on the list only when it is narrowed', () => {
     const row = (isProject: boolean) => ({ key: 'pm', isProject }) as Here['row']
     expect(keysOf({ focus: 'projects', row: row(true) })).toEqual(['⏎', 'tab', '↑↓', 'esc'])
     expect(keysOf({ focus: 'projects', row: row(false) })).toEqual(['⏎', '↑↓', 'esc'])
-    expect(keysOf({ item: conversation, scope: 'pm' })).toEqual(['⏎ →', 'd', 'J K', 'esc'])
+    expect(keysOf({ item: conversation, scope: 'pm' })).toEqual(['⏎ →', 'd', 'h', 'J K', 'esc'])
     expect(keysOf({ item: conversation })).not.toContain('esc')
   })
   it("offers a report's conversation only while Claude still has it", () => {
@@ -63,7 +69,7 @@ describe('hereKeys', () => {
       barKeys({ ...base, item: conversation, embedOpen: true, summaryShown: false }).map(
         ([k]) => k,
       ),
-    ).toEqual(['⏎ →', 'i', 'd', 'J K'])
+    ).toEqual(['⏎ →', 'i', 'd', 'h', 'J K'])
     expect(barKeys({ ...base, focus: 'accounts' })).toEqual([])
   })
 })

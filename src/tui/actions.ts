@@ -17,6 +17,7 @@ import { setDone } from '../done.ts'
 import { deleteDraft, newDraftId, saveDraft, type Draft } from '../drafts.ts'
 import { when } from '../format.ts'
 import { readIfThere } from '../fsutil.ts'
+import { setHeld } from '../held.ts'
 import { draftSessionId, routineSessionId, type Item } from '../model.ts'
 import { expandHome, isWithin, tildify } from '../paths.ts'
 import { hopperPrompt } from '../prompts.ts'
@@ -38,6 +39,7 @@ import { admit, EmbeddedSession } from './embed.ts'
 import { MOUSE_OFF, MOUSE_ON } from './mouse.ts'
 import { makeSettingsActions } from './settingsActions.ts'
 import {
+  groupOf,
   newEditing,
   now,
   toDraft,
@@ -272,6 +274,23 @@ export function makeActions(ctx: AppCtx) {
       return setMessage(`Couldn't mark it: ${(e as Error).message}`)
     }
     setMessage(done ? `Done: ${item.name}` : `Back in Needs you: ${item.name}`)
+    await refresh(false)
+  }
+
+  // h on a conversation waiting on me: on hold, or off it. Only those wait; a reply ends a hold
+  // by itself (model.ts), so this is the only way on.
+  const hold = async (item: Item | undefined) => {
+    if (!item) return
+    const g = groupOf(item)
+    if (g !== 'waiting' && g !== 'held')
+      return setMessage('Only a conversation waiting on you goes on hold.')
+    const on = g === 'waiting'
+    try {
+      await setHeld(config.home, item.sessionId, on)
+    } catch (e) {
+      return setMessage(`Couldn't hold it: ${(e as Error).message}`)
+    }
+    setMessage(on ? `On hold: ${item.name}` : `Back in waiting on you: ${item.name}`)
     await refresh(false)
   }
 
@@ -582,6 +601,7 @@ export function makeActions(ctx: AppCtx) {
     start,
     trust,
     markDone,
+    hold,
     enter,
     open,
     enterRoutine,
