@@ -2,6 +2,7 @@ import { Box, useApp, useInput, useWindowSize } from 'ink'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { activeRows, rollUp, type ProjectStat } from '../active.ts'
+import { caffeinate, canKeepAwake, type KeepAwake } from '../awake.ts'
 import { playChime, type Chime } from '../chime.ts'
 import { defaultsFor, prefixesOf, saveAccounts, type Config } from '../config.ts'
 import {
@@ -25,6 +26,7 @@ import {
   useSettingsDoc,
   useProjectItems,
   useAutopilot,
+  useAwake,
   useSnapshot,
   useTabTitle,
   useUsage,
@@ -78,6 +80,8 @@ export function App({
   // Routines on their schedule and queued drafts, while the app is open. Tests turn it off
   // (HOPPER_NO_AUTOPILOT, in vitest.config.ts) unless they're about it.
   autopilot = !process.env['HOPPER_NO_AUTOPILOT'],
+  // What z holds the Mac awake with (awake.ts); none off macOS. Tests pass their own.
+  keepAwake = canKeepAwake ? caffeinate : null,
 }: {
   config: Config
   load?: Loader
@@ -86,6 +90,7 @@ export function App({
   // Writes the terminal tab's title; tests leave it out.
   setTitle?: (text: string) => void
   autopilot?: boolean
+  keepAwake?: KeepAwake | null
 }) {
   const { exit, suspendTerminal: suspendInk } = useApp()
   const { columns, rows } = useWindowSize()
@@ -125,6 +130,7 @@ export function App({
   const { usageText, askUsage } = useUsage(config.home, snapRef, refresh)
   useDraftAutosave(editing, config.home)
   useAutopilot(config, snap, refresh, setMessage, autopilot)
+  const { awake, toggleAwake } = useAwake(config.home, keepAwake)
   const suspendTerminal = useTabTitle(snap, setTitle, suspendInk)
   const settingsDoc = useSettingsDoc(!!settings, config.home)
   const settingRows = useMemo(
@@ -341,6 +347,8 @@ export function App({
     askUsage,
     suspendTerminal,
     exit,
+    awake,
+    toggleAwake,
     focus,
     setFocus,
     returnTo,
@@ -556,6 +564,7 @@ export function App({
         here={here}
         message={message}
         error={error}
+        awake={awake}
       />
     </Box>
   )

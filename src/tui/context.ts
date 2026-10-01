@@ -24,6 +24,9 @@ export type AppCtx = {
   askUsage: (account: Account) => Promise<void>
   suspendTerminal: (fn: () => Promise<void>) => Promise<void>
   exit: () => void
+  // Whether z is holding the Mac awake, and the toggle; null where it can't (off macOS).
+  awake: boolean
+  toggleAwake: (() => void) | null
 
   focus: Focus
   setFocus: Set<Focus>

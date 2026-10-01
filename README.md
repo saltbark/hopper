@@ -175,6 +175,12 @@ minutes while work is waiting. `g` runs it now. It keeps to `max_running` per ac
 night's budget (how much of the weekly limit one night may use) and to a reserve kept for the day.
 All of these are under Overnight in settings. Leave Hopper open for queued work to run.
 
+`z` keeps the Mac awake while Hopper is open, so the night's work runs and a conversation can be
+reached from your phone. It's off until you turn it on, then on until you press `z` again, and
+Hopper remembers it across restarts. A ☕ at the right end of the key bar says it's on. It uses
+`caffeinate`, so the display still sleeps. A laptop still sleeps when its lid is closed, unless
+it's plugged in and connected to a display. macOS only.
+
 ```
 hopper draft new --project <key> [--queue now|night] [--after <id>] [--done "…"] "<message>"
 hopper list [--json]     everything Hopper sees; what agents read
