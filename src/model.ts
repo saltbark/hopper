@@ -27,6 +27,7 @@ import {
 } from './routines/index.ts'
 import { pickAccount } from './routing.ts'
 import { isRead, loadRead } from './seen.ts'
+import { findTranscript, lastModel } from './transcript.ts'
 
 // Sessions whose cwd is under no project are grouped here, so outside work still shows.
 // The leading ~ sorts it after every real key in the tree.
@@ -63,6 +64,8 @@ export type Item = Session & {
   // Recorded by Hopper when it started the conversation.
   model?: string
   effort?: string
+  // The full id of the model its newest reply came from, read from its transcript.
+  ranOn?: string
   routine?: string
   // For a routine's run or an unattended conversation: what its result file says.
   result?: Result | null
@@ -247,6 +250,16 @@ export async function gather(
     // which a conversation is for; the project Hopper started it in can.
     if (m?.project && projectKeys.has(m.project)) it.key = m.project
   }
+  await Promise.all(
+    items.map(async (it) => {
+      if (it.kind !== 'background' && it.kind !== 'interactive') return
+      const account = config.accounts.find((a) => a.name === it.account)
+      if (!account) return
+      const path = await findTranscript(account.configDir, it.cwd, it.sessionId)
+      const ran = path ? await lastModel(path) : null
+      if (ran) it.ranOn = ran
+    }),
+  )
   const reports: Record<string, Report[]> = Object.fromEntries(
     await Promise.all(
       routines.map(async (r) => [r.name, await listReports(config.home, r.name, runs)] as const),

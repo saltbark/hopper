@@ -151,7 +151,7 @@ export const toDraft = (e: Editing, updated: number): Draft => ({
   ...e.extra,
 })
 
-// "sonnet · high", or "opus (default) · high (default)" when nothing is chosen.
+// "sonnet · high", or "opus[1m] (default) · high (default)" when nothing is chosen.
 export const modelLabel = (
   model: string | undefined,
   effort: string | undefined,

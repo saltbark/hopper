@@ -57,9 +57,10 @@ a new folder asks you to trust the folder once (`T`).
 
 Models: in a draft, after `esc`, `m` picks the model and `e` the effort. A project can set its own
 defaults in `projects.toml` (`model = "haiku"`, `effort = "low"`), and `config.toml` sets Hopper's
-(`model`, `effort`: `opus` and `high` when not set). Hopper always tells Claude which model and
+(`model`, `effort`: `opus[1m]` and `high` when not set). Hopper always tells Claude which model and
 effort to use, so a conversation runs the same whichever login starts it, and a default is always
-shown by name: `opus (default)`. The list shows what each conversation started with.
+shown by name: `opus[1m] (default)`. The list shows what each conversation started with, and a
+conversation's details the full id of the model its newest reply came from (`ran on`).
 
 ## Keys and mouse
 

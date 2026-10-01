@@ -48,7 +48,7 @@ describe('hereKeys', () => {
     expect(hints).toContainEqual(['m', 'model: opus'])
     // One that picks none says what it falls back to.
     const unset = hereKeys({ ...base, item: { kind: 'draft' } as Item }).hints
-    expect(unset).toContainEqual(['m', 'model: opus (default)'])
+    expect(unset).toContainEqual(['m', 'model: opus[1m] (default)'])
     expect(unset).toContainEqual(['e', 'effort: high (default)'])
     expect(hints).toContainEqual(['s', 'start it'])
     expect(hints).toContainEqual(['d', 'throw away'])

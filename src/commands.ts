@@ -95,6 +95,7 @@ export async function listJson(config: Config, snap?: Snapshot) {
       account: i.account,
       model: i.model ?? null,
       effort: i.effort ?? null,
+      ranOn: i.ranOn ?? null,
       routine: i.routine ?? null,
       draft: i.draft ?? null,
       unattended: !!i.unattended,

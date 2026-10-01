@@ -64,7 +64,8 @@ where they are.
   settings (or its plan) would decide, and Hopper couldn't say which. What a draft or routine
   doesn't pick comes from `defaultsFor` (`src/config.ts`): its project's, then `config.toml`'s,
   then `CHOICE_DEFAULTS`. Wherever a default applies it is shown by name (`choiceText`:
-  "opus (default)"), never as a bare "default".
+  "opus[1m] (default)"), never as a bare "default". A conversation's `ranOn` is the full model id
+  its newest reply came from, read from its transcript (`src/transcript.ts`).
 - **Unattended means a mode that never asks, and a result file.** Routine runs and anything
   `hopper dispatch` starts get `unattendedPermissions` (`src/claude.ts`): `--permission-mode
 auto`, except for Haiku, which has no auto mode (Claude falls back to asking, and the run

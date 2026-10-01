@@ -519,7 +519,7 @@ describe('conversations', () => {
     expect(logged).toContain('backups for the home folder\nnightly, somewhere off this machine')
     expect(logged).toContain('|attach abc12345')
     // Picking no model or effort still tells Claude which, so the login doesn't decide.
-    expect(logged).toContain('--model opus --effort high')
+    expect(logged).toContain('--model opus[1m] --effort high')
     // The conversation is inside Hopper, and typing goes to it.
     expect(lastFrame()).toContain('CONVERSATION')
     expect(lastFrame()).toContain(' claude ')

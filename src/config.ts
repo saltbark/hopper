@@ -75,8 +75,8 @@ home = "~/hopper"
 
 # The model and effort a conversation starts with when neither it nor its project picks one.
 # Hopper always passes both to Claude, so what a conversation runs on doesn't depend on which
-# login starts it. opus and high when not set.
-# model = "opus"
+# login starts it. opus[1m] (Opus with the 1M-token context) and high when not set.
+# model = "opus[1m]"
 # effort = "high"
 
 # Overnight: drafts queued for tonight start inside this window, and one night may use up to
@@ -175,7 +175,7 @@ export function parseSettings(
 // What a conversation starts with when it doesn't say. Hopper always passes a model and an
 // effort, so "default" names the same thing whichever login runs it, and can always be shown.
 export type Choice = { model: string; effort: string }
-export const CHOICE_DEFAULTS: Choice = { model: 'opus', effort: 'high' }
+export const CHOICE_DEFAULTS: Choice = { model: 'opus[1m]', effort: 'high' }
 
 // What a draft or routine in `project` gets for what it leaves unset: the project's own choice,
 // else config.toml's, else Hopper's.

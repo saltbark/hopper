@@ -27,7 +27,7 @@ app; queued drafts start on their own (below).
 Make a draft with:
 
 ```
-hopper draft new --project <key> [--model haiku|sonnet|opus|fable] [--effort low|medium|high] \
+hopper draft new --project <key> [--model haiku|sonnet|opus|opus[1m]|fable] [--effort low|medium|high] \
   [--done "<what finished looks like>"] [--after <draft id>[,<id>…]] [--queue now|night] \
   [--proposed <who>] "<the first message>"
 ```
@@ -101,7 +101,7 @@ The prompt.
 ## Reading what Hopper sees
 
 `hopper list --json` prints everything: projects, drafts (with whether each is ready to start
-and why not), conversations (group, project, model, account, state, result), routines and recent
+and why not), conversations (group, project, model, ranOn: the full id its newest reply came from, account, state, result), routines and recent
 runs, and the last dispatch. A draft's or routine's `model` and `effort` are null where it picks
 none; it then runs with `defaults`, the project's (on each project) or Hopper's (at the top).
 `hopper status --json` adds accounts and usage.

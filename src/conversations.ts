@@ -44,7 +44,7 @@ export const recordConversation = (home: string, id: string, meta: ConversationM
   })
 
 // The models and efforts a draft cycles through; undefined means Claude's own default.
-export const MODELS = [undefined, 'haiku', 'sonnet', 'opus', 'fable'] as const
+export const MODELS = [undefined, 'haiku', 'sonnet', 'opus', 'opus[1m]', 'fable'] as const
 export const EFFORTS = [undefined, 'low', 'medium', 'high'] as const
 
 export function nextOf<T>(list: readonly (T | undefined)[], current: T | undefined): T | undefined {

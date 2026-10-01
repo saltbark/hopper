@@ -55,7 +55,7 @@ describe('settings', () => {
     expect(() => parseSettings('home = "/h"\nmodel = 3', '/c.toml')).toThrow(/model/)
   })
   it('always names a model and effort: the draft, else its project, else config, else Hopper', () => {
-    expect(defaultsFor(base())).toEqual({ model: 'opus', effort: 'high' })
+    expect(defaultsFor(base())).toEqual({ model: 'opus[1m]', effort: 'high' })
     const cfg = { ...base(), model: 'sonnet' }
     expect(defaultsFor(cfg)).toEqual({ model: 'sonnet', effort: 'high' })
     const project = { model: 'haiku', effort: 'low' }

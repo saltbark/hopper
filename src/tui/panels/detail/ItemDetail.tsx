@@ -88,9 +88,11 @@ export function ConversationDetail(props: {
       {row('project', item.key === OTHER ? 'none of Hopper’s projects' : item.key)}
       {row('cwd', tildify(item.cwd))}
       {row('login', `${item.account} · ${item.kind}`)}
-      {/* Hopper records what it started a conversation with; for one it didn't start, or started
-          before it recorded both, Claude Code doesn't say. */}
+      {/* Hopper records what it asked for when it started a conversation; for one it didn't
+          start, or started before it recorded both, Claude Code doesn't say. What it ran on is
+          the full id from its transcript. */}
       {row('model', `${item.model ?? 'not known'} · ${item.effort ?? 'not known'}`)}
+      {item.ranOn ? row('ran on', item.ranOn) : null}
       {item.routine ? row('routine', item.routine) : null}
       {item.result?.summary ? row('result', item.result.summary) : null}
       {item.id ? row('id', item.id) : null}
