@@ -117,6 +117,22 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   keys do is described once, in `src/tui/keymap.ts` (the key bar and `?` both read it); a key
   added or changed in `keys.ts` gets its line there too. `esc` goes up a level; the top level is
   a menu of single letters.
+- **Releasing** (only when asked; unattended runs never release or deploy). From the main
+  checkout on `main` with a clean tree (`scripts/release.ts` refuses otherwise):
+  `pnpm release minor` (or `patch`, `major`, a version) bumps `package.json`, writes a
+  `CHANGELOG.md` entry, commits `Release vX.Y.Z` and tags it, pushing nothing. With no terminal
+  no editor opens, so the entry is every commit subject since the last tag, `Site:` ones
+  included: rewrite it as a few plain lines about what changed in the app, amend the commit and
+  retag (`git tag -fa`), all before pushing. Then `git push origin main vX.Y.Z`. The tag runs
+  `.github/workflows/release.yml`: `pnpm check`, `scripts/pack.sh`, the GitHub Release, then
+  `pnpm site:deploy`, so the site's header names the new version (it's written in at build
+  time). Check the run (`gh run watch`) and the live page.
+- **The site** (`site/`) deploys from CI. For a site-only change, run the release workflow by
+  hand with `site` ticked (`gh workflow run release -f site=true`); that packs but publishes no
+  release. Deploying from a laptop needs the deploy token in a gitignored `.env`, which only the
+  main checkout has: from a worktree, wrangler falls back to its own login and can deploy to
+  the wrong Cloudflare account. When the app's look changes, `pnpm site:capture` recaptures
+  the frames (`site/frames.json`, committed) from the made-up world in `src/demo.ts`.
 
 ## Where things are
 

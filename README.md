@@ -40,10 +40,17 @@ pnpm link --global        # puts `hopper` on your PATH
 
 ## Releases
 
-`pnpm release patch` (or `minor`, `major`, or a version) sets the version, adds the commits since
-the last tag to `CHANGELOG.md`, commits and tags. Pushing the tag runs the release workflow on a
-Mac runner: `pnpm check`, then `scripts/pack.sh` makes `hopper.tar.gz` and its `.sha256`, and
-they go up as a GitHub Release, where `install.sh` fetches them.
+From `main` with a clean tree, `pnpm release patch` (or `minor`, `major`, or a version) sets the
+version, adds the commits since the last tag to `CHANGELOG.md` (opened in `$EDITOR` to tidy),
+commits and tags. It pushes nothing; `git push origin main vX.Y.Z` does. The tag runs the release
+workflow on a Mac runner: `pnpm check`, then `scripts/pack.sh` makes `hopper.tar.gz` and its
+`.sha256`, they go up as a GitHub Release, where `install.sh` fetches them, and the website is
+deployed so it names the new version.
+
+The website, [hopper.saltbark.com](https://hopper.saltbark.com), is `site/`. Its terminal is the
+real app, captured against a made-up world (`pnpm site:capture` when the app's look changes).
+Run the release workflow by hand with `site` ticked to deploy it without a release. The deploy
+needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository secrets.
 
 ## The list
 
