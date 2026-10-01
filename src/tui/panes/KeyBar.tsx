@@ -20,8 +20,10 @@ const keys = (list: Hint[]) =>
 const hintText = (list: Hint[]) => list.map(([k, d]) => `${k} ${d}`).join(' · ')
 
 // After the keys for where you are, a few that work from anywhere. The line truncates from the
-// end; ? sits at the right with the panel's name, so it never does.
+// end; ? sits at the right with the panel's name, so it never does. → and ← come first: in and out
+// of a conversation is the move made most.
 const GLOBAL: Hint[] = [
+  ['→ ←', 'open and back'],
   ['p', 'find a project'],
   ['tab', 'new conversation'],
   ['n', 'next waiting'],
@@ -149,8 +151,19 @@ export function KeyBar(props: {
   // The focused panel's keys for what is selected, then the global ones it doesn't already name.
   // The panel is named at the right, so it is known even without colour.
   // A routine's reports keep the keyboard to themselves, so none of the global keys apply.
-  const local = barKeys(here)
-  const global = here.reports ? [] : GLOBAL.filter(([k]) => !local.some(([l]) => l === k))
+  // A key the global ones already show (→) is left off the local hint.
+  const bar = barKeys(here)
+  const global = here.reports ? [] : GLOBAL.filter(([k]) => !bar.some(([l]) => l === k))
+  const shown = new Set(global.flatMap(([k]) => k.split(' ')))
+  const local = bar
+    .map(([k, d]): Hint => [
+      k
+        .split(' ')
+        .filter((t) => !shown.has(t))
+        .join(' '),
+      d,
+    ])
+    .filter(([k]) => k)
   const where = here.reports ? hereKeys(here).label : focus === 'work' ? 'conversations' : focus
   return (
     <Box justifyContent="space-between">
