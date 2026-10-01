@@ -1,3 +1,5 @@
+import { DIM_DEFAULT } from '../config.ts'
+
 // Hopper's colours, in one place so no panel names a colour of its own. Hex, so they look the
 // same whatever the terminal's theme; chalk drops them to the nearest of 256 where truecolor isn't
 // there. They assume a dark background.
@@ -87,10 +89,10 @@ export const SPIN_FRAMES = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
 export const SPIN_MS = 120
 
 // A panel without the keys is drawn a step darker, so the eye goes to the one that has them.
-// Every truecolor foreground keeps this much of its brightness; where the terminal has only 256
-// colours, the line is drawn faint instead. Backgrounds and borders are left alone (the border
-// already turns from focus to line).
-const KEEP = 0.62
+// Every truecolor foreground keeps 100 - dim percent of its brightness (config.toml's dim, set
+// with setDim); where the terminal has only 256 colours, the line is drawn faint instead, unless
+// dim is 0. Backgrounds and borders are left alone (the border already turns from focus to line).
+let keep = 1 - DIM_DEFAULT / 100
 const ESC = '\u001b['
 // A foreground colour, at the start of what follows an ESC [.
 const TRUECOLOR = /^38;2;(\d+);(\d+);(\d+)m/
@@ -103,7 +105,16 @@ const SEL_BG = `${ESC}48;2;${[1, 3, 5].map((i) => parseInt(T.sel.slice(i, i + 2)
 const dimmed = new Map<string, string>()
 const DIM_KEPT = 4000
 
+// The app calls this on every render with config.toml's dim; a new amount forgets what was kept.
+export function setDim(percent: number): void {
+  const next = 1 - percent / 100
+  if (next === keep) return
+  keep = next
+  dimmed.clear()
+}
+
 export function dimLine(line: string): string {
+  if (keep === 1) return line
   let out = dimmed.get(line)
   if (out === undefined) {
     if (dimmed.size >= DIM_KEPT) dimmed.clear()
@@ -120,7 +131,7 @@ function darken(line: string): string {
       .split(ESC)
       .map((part) =>
         part.replace(TRUECOLOR, (_, r: string, g: string, b: string) => {
-          const [x, y, z] = [r, g, b].map((v) => Math.round(Number(v) * KEEP))
+          const [x, y, z] = [r, g, b].map((v) => Math.round(Number(v) * keep))
           return `38;2;${x};${y};${z}m`
         }),
       )

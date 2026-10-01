@@ -85,6 +85,23 @@ describe('rows', () => {
   })
 })
 
+describe('the dim row', () => {
+  const dim = (c: Config) => buildRows(c, null, [], []).find((r) => r.id === 'general.dim')
+  it('names the default, calls 0 off, and steps darker from the default before wrapping', () => {
+    expect(dim(base('/h'))).toMatchObject({ value: '38 (default)', raw: '', isSet: false })
+    expect(dim({ ...base('/h'), dim: 0 })).toMatchObject({
+      value: '0 (off)',
+      raw: '0',
+      isSet: true,
+    })
+    const row = dim({ ...base('/h'), dim: 65 })
+    if (row?.kind !== 'setting' || row.edit.type !== 'choice') throw new Error('not a choice')
+    expect(nextOption(row.edit.options, '')).toBe('50')
+    expect(nextOption(row.edit.options, '80')).toBe('0')
+    expect(nextOption(row.edit.options, '20')).toBe('')
+  })
+})
+
 describe('the settings screen', () => {
   it('opens with a comma, changes a choice with enter, and writes it to projects.toml', async () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-settings-'))

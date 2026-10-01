@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { activeRows, rollUp, type ProjectStat } from '../active.ts'
 import { caffeinate, canKeepAwake, type KeepAwake } from '../awake.ts'
 import { playChime, type Chime } from '../chime.ts'
-import { defaultsFor, prefixesOf, saveAccounts, type Config } from '../config.ts'
+import { defaultsFor, DIM_DEFAULT, prefixesOf, saveAccounts, type Config } from '../config.ts'
 import {
   draftSessionId,
   gather,
@@ -56,6 +56,7 @@ import {
   type Reports,
   type Sel,
 } from './state.ts'
+import { setDim } from './theme.ts'
 
 export type { Loader }
 export type Saver = typeof saveAccounts
@@ -100,6 +101,8 @@ export function App({
   const { columns, rows } = useWindowSize()
 
   const [config, setConfig] = useState(initialConfig)
+  // Before anything draws: the panels without the keys are darkened by this much.
+  setDim(config.dim ?? DIM_DEFAULT)
   const [focus, setFocus] = useState<Focus>('work')
   // The conversations open, the one last gone into first. Each keeps running while you're
   // elsewhere, and shows in the right panel whenever its row is selected.

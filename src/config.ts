@@ -57,6 +57,8 @@ export type Config = {
   home: string
   // config.toml's sound, when set; see chime.ts.
   sound?: string
+  // config.toml's dim, when set: how much darker a panel without the keys is drawn, in percent.
+  dim?: number
   // config.toml's model and effort, when set; see defaultsFor.
   model?: string
   effort?: string
@@ -72,6 +74,10 @@ home = "~/hopper"
 # Played when a conversation stops running and waits on you: a macOS sound (Glass, Ping, Pop,
 # Tink, Hero, Submarine, ...), "bell" for the terminal's own, or "off". Glass when not set.
 # sound = "Glass"
+
+# How much darker the panels without the keys are drawn, in percent: 0 is not at all, 80 the
+# most. Where the terminal has only 256 colours, anything above 0 draws them faint. 38 when not set.
+# dim = 38
 
 # The model and effort a conversation starts with when neither it nor its project picks one.
 # Hopper always passes both to Claude, so what a conversation runs on doesn't depend on which
@@ -138,10 +144,21 @@ function parseOvernight(raw: Record<string, unknown>, where: string): Overnight 
   return out
 }
 
+// config.toml's dim: Hopper's own amount, and the most it may be. At 100 the text would be black.
+export const DIM_DEFAULT = 38
+export const DIM_MAX = 80
+
 export function parseSettings(
   text: string,
   path: string,
-): { home: string; sound?: string; model?: string; effort?: string; overnight: Overnight } {
+): {
+  home: string
+  sound?: string
+  dim?: number
+  model?: string
+  effort?: string
+  overnight: Overnight
+} {
   let raw: Record<string, unknown>
   try {
     raw = parse(text) as Record<string, unknown>
@@ -154,6 +171,18 @@ export function parseSettings(
   const sound = raw['sound']
   if (sound !== undefined && (typeof sound !== 'string' || !sound))
     throw new ConfigError(`${tildify(path)}: "sound" must be a sound's name, "bell" or "off"`)
+  // Written as a number or a string, like the overnight numbers.
+  const rawDim = raw['dim']
+  const dim =
+    typeof rawDim === 'number'
+      ? rawDim
+      : typeof rawDim === 'string' && rawDim.trim()
+        ? Number(rawDim)
+        : rawDim === undefined
+          ? undefined
+          : NaN
+  if (dim !== undefined && (!Number.isInteger(dim) || dim < 0 || dim > DIM_MAX))
+    throw new ConfigError(`${tildify(path)}: "dim" is a whole number from 0 to ${DIM_MAX}`)
   const choice: { model?: string; effort?: string } = {}
   for (const key of ['model', 'effort'] as const) {
     const v = raw[key]
@@ -167,6 +196,7 @@ export function parseSettings(
   return {
     home: expandHome(home),
     ...(sound ? { sound } : {}),
+    ...(dim !== undefined ? { dim } : {}),
     ...choice,
     overnight: parseOvernight(raw, tildify(path)),
   }

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 import { DEFAULT_SOUND } from '../chime.ts'
 import {
+  DIM_DEFAULT,
   loadConfig,
   parsePrefixList,
   prefixesOf,
@@ -80,7 +81,15 @@ export function makeSettingsActions(ctx: AppCtx, commit: Commit) {
         const sound = value ?? DEFAULT_SOUND
         ctx.chime(sound)
         setMessage(sound === 'off' ? 'No sound.' : `Sound: ${sound}`)
-      } else setMessage(`${key} saved`)
+      } else if (key === 'dim')
+        setMessage(
+          value === '0'
+            ? 'No dimming.'
+            : value === null
+              ? `Dim: ${DIM_DEFAULT}% (default)`
+              : `Dim: ${value}%`,
+        )
+      else setMessage(`${key} saved`)
     } catch (e) {
       setMessage(`Not saved: ${(e as Error).message}`)
     }

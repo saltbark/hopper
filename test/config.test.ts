@@ -47,6 +47,13 @@ describe('settings', () => {
     expect(parseSettings('home = "/h"', '/c.toml').sound).toBeUndefined()
     expect(() => parseSettings('home = "/h"\nsound = 3', '/c.toml')).toThrow(/sound/)
   })
+  it('reads the dim, a whole number from 0 to 80, as a number or a string', () => {
+    expect(parseSettings('home = "/h"\ndim = 50', '/c.toml').dim).toBe(50)
+    expect(parseSettings('home = "/h"\ndim = "0"', '/c.toml').dim).toBe(0)
+    expect(parseSettings('home = "/h"', '/c.toml').dim).toBeUndefined()
+    for (const bad of ['81', '-1', '12.5', '"lots"', 'true'])
+      expect(() => parseSettings(`home = "/h"\ndim = ${bad}`, '/c.toml')).toThrow(/dim/)
+  })
   it('reads the model and effort, which are optional', () => {
     const s = parseSettings('home = "/h"\nmodel = "sonnet"\neffort = "low"', '/c.toml')
     expect(s.model).toBe('sonnet')

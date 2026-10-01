@@ -1,9 +1,9 @@
 import { Text } from 'ink'
 import { render } from 'ink-testing-library'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { Frame } from '../src/tui/panels/primitives.tsx'
-import { dimLine } from '../src/tui/theme.ts'
+import { dimLine, setDim } from '../src/tui/theme.ts'
 
 const E = '\u001b['
 const coloured = `${E}38;2;200;100;50mhi${E}39m plain`
@@ -21,6 +21,22 @@ describe('dimLine', () => {
   })
   it('draws the line faint where there are only 256 colours', () => {
     expect(dimLine(`${E}38;5;110mhi${E}39m`)).toBe(`${E}2m${E}38;5;110mhi${E}39m${E}22m`)
+  })
+})
+
+describe('setDim', () => {
+  afterEach(() => setDim(38))
+  it('darkens by the amount set, forgetting lines darkened by the last one', () => {
+    expect(dimLine(coloured)).toContain('38;2;124;62;31m')
+    setDim(50)
+    expect(dimLine(coloured)).toContain('38;2;100;50;25m')
+    setDim(80)
+    expect(dimLine(coloured)).toContain('38;2;40;20;10m')
+  })
+  it('leaves every line alone at 0, faint ones included', () => {
+    setDim(0)
+    expect(dimLine(coloured)).toBe(coloured)
+    expect(dimLine(`${E}38;5;110mhi${E}39m`)).toBe(`${E}38;5;110mhi${E}39m`)
   })
 })
 

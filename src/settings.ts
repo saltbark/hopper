@@ -9,6 +9,7 @@ import {
   CHOICE_DEFAULTS,
   defaultAccount,
   defaultsFor,
+  DIM_DEFAULT,
   OVERNIGHT_DEFAULTS,
   OVERNIGHT_KEYS,
   prefixesOf,
@@ -80,7 +81,10 @@ export const removeEntry = (doc: ProjectsDoc, table: TableName, index: number): 
 // ---------- rows ----------
 
 export type Target =
-  | { file: 'config'; field: 'home' | 'sound' | 'model' | 'effort' | keyof typeof OVERNIGHT_KEYS }
+  | {
+      file: 'config'
+      field: 'home' | 'sound' | 'dim' | 'model' | 'effort' | keyof typeof OVERNIGHT_KEYS
+    }
   | { file: 'accounts'; account: string; field: 'label' | 'prefixes' | 'default' }
   | { file: 'projects'; table: TableName; index: number; field: string }
 
@@ -120,6 +124,9 @@ const hopperOptions = (list: readonly (string | undefined)[], def: string) => [
 ]
 // '' is the default sound, so it isn't listed again under its name.
 const soundOptions = ['', ...SOUNDS.filter((s) => s !== DEFAULT_SOUND)]
+// From the default upwards, then round through off: ⏎ always steps darker until it wraps.
+const dimOptions = ['', '50', '65', '80', '0', '20']
+const dimText = (n: number) => (n === 0 ? '0 (off)' : String(n))
 
 export function buildRows(
   config: Config,
@@ -159,6 +166,18 @@ export function buildRows(
     file: 'config',
     edit: { type: 'choice', options: soundOptions, fallback: DEFAULT_SOUND },
     target: { file: 'config', field: 'sound' },
+  })
+  rows.push({
+    kind: 'setting',
+    id: 'general.dim',
+    label: 'dim',
+    value: config.dim === undefined ? `${DIM_DEFAULT} (default)` : dimText(config.dim),
+    raw: config.dim === undefined ? '' : String(config.dim),
+    isSet: config.dim !== undefined,
+    help: 'How much darker the panels without the keys are drawn, in percent, so the eye goes to the one that has them. 0 is not at all, 80 the most. Where the terminal has only 256 colours, anything above 0 draws them faint.',
+    file: 'config',
+    edit: { type: 'choice', options: dimOptions, fallback: String(DIM_DEFAULT) },
+    target: { file: 'config', field: 'dim' },
   })
   const choiceHelp = {
     model:
