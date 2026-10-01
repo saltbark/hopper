@@ -14,7 +14,22 @@ Mac only for now.
 
 ## Install
 
-You need Node 22.6 or later, pnpm, and [Claude Code](https://claude.com/claude-code), signed in.
+You need Node 22.6 or later and [Claude Code](https://claude.com/claude-code), signed in.
+
+```sh
+curl -fsSL https://hopper.saltbark.com/install.sh | sh
+```
+
+That puts the latest release in `~/.hopper/app` and links `~/.local/bin/hopper`. Run it again to
+upgrade, or set `HOPPER_VERSION=0.1.0` for a particular one. Then:
+
+```sh
+hopper init               # config, home folder, and your current Claude login as the first account
+hopper status             # what Hopper sees, as text
+hopper                    # the app
+```
+
+To build it from source instead, you also need pnpm:
 
 ```sh
 git clone https://github.com/saltbark/hopper.git
@@ -23,13 +38,12 @@ pnpm install && pnpm build
 pnpm link --global        # puts `hopper` on your PATH
 ```
 
-Then:
+## Releases
 
-```sh
-hopper init               # config, home folder, and your current Claude login as the first account
-hopper status             # what Hopper sees, as text
-hopper                    # the app
-```
+`pnpm release patch` (or `minor`, `major`, or a version) sets the version, adds the commits since
+the last tag to `CHANGELOG.md`, commits and tags. Pushing the tag runs the release workflow on a
+Mac runner: `pnpm check`, then `scripts/pack.sh` makes `hopper.tar.gz` and its `.sha256`, and
+they go up as a GitHub Release, where `install.sh` fetches them.
 
 ## The list
 

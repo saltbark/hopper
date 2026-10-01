@@ -1,5 +1,6 @@
 // Builds the website into site/dist: the page, with the captured frames turned into rows of
-// styled runs that the page draws on a canvas.
+// styled runs that the page draws on a canvas, the latest release's version written in (so the
+// page never asks GitHub from the browser), and install.sh.
 // Run pnpm site:capture first when the app's look has changed; frames.json is committed.
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -16,10 +17,17 @@ const drawn = Object.fromEntries(Object.entries(frames).map(([id, f]) => [id, an
 const listLength = Object.keys(frames).filter((id) => id.startsWith('list-')).length
 // Inside a <script> element, so "</" must not appear as such.
 const json = JSON.stringify({ columns, rows, listLength, frames: drawn }).replace(/<\//g, '<\\/')
-const page = (await readFile(join(here, 'index.html'), 'utf8')).replace('/*FRAMES*/', () => json)
+const latest = await fetch('https://api.github.com/repos/saltbark/hopper/releases/latest')
+  .then((r) => (r.ok ? (r.json() as Promise<{ tag_name: string }>) : null))
+  .then((r) => r?.tag_name ?? '')
+  .catch(() => '')
+const page = (await readFile(join(here, 'index.html'), 'utf8'))
+  .replace('/*FRAMES*/', () => json)
+  .replace('__VERSION__', latest)
 await mkdir(join(here, 'dist'), { recursive: true })
 await writeFile(join(here, 'dist', 'index.html'), page)
 await copyFile(join(here, 'frog.svg'), join(here, 'dist', 'frog.svg'))
+await copyFile(join(here, 'install.sh'), join(here, 'dist', 'install.sh'))
 console.log(
-  `site/dist/index.html: ${Object.keys(drawn).length} frames, ${Math.round(page.length / 1024)} KB`,
+  `site/dist/index.html: ${Object.keys(drawn).length} frames, ${Math.round(page.length / 1024)} KB, latest release ${latest || 'none'}`,
 )
