@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 (2026-10-01)
+
+- Typing a draft no longer leaves a blank line after a line that reaches the right edge of the
+  panel. It happened when a word ended exactly at the edge, or when the cursor sat at the end of a
+  full line.
+
 ## 0.4.0 (2026-10-01)
 
 - Dimming is a setting: Settings has a `dim` row under General for how much darker the panels
