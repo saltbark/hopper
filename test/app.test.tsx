@@ -111,9 +111,10 @@ const press = async (stdin: { write: (s: string) => void }, keys: string) => {
 // After esc a draft is saved and selected on the list, its text on the right.
 const onList = (frame: () => string | undefined) =>
   until(() => (frame() ?? '').includes('⏎ TO KEEP WRITING')) // the heading is upper case
-// The key bar names the focused panel at its right end.
-const focusOf = (frame: string | undefined) =>
-  (frame ?? '').trimEnd().split('\n').at(-1)?.trim().split(/\s+/).at(-1)
+// The panel with the keyboard, as the app last said (onFocus): the screen shows it only in colour.
+let focused = ''
+const onFocus = (panel: string) => void (focused = panel)
+const focusOf = () => focused
 
 describe('the list order', () => {
   it('puts routines soonest to run first, then the ones with no next run, each by name', () => {
@@ -128,10 +129,12 @@ describe('the list order', () => {
 
 describe('App', () => {
   it('opens on Conversations and shows both accounts, the queue and what needs you', async () => {
-    const { lastFrame, unmount } = render(<App config={config} load={async () => snapshot} />)
+    const { lastFrame, unmount } = render(
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
+    )
     await tick()
     const f = lastFrame() ?? ''
-    expect(focusOf(f)).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     expect(f).toContain('p find a project')
     expect(f).toContain('41%')
     expect(f).toContain('pm  not signed in')
@@ -143,7 +146,12 @@ describe('App', () => {
   it('titles the tab with how many conversations need you', async () => {
     const titles: string[] = []
     const { unmount } = render(
-      <App config={config} load={async () => snapshot} setTitle={(t) => titles.push(t)} />,
+      <App
+        onFocus={onFocus}
+        config={config}
+        load={async () => snapshot}
+        setTitle={(t) => titles.push(t)}
+      />,
     )
     await until(() => titles.at(-1) === 'Hopper (1)')
     expect(titles.at(0)).toBe('Hopper')
@@ -153,7 +161,7 @@ describe('App', () => {
 
   it('lists only the projects with something going on, by full key', async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     expect(lastFrame()).toContain('meta/inbox')
@@ -166,7 +174,7 @@ describe('App', () => {
 
   it('x quits only when pressed twice', async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     await press(stdin, 'x')
@@ -187,25 +195,32 @@ describe('App', () => {
     return { held, keepAwake }
   }
   const barOf = (frame: string | undefined) => (frame ?? '').trimEnd().split('\n').at(-1) ?? ''
+  // The emoji cup, last on the line: the same column on every screen.
+  const CUP_LAST = /\u2615\uFE0F$/
 
   it('z holds the Mac awake, with ☕ at the end of the key bar, until z again; it is kept', async () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
     const { held, keepAwake } = fakeAwake()
     const { lastFrame, stdin, unmount } = render(
-      <App config={{ ...config, home }} load={async () => snapshot} keepAwake={keepAwake} />,
+      <App
+        onFocus={onFocus}
+        config={{ ...config, home }}
+        load={async () => snapshot}
+        keepAwake={keepAwake}
+      />,
     )
     await tick()
     expect(barOf(lastFrame())).not.toContain('☕')
     await press(stdin, 'z')
     expect(held.now).toBe(1)
     expect(lastFrame()).toContain('Keeping this Mac awake')
-    expect(barOf(lastFrame()).trimEnd()).toMatch(/☕$/)
-    await press(stdin, 'j') // the message goes; the ☕ stays
-    expect(barOf(lastFrame()).trimEnd()).toMatch(/☕$/)
+    expect(barOf(lastFrame()).trimEnd()).toMatch(CUP_LAST)
+    await press(stdin, 'j') // the message goes; the ☕ stays, after ? all keys
+    expect(barOf(lastFrame()).trimEnd()).toMatch(/all keys {2}\u2615\uFE0F$/)
     await until(async () => (await loadAwake(home)) === true)
     expect(await loadAwake(home)).toBe(true)
     await press(stdin, ',') // on every screen
-    expect(barOf(lastFrame()).trimEnd()).toMatch(/☕$/)
+    expect(barOf(lastFrame()).trimEnd()).toMatch(CUP_LAST)
     await press(stdin, '\u001b')
     await press(stdin, 'z')
     expect(held.now).toBe(0)
@@ -221,12 +236,17 @@ describe('App', () => {
     await saveAwake(home, true)
     const { held, keepAwake } = fakeAwake()
     const { lastFrame, unmount } = render(
-      <App config={{ ...config, home }} load={async () => snapshot} keepAwake={keepAwake} />,
+      <App
+        onFocus={onFocus}
+        config={{ ...config, home }}
+        load={async () => snapshot}
+        keepAwake={keepAwake}
+      />,
     )
     await until(() => held.now === 1)
     expect(held.now).toBe(1)
     await tick()
-    expect(barOf(lastFrame()).trimEnd()).toMatch(/☕$/)
+    expect(barOf(lastFrame()).trimEnd()).toMatch(CUP_LAST)
     unmount()
     expect(held.now).toBe(0)
   })
@@ -235,7 +255,12 @@ describe('App', () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
     await saveAwake(home, true)
     const { lastFrame, stdin, unmount } = render(
-      <App config={{ ...config, home }} load={async () => snapshot} keepAwake={null} />,
+      <App
+        onFocus={onFocus}
+        config={{ ...config, home }}
+        load={async () => snapshot}
+        keepAwake={null}
+      />,
     )
     await tick()
     await press(stdin, 'z')
@@ -246,38 +271,38 @@ describe('App', () => {
 
   it('p finds as you type and ⏎ focuses it; esc comes back to the list, then shows every project', async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     await press(stdin, 'p')
-    expect(focusOf(lastFrame())).toBe('projects')
+    expect(focusOf()).toBe('projects')
     expect(lastFrame()).toContain(' find ')
     await press(stdin, 'ide')
     expect(lastFrame()).toContain(' find   ide')
     expect(lastFrame()).toContain(' 1 found ─╮')
     await press(stdin, '\r')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     expect(lastFrame()).toMatch(/\(c\) ─+ meta\/ideas/)
     expect(lastFrame()).toContain('Nothing going on.')
     // Back in Projects nothing is typed, and esc leaves the list as it was.
     await press(stdin, 'p')
     expect(lastFrame()).not.toContain('found ─╮')
     await press(stdin, '\u001b')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     expect(lastFrame()).toMatch(/\(c\) ─+ meta\/ideas/)
     await press(stdin, '\u001b')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     expect(lastFrame()).toMatch(/\(c\) ─+ all projects/)
     expect(lastFrame()).toContain('Sort t')
     // It never goes up to Projects.
     await press(stdin, '\u001b')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     unmount()
   })
 
   it('a folder found narrows the list to every project in it, and tab there says to pick one', async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     await press(stdin, 'p')
@@ -291,7 +316,7 @@ describe('App', () => {
 
   it('a click selects a project, and a second click on it focuses it, as ⏎ would', async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     // The list has the keyboard, so the first click is only a select. Mouse lines count from 1;
@@ -299,9 +324,9 @@ describe('App', () => {
     const y = (lastFrame() ?? '').split('\n').findIndex((l) => /meta\/inbox +\d/.test(l)) + 1
     const click = `\u001b[<0;40;${y}M`
     await press(stdin, `\u001b[<35;40;${y}M`) // moving over it changes nothing
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     await press(stdin, click)
-    expect(focusOf(lastFrame())).toBe('projects')
+    expect(focusOf()).toBe('projects')
     expect(lastFrame()).toMatch(/\(c\) ─+ all projects/)
     await press(stdin, click)
     expect(lastFrame()).toMatch(/\(c\) ─+ meta\/inbox/)
@@ -310,12 +335,12 @@ describe('App', () => {
 
   it('a click selects an account', async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     const y = (lastFrame() ?? '').split('\n').findIndex((l) => l.includes('pm  not signed in'))
     await press(stdin, `\u001b[<0;5;${y + 1}M`)
-    expect(focusOf(lastFrame())).toBe('accounts')
+    expect(focusOf()).toBe('accounts')
     expect(lastFrame()).toContain('│▌pm  not signed in')
     expect(lastFrame()).toContain('pm · Pinemoor')
     unmount()
@@ -323,12 +348,12 @@ describe('App', () => {
 
   it('the wheel moves the selection in the list under the pointer, and a click focuses it', async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     // The list is under the band of accounts and projects, across the first 68 columns.
     await press(stdin, '\u001b[<0;40;12M')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     await press(stdin, '\u001b[<65;40;12M')
     // Down one: from the waiting session to the running one, shown in SELECTED.
     expect(lastFrame()).toContain('Sort t')
@@ -337,16 +362,16 @@ describe('App', () => {
 
   it('moving over a row leaves the selection alone; a click selects it', async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     // The list's frame starts on line 9: a heading, the waiting session, a gap, a heading, then
     // the running one on line 14.
     await press(stdin, 'v')
     await press(stdin, '\u001b[<35;20;14M')
-    expect(focusOf(lastFrame())).toBe('done')
+    expect(focusOf()).toBe('done')
     await press(stdin, '\u001b[<0;20;14M')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     expect(lastFrame()).toMatch(/│ Sort the inbox  +│/)
     // A click on a heading only gives the list the keyboard.
     await press(stdin, '\u001b[<0;20;10M')
@@ -364,11 +389,13 @@ describe('App', () => {
     }
     const item = { ...draftSession(d, projects, 'bh'), where: 'needs' as const, key: 'meta/inbox' }
     const snap = { ...snapshot, drafts: [d], items: [item] }
-    const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={config} load={async () => snap} />,
+    )
     await tick()
     await press(stdin, 'v') // from Done, so the first click only gives the list the keyboard
     await press(stdin, '\u001b[<0;20;11M')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     expect(lastFrame()).not.toContain('NEW CONVERSATION')
     await press(stdin, '\u001b[<0;20;11M')
     expect(lastFrame()).toContain('NEW CONVERSATION')
@@ -376,15 +403,15 @@ describe('App', () => {
   })
 
   it('← on the list stays on the list; Projects is p', async () => {
-    const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+    const { stdin, unmount } = render(
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     await press(stdin, '\u001b[D')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     await press(stdin, 'v')
     await press(stdin, '\u001b[D')
-    expect(focusOf(lastFrame())).toBe('done')
+    expect(focusOf()).toBe('done')
     unmount()
   })
 
@@ -398,7 +425,9 @@ describe('App', () => {
     }
     const item = { ...draftSession(d, projects, 'bh'), where: 'needs' as const, key: 'meta/inbox' }
     const snap = { ...snapshot, drafts: [d], items: [item] }
-    const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={config} load={async () => snap} />,
+    )
     await tick()
     await press(stdin, '\u001b[C') // → opens the draft, as ⏎ would
     expect(lastFrame()).toContain(' draft ')
@@ -416,7 +445,9 @@ describe('App', () => {
     }
     const item = { ...draftSession(d, projects, 'bh'), where: 'needs' as const, key: 'meta/inbox' }
     const snap = { ...snapshot, drafts: [d], items: [item] }
-    const { lastFrame, stdin, unmount } = render(<App config={config} load={async () => snap} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={config} load={async () => snap} />,
+    )
     await tick()
     // The list has the keyboard; the draft's details are on the right.
     expect(lastFrame()).not.toContain('NEW CONVERSATION')
@@ -429,7 +460,7 @@ describe('App', () => {
 
   it('tab in Projects starts a conversation in the one found, and esc then comes back to the list', async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     await press(stdin, 'p')
@@ -441,17 +472,17 @@ describe('App', () => {
     expect(lastFrame()).toContain('all proje')
     await press(stdin, '\u001b')
     expect(lastFrame()).not.toContain('NEW CONVERSATION')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     unmount()
   })
 
   it('v goes to Done, below the one list', async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} />,
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     await press(stdin, 'v')
-    expect(focusOf(lastFrame())).toBe('done')
+    expect(focusOf()).toBe('done')
     expect(lastFrame()).toContain('Nothing done.')
     unmount()
   })
@@ -459,7 +490,12 @@ describe('App', () => {
   it('edits an account from the accounts panel and saves it', async () => {
     const saved: Config[] = []
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} save={async (c) => void saved.push(c)} />,
+      <App
+        onFocus={onFocus}
+        config={config}
+        load={async () => snapshot}
+        save={async (c) => void saved.push(c)}
+      />,
     )
     await tick()
     await press(stdin, 'a')
@@ -486,7 +522,12 @@ describe('App', () => {
   it('refuses a bad prefix without saving, and says why', async () => {
     const saved: Config[] = []
     const { lastFrame, stdin, unmount } = render(
-      <App config={config} load={async () => snapshot} save={async (c) => void saved.push(c)} />,
+      <App
+        onFocus={onFocus}
+        config={config}
+        load={async () => snapshot}
+        save={async (c) => void saved.push(c)}
+      />,
     )
     await tick()
     await press(stdin, 'a')
@@ -559,7 +600,7 @@ describe('conversations', () => {
 
   it('tab opens a draft where enter is a new line; esc leaves it on the list, s starts it', async () => {
     const { cfg, projects, log, live } = await setup()
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     expect(lastFrame()).toContain('NEW CONVERSATION')
@@ -599,7 +640,7 @@ describe('conversations', () => {
     expect(lastFrame()).toContain('you said: thanks')
     // ctrl+] comes back to Hopper and leaves the conversation live in the panel; ⏎ goes back in.
     await press(stdin, '\u001d')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     expect(lastFrame()).toContain('you said: thanks')
     await press(stdin, '\r')
     expect(lastFrame()).toContain(' claude ')
@@ -618,7 +659,7 @@ describe('conversations', () => {
     await press(stdin, 'leave')
     await press(stdin, '\r')
     await until(() => (lastFrame() ?? '').includes('back in the conversation'))
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     expect(lastFrame()).toContain('back in the conversation')
     // → goes back in.
     await press(stdin, '\u001b[C')
@@ -630,7 +671,7 @@ describe('conversations', () => {
     await until(() => (lastFrame() ?? '').includes('the prompt box'))
     await new Promise((r) => setTimeout(r, 200))
     await press(stdin, '\u001b[D')
-    expect(focusOf(lastFrame())).toBe('conversations')
+    expect(focusOf()).toBe('conversations')
     await press(stdin, '\u001b[C')
     await press(stdin, 'clean')
     await press(stdin, '\r')
@@ -655,7 +696,7 @@ describe('conversations', () => {
       proposed: 'groomer',
       done: 'the README matches the commands',
     })
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} />)
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} />)
     await tick()
     await press(stdin, 'c')
     await until(() => (lastFrame() ?? '').includes('PROPOSED 1'))
@@ -682,7 +723,7 @@ describe('conversations', () => {
 
   it('esc keeps a draft on the list; only enter goes back to writing; d throws it away', async () => {
     const { home, cfg } = await setup()
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} />) // the real loader: drafts come from disk
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} />) // the real loader: drafts come from disk
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'maybe a weekly digest')
@@ -713,7 +754,9 @@ describe('conversations', () => {
 
   it('the draft is a real text box: arrows move the cursor, shift selects, typing replaces', async () => {
     const { cfg, snap } = await setup()
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={cfg} load={async () => snap} />,
+    )
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'hello world')
@@ -737,7 +780,7 @@ describe('conversations', () => {
 
   it('m and e choose the model and effort, and they go to Claude and are recorded', async () => {
     const { home, cfg, log, live } = await setup()
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'sort the inbox')
@@ -764,7 +807,7 @@ describe('conversations', () => {
 
   it('r turns a draft into a routine and saves it', async () => {
     const { home, cfg, live } = await setup()
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'triage the inbox')
@@ -824,7 +867,7 @@ describe('conversations', () => {
       ),
     }
     const { lastFrame, stdin, unmount } = render(
-      <App config={cfg} load={async () => withRoutine} />,
+      <App onFocus={onFocus} config={cfg} load={async () => withRoutine} />,
     )
     await tick()
     await press(stdin, 'c')
@@ -900,7 +943,7 @@ describe('conversations', () => {
       ).map((i) => (i.kind === 'routine' ? { ...i, unread: 1 } : i)),
     }
     const { lastFrame, stdin, unmount } = render(
-      <App config={cfg} load={async () => withReports} />,
+      <App onFocus={onFocus} config={cfg} load={async () => withReports} />,
     )
     await tick()
     await press(stdin, 'c')
@@ -959,7 +1002,7 @@ describe('conversations', () => {
 
   it('w moves a draft to another project before it starts', async () => {
     const { home, cfg, live } = await setup()
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'an idea')
@@ -979,7 +1022,7 @@ describe('conversations', () => {
 
   it('p still goes to Projects with a draft selected', async () => {
     const { cfg, live } = await setup()
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'an idea')
@@ -987,14 +1030,14 @@ describe('conversations', () => {
     await onList(lastFrame)
     await press(stdin, 'p')
     expect(lastFrame()).not.toContain('MOVE TO PROJECT')
-    expect(focusOf(lastFrame())).toBe('projects')
+    expect(focusOf()).toBe('projects')
     done()
     unmount()
   })
 
   it('an untrusted folder says so and offers T, keeping the draft', async () => {
     const { home, cfg, live } = await setup({ untrusted: true })
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={live} />)
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
     await tick()
     await press(stdin, '\t')
     await press(stdin, 'hello')
@@ -1023,7 +1066,9 @@ describe('conversations', () => {
         projects,
       ),
     }
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={cfg} load={async () => snap} />,
+    )
     await tick()
     await press(stdin, 'n')
     const said = async (text: string) => {
@@ -1072,7 +1117,9 @@ describe('conversations', () => {
         projects,
       ),
     }
-    const { lastFrame, stdin, unmount } = render(<App config={cfg} load={async () => snap} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={cfg} load={async () => snap} />,
+    )
     await tick()
     await press(stdin, 'n')
     expect(lastFrame()).toContain('Backups chat')
@@ -1098,8 +1145,10 @@ describe('on hold', () => {
       }))
       return { ...snapshot, items }
     }
-    const { lastFrame, stdin, unmount } = render(<App config={{ ...config, home }} load={load} />)
-    await tick()
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={{ ...config, home }} load={load} />,
+    )
+    await until(() => (lastFrame() ?? '').includes('WAITING ON YOU 1'))
     expect(lastFrame()).toContain('WAITING ON YOU 1')
     await press(stdin, 'n')
     await press(stdin, 'h')

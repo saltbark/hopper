@@ -42,7 +42,7 @@ export const ANYWHERE: Hint[] = [
   ['a', 'accounts'],
   ['→ ←', 'into a conversation and back'],
   [',', 'settings'],
-  ...(canKeepAwake ? [['z', 'keep this Mac awake (☕), or let it sleep'] as Hint] : []),
+  ...(canKeepAwake ? [['z', 'keep this Mac awake, or let it sleep'] as Hint] : []),
   ['R', 'refresh'],
   ['esc', 'back'],
   ['x x', 'quit'],
