@@ -193,22 +193,16 @@
         padding: 12px 14px 14px;
         overflow: hidden;
       }
-      pre.term {
-        margin: 0;
-        color: var(--term-fg);
-        font-size: 12px;
-        line-height: 1.22;
-        letter-spacing: 0;
-        white-space: pre;
-        font-variant-ligatures: none;
+      canvas.term {
+        display: block;
       }
-      /* A glyph the web font lacks: one column wide, whatever font draws it. */
-      pre.term .g {
-        display: inline-block;
-        width: 1ch;
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
         overflow: hidden;
-        text-align: center;
-        vertical-align: top;
+        clip-path: inset(50%);
+        white-space: pre;
       }
       .keys {
         display: flex;
@@ -428,7 +422,10 @@
             <i></i><i></i><i></i><span>hopper</span
             ><span class="state" id="state">click to drive it</span>
           </div>
-          <div class="screen" id="screen"><pre class="term" id="term"></pre></div>
+          <div class="screen" id="screen">
+            <canvas class="term" id="term" aria-hidden="true"></canvas>
+            <pre class="sr-only" id="term-text" aria-live="polite"></pre>
+          </div>
         </div>
         <div class="keys" id="keys">
           <span class="hint">Try it:</span>
@@ -525,23 +522,130 @@ pnpm link --global</pre>
         const LIST = data.listLength
         let scene = 'list-0'
 
+        // Drawn the way a terminal draws: every character in its own cell of a fixed grid, so
+        // columns line up whatever the font's advances, and box lines drawn by hand so they meet
+        // across rows.
+        const FONT = '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace'
+        const TERM_FG = '#c7cfca'
+        const TERM_BG = '#0f1416'
+        const text = document.getElementById('term-text')
+        let cw = 8
+        let chh = 17
+        let size = 13
+
+        const box = (g, c, x, y, fg) => {
+          const dpr = devicePixelRatio || 1
+          const snap = (v) => (Math.round(v * dpr) + 0.5) / dpr
+          const lw = Math.max(1, Math.round((dpr * size) / 14)) / dpr
+          const cx = snap(x + cw / 2)
+          const cy = snap(y + chh / 2)
+          const r = cw * 0.6
+          g.strokeStyle = fg
+          g.lineWidth = lw
+          g.beginPath()
+          switch (c) {
+            case '─':
+              g.moveTo(x, cy)
+              g.lineTo(x + cw, cy)
+              break
+            case '━':
+              g.lineWidth = lw * 2
+              g.moveTo(x, cy)
+              g.lineTo(x + cw, cy)
+              break
+            case '│':
+              g.moveTo(cx, y)
+              g.lineTo(cx, y + chh)
+              break
+            case '┆':
+              for (let i = 0; i < 3; i++) {
+                g.moveTo(cx, y + (chh * i) / 3 + chh / 12)
+                g.lineTo(cx, y + (chh * (i + 1)) / 3 - chh / 12)
+              }
+              break
+            case '╭':
+              g.moveTo(cx, y + chh)
+              g.arcTo(cx, cy, x + cw, cy, r)
+              g.lineTo(x + cw, cy)
+              break
+            case '╮':
+              g.moveTo(x, cy)
+              g.arcTo(cx, cy, cx, y + chh, r)
+              g.lineTo(cx, y + chh)
+              break
+            case '╰':
+              g.moveTo(cx, y)
+              g.arcTo(cx, cy, x + cw, cy, r)
+              g.lineTo(x + cw, cy)
+              break
+            case '╯':
+              g.moveTo(cx, y)
+              g.arcTo(cx, cy, x, cy, r)
+              g.lineTo(x, cy)
+              break
+            case '▌':
+              g.fillStyle = fg
+              g.fillRect(x, y, Math.round((cw / 2) * dpr) / dpr, chh)
+              return true
+            default:
+              return false
+          }
+          g.stroke()
+          return true
+        }
+
+        const draw = () => {
+          const rows = data.frames[scene]
+          const dpr = devicePixelRatio || 1
+          const w = data.columns * cw
+          const h = data.rows * chh
+          term.width = Math.round(w * dpr)
+          term.height = Math.round(h * dpr)
+          term.style.width = w + 'px'
+          term.style.height = h + 'px'
+          const g = term.getContext('2d')
+          g.scale(dpr, dpr)
+          g.textAlign = 'center'
+          g.textBaseline = 'middle'
+          rows.forEach((row, ri) => {
+            const y = ri * chh
+            let col = 0
+            for (const [t, fg, bg, bold] of row) {
+              const chars = [...t]
+              if (bg) {
+                g.fillStyle = bg
+                g.fillRect(col * cw, y, chars.length * cw, chh)
+              }
+              g.font = `${bold ? 700 : 400} ${size}px ${FONT}`
+              g.fillStyle = fg || TERM_FG
+              for (const c of chars) {
+                const x = col * cw
+                if (c !== ' ' && !box(g, c, x, y, fg || TERM_FG))
+                  g.fillText(c, x + cw / 2, y + chh / 2 + 0.5)
+                col++
+              }
+            }
+          })
+          text.textContent = rows.map((row) => row.map((r) => r[0]).join('')).join('\n')
+        }
+
         const show = (id) => {
           if (!data.frames[id]) return
           scene = id
-          term.innerHTML = data.frames[id]
+          draw()
         }
 
         // Fit the terminal's columns to the width there is.
-        const probe = document.createElement('span')
-        probe.textContent = 'M'.repeat(100)
-        probe.style.cssText =
-          'position:absolute;visibility:hidden;white-space:pre;font-size:100px;font-family:var(--mono)'
-        document.body.appendChild(probe)
         const fit = () => {
-          const charAt100 = probe.getBoundingClientRect().width / 100
-          const avail = screen.clientWidth - parseFloat(getComputedStyle(screen).paddingLeft) * 2
-          const size = Math.min(13.5, avail / data.columns / (charAt100 / 100))
-          term.style.fontSize = size.toFixed(2) + 'px'
+          const pad = parseFloat(getComputedStyle(screen).paddingLeft) * 2
+          const avail = screen.clientWidth - pad
+          const g = document.createElement('canvas').getContext('2d')
+          g.font = `400 100px ${FONT}`
+          const advance = g.measureText('M').width / 100
+          size = Math.min(13.5, avail / data.columns / advance)
+          cw = size * advance
+          chh = Math.round(size * 1.3 * 2) / 2
+          draw()
         }
 
         const listIndex = () => (scene.startsWith('list-') ? +scene.slice(5) : -1)
@@ -625,10 +729,14 @@ pnpm link --global</pre>
           }),
         )
 
-        show('list-0')
-        const ready = document.fonts ? document.fonts.ready : Promise.resolve()
-        ready.then(fit)
         fit()
+        // A canvas doesn't redraw when the web font arrives, so load it and draw again.
+        if (document.fonts) {
+          Promise.all([
+            document.fonts.load(`400 13px ${FONT}`),
+            document.fonts.load(`700 13px ${FONT}`),
+          ]).then(fit, fit)
+        }
         addEventListener('resize', fit)
       })()
     </script>

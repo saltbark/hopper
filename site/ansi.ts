@@ -1,46 +1,41 @@
-// A captured frame (ANSI text) to HTML: one <span> per run of the same style. Handles what Ink
-// writes for Hopper: truecolor and 256-colour foregrounds and backgrounds, bold, dim, italic,
-// underline, inverse. Other escapes (cursor, mouse modes, OSC 8 links) are dropped.
+// A captured frame (ANSI text) to rows of styled runs, for the page to draw on a canvas cell by
+// cell, as a terminal does. Handles what Ink writes for Hopper: truecolor and 256-colour
+// foregrounds and backgrounds, bold, inverse. Other escapes (cursor, mouse modes, OSC 8 links)
+// are dropped.
 /* oxlint-disable no-control-regex -- escape sequences are what this file reads */
 
-type Style = {
-  fg?: string
-  bg?: string
-  bold?: boolean
-  dim?: boolean
-  italic?: boolean
-  underline?: boolean
-  inverse?: boolean
-}
+type Style = { fg?: string; bg?: string; bold?: boolean; inverse?: boolean }
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+// One run of text in one style: [text, foreground or null, background or null, bold 0/1].
+export type Run = [string, string | null, string | null, 0 | 1]
 
 const hex = (r: number, g: number, b: number) =>
   '#' + [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('')
 
+const BASE = [
+  '#000000',
+  '#cd0000',
+  '#00cd00',
+  '#cdcd00',
+  '#0000ee',
+  '#cd00cd',
+  '#00cdcd',
+  '#e5e5e5',
+]
+const BRIGHT = [
+  '#7f7f7f',
+  '#ff0000',
+  '#00ff00',
+  '#ffff00',
+  '#5c5cff',
+  '#ff00ff',
+  '#00ffff',
+  '#ffffff',
+]
+
 function color256(n: number): string {
-  const base = [
-    '#000000',
-    '#cd0000',
-    '#00cd00',
-    '#cdcd00',
-    '#0000ee',
-    '#cd00cd',
-    '#00cdcd',
-    '#e5e5e5',
-  ]
-  const bright = [
-    '#7f7f7f',
-    '#ff0000',
-    '#00ff00',
-    '#ffff00',
-    '#5c5cff',
-    '#ff00ff',
-    '#00ffff',
-    '#ffffff',
-  ]
-  if (n < 8) return base[n]!
-  if (n < 16) return bright[n - 8]!
+  if (n < 8) return BASE[n]!
+  if (n < 16) return BRIGHT[n - 8]!
   if (n < 232) {
     const c = n - 16
     const v = (x: number) => (x ? 55 + x * 40 : 0)
@@ -56,12 +51,7 @@ function apply(style: Style, codes: number[]): Style {
     const c = codes[i]!
     if (c === 0) for (const k of Object.keys(s)) delete s[k as keyof Style]
     else if (c === 1) s.bold = true
-    else if (c === 2) s.dim = true
-    else if (c === 22) s.bold = s.dim = false
-    else if (c === 3) s.italic = true
-    else if (c === 23) s.italic = false
-    else if (c === 4) s.underline = true
-    else if (c === 24) s.underline = false
+    else if (c === 22) s.bold = false
     else if (c === 7) s.inverse = true
     else if (c === 27) s.inverse = false
     else if (c === 39) delete s.fg
@@ -83,51 +73,38 @@ function apply(style: Style, codes: number[]): Style {
   return s
 }
 
-function css(s: Style): string {
-  const fg = s.inverse ? (s.bg ?? 'var(--term-bg)') : s.fg
-  const bg = s.inverse ? (s.fg ?? 'var(--term-fg)') : s.bg
-  const out: string[] = []
-  if (fg) out.push(`color:${fg}`)
-  if (bg) out.push(`background:${bg}`)
-  if (s.bold) out.push('font-weight:700')
-  if (s.dim) out.push('opacity:.6')
-  if (s.italic) out.push('font-style:italic')
-  if (s.underline) out.push('text-decoration:underline')
-  return out.join(';')
-}
+// The page's own terminal colours stand in for "default" when inverse swaps them.
+const TERM_FG = '#c7cfca'
+const TERM_BG = '#0f1416'
 
-// The web font has ASCII, box drawing and blocks; anything else (✓ ◇ ↻ ☾ ⏎, the braille spinner)
-// comes from a fallback font whose width differs, which pushes the rest of the row sideways. Each
-// such glyph gets a cell exactly one column wide, as a terminal would give it.
-const cells = (html: string) =>
-  html.replace(/[^\u0000-\u007f─-▟…·]/gu, (g) => `<span class="g">${g}</span>`)
-
-export function ansiToHtml(text: string): string {
-  // Drop OSC sequences (links, titles), then any CSI that isn't a colour.
+export function ansiToRows(text: string): Run[][] {
   const clean = text
     .replace(/\u001b\][^\u0007\u001b]*(\u0007|\u001b\\)/g, '')
     .replace(/\u001b\[[0-9;?]*[A-Za-ln-z]/g, '')
+    .replace(/\n+$/, '')
+  const rows: Run[][] = [[]]
   let style: Style = {}
-  let html = ''
-  let open = ''
+  const push = (chunk: string) => {
+    const lines = chunk.split('\n')
+    lines.forEach((line, i) => {
+      if (i > 0) rows.push([])
+      if (!line) return
+      const fg = style.inverse ? (style.bg ?? TERM_BG) : (style.fg ?? null)
+      const bg = style.inverse ? (style.fg ?? TERM_FG) : (style.bg ?? null)
+      const row = rows[rows.length - 1]!
+      const last = row[row.length - 1]
+      const bold = style.bold ? 1 : 0
+      if (last && last[1] === fg && last[2] === bg && last[3] === bold) last[0] += line
+      else row.push([line, fg, bg, bold])
+    })
+  }
   const re = /\u001b\[([0-9;]*)m/g
-  let last = 0
-  const flush = (chunk: string) => {
-    if (!chunk) return
-    const c = css(style)
-    if (c !== open) {
-      if (open) html += '</span>'
-      if (c) html += `<span style="${c}">`
-      open = c
-    }
-    html += cells(esc(chunk))
-  }
+  let at = 0
   for (let m = re.exec(clean); m; m = re.exec(clean)) {
-    flush(clean.slice(last, m.index))
+    push(clean.slice(at, m.index))
     style = apply(style, m[1] ? m[1].split(';').map(Number) : [0])
-    last = re.lastIndex
+    at = re.lastIndex
   }
-  flush(clean.slice(last))
-  if (open) html += '</span>'
-  return html.replace(/\n+$/, '')
+  push(clean.slice(at))
+  return rows
 }
