@@ -90,8 +90,7 @@ function editingHint(e: Editing, here: Here): string {
   return `type · ${hintText(hereKeys(here).hints)}`
 }
 
-// The bottom line: what the keys do right now, or the last message.
-export function KeyBar(props: {
+type BarProps = {
   form: Form | null
   editing: Editing | null
   // What's typed in Projects, while it has the keys.
@@ -99,7 +98,25 @@ export function KeyBar(props: {
   here: Here
   message: string | null
   error: string | null
-}) {
+}
+
+// The bottom line: what the keys do right now, or the last message. At its right end, whatever is
+// on screen, ☕ while z is holding the Mac awake.
+export function KeyBar({ awake, ...props }: BarProps & { awake: boolean }) {
+  if (!awake) return <BarLine {...props} />
+  return (
+    <Box>
+      <Box flexGrow={1} flexShrink={1} minWidth={0}>
+        <BarLine {...props} />
+      </Box>
+      <Box flexShrink={0}>
+        <Text>{' ☕ '}</Text>
+      </Box>
+    </Box>
+  )
+}
+
+function BarLine(props: BarProps) {
   const { form, editing, query, here, message, error } = props
   const { focus } = here
   if (form) return <FormBar form={form} />

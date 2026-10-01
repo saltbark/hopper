@@ -3,6 +3,7 @@
 // in step.
 
 import type { ProjectRow } from '../active.ts'
+import { canKeepAwake } from '../awake.ts'
 import { choiceText, type Choice } from '../config.ts'
 import type { Item } from '../model.ts'
 import type { Row } from '../settings.ts'
@@ -41,6 +42,7 @@ export const ANYWHERE: Hint[] = [
   ['a', 'accounts'],
   ['→ ←', 'into a conversation and back'],
   [',', 'settings'],
+  ...(canKeepAwake ? [['z', 'keep this Mac awake (☕), or let it sleep'] as Hint] : []),
   ['R', 'refresh'],
   ['esc', 'back'],
   ['x x', 'quit'],

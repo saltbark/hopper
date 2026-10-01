@@ -52,6 +52,10 @@ where they are.
   (`test/dim.test.tsx`).
 - **Usage comes from `claude -p /usage`**, which is answered locally at no cost and refreshes the
   cache. Never read login tokens for it.
+- **`z` keeps the Mac awake** (`src/awake.ts`, `useAwake` in `hooks.ts`): while it's on, a
+  `caffeinate -i -w <hopper's pid>` child, so it quits with Hopper however Hopper ends. On or off
+  is kept in `<home>/state/awake.json`, so a restart while I'm away doesn't drop it. App's
+  `keepAwake` prop is what holds the Mac awake; tests pass a fake, and it's null off macOS.
 - **Routines** (`src/routines/`): files in `<home>/routines/`, runs in `<home>/state/runs.jsonl`,
   results in `<home>/routines/<name>/runs/`. **Nothing runs with Hopper closed**: the open app
   runs a routine when its time has passed since its last run, catching up only within an hour

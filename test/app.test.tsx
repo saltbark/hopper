@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { render } from 'ink-testing-library'
 import { beforeAll, describe, expect, it } from 'vitest'
 
+import { loadAwake, saveAwake } from '../src/awake.ts'
 import type { Session } from '../src/claude.ts'
 import { addAccount, OVERNIGHT_DEFAULTS, setPrefixes, type Config } from '../src/config.ts'
 import { loadHeld } from '../src/held.ts'
@@ -172,6 +173,74 @@ describe('App', () => {
     expect(lastFrame()).toContain('Press x again to quit.')
     await press(stdin, 'j') // anything else lets it go
     expect(lastFrame()).not.toContain('Press x again to quit.')
+    unmount()
+  })
+
+  // A stand-in for caffeinate: how many holds there are right now.
+  const fakeAwake = () => {
+    const held = { now: 0, ever: 0 }
+    const keepAwake = () => {
+      held.now++
+      held.ever++
+      return () => void held.now--
+    }
+    return { held, keepAwake }
+  }
+  const barOf = (frame: string | undefined) => (frame ?? '').trimEnd().split('\n').at(-1) ?? ''
+
+  it('z holds the Mac awake, with ☕ at the end of the key bar, until z again; it is kept', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
+    const { held, keepAwake } = fakeAwake()
+    const { lastFrame, stdin, unmount } = render(
+      <App config={{ ...config, home }} load={async () => snapshot} keepAwake={keepAwake} />,
+    )
+    await tick()
+    expect(barOf(lastFrame())).not.toContain('☕')
+    await press(stdin, 'z')
+    expect(held.now).toBe(1)
+    expect(lastFrame()).toContain('Keeping this Mac awake')
+    expect(barOf(lastFrame()).trimEnd()).toMatch(/☕$/)
+    await press(stdin, 'j') // the message goes; the ☕ stays
+    expect(barOf(lastFrame()).trimEnd()).toMatch(/☕$/)
+    await until(async () => (await loadAwake(home)) === true)
+    expect(await loadAwake(home)).toBe(true)
+    await press(stdin, ',') // on every screen
+    expect(barOf(lastFrame()).trimEnd()).toMatch(/☕$/)
+    await press(stdin, '\u001b')
+    await press(stdin, 'z')
+    expect(held.now).toBe(0)
+    expect(lastFrame()).toContain('This Mac can sleep again.')
+    expect(barOf(lastFrame())).not.toContain('☕')
+    await until(async () => (await loadAwake(home)) === false)
+    expect(await loadAwake(home)).toBe(false)
+    unmount()
+  })
+
+  it('comes back holding the Mac awake when it was left on, and lets go when it closes', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
+    await saveAwake(home, true)
+    const { held, keepAwake } = fakeAwake()
+    const { lastFrame, unmount } = render(
+      <App config={{ ...config, home }} load={async () => snapshot} keepAwake={keepAwake} />,
+    )
+    await until(() => held.now === 1)
+    expect(held.now).toBe(1)
+    await tick()
+    expect(barOf(lastFrame()).trimEnd()).toMatch(/☕$/)
+    unmount()
+    expect(held.now).toBe(0)
+  })
+
+  it('without a way to keep awake, z does nothing and nothing shows', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
+    await saveAwake(home, true)
+    const { lastFrame, stdin, unmount } = render(
+      <App config={{ ...config, home }} load={async () => snapshot} keepAwake={null} />,
+    )
+    await tick()
+    await press(stdin, 'z')
+    expect(lastFrame()).not.toContain('☕')
+    expect(lastFrame()).not.toContain('Keeping this Mac awake')
     unmount()
   })
 

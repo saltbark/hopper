@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { useCallback, useEffect, useRef, useState, type SetStateAction } from 'react'
 
 import { autopilot, AUTOPILOT_START, type AutopilotState } from '../autopilot.ts'
+import { loadAwake, saveAwake, type KeepAwake } from '../awake.ts'
 import { DEFAULT_SOUND, newlyWaiting, type Chime } from '../chime.ts'
 import { refreshUsage, usageLines } from '../claude.ts'
 import { dispatchOnce } from '../commands.ts'
@@ -309,4 +310,24 @@ export function useAutopilot(
       }
     })()
   }, [config, snap, refresh, say, on])
+}
+
+// Holds the Mac awake while z has it on (awake.ts), from the last time Hopper was open. Without a
+// way to (keepAwake null, off macOS) it is never on. A z before the saved state has loaded wins.
+export function useAwake(home: string, keepAwake: KeepAwake | null) {
+  const [on, setOn] = useState(false)
+  const touched = useRef(false)
+  useEffect(() => {
+    if (!keepAwake) return
+    void loadAwake(home).then((saved) => {
+      if (!touched.current) setOn(saved)
+    })
+  }, [home, keepAwake])
+  useEffect(() => (on && keepAwake ? keepAwake() : undefined), [on, keepAwake])
+  const toggle = useCallback(() => {
+    touched.current = true
+    setOn(!on)
+    void saveAwake(home, !on).catch(() => {})
+  }, [home, on])
+  return { awake: on && !!keepAwake, toggleAwake: keepAwake ? toggle : null }
 }

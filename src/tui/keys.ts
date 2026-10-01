@@ -29,6 +29,8 @@ import { asText, groupOf, typed, type Editing, type Hover, type Panel } from './
 type Handler = (input: string, key: Key) => void
 
 export const QUIT_PROMPT = 'Press x again to quit.'
+export const AWAKE_ON = 'Keeping this Mac awake until z again. A closed lid still sleeps it.'
+export const AWAKE_OFF = 'This Mac can sleep again.'
 
 // Every key and mouse event, by what has the keyboard: the conversation, the input line, the
 // editor, Projects (which finds as you type), or the board. Built from the current context on every render.
@@ -543,6 +545,10 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     }
     if (input === '?') return ctx.setHelp({ scroll: 0 })
     if (input === ',') return ctx.setSettings({ sel: 0 })
+    if (input === 'z' && ctx.toggleAwake) {
+      ctx.toggleAwake()
+      return setMessage(ctx.awake ? AWAKE_OFF : AWAKE_ON)
+    }
     // Quitting takes a second x straight after, so a stray one never closes Hopper.
     if (input === 'x') return ctx.message === QUIT_PROMPT ? ctx.exit() : setMessage(QUIT_PROMPT)
     if (input === 'R') return void ctx.refresh(true)
