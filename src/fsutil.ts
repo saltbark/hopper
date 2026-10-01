@@ -29,7 +29,7 @@ export async function writeAtomic(path: string, text: string): Promise<void> {
 export const writeJson = (path: string, value: unknown) =>
   writeAtomic(path, JSON.stringify(value, null, 2) + '\n')
 
-// A state file read in order to change it. One that doesn't parse (a Dropbox conflict, half a
+// A state file read in order to change it. One that doesn't parse (a conflicted copy, half a
 // sync) is moved aside to `<name>.unreadable-<time>` and the change starts from empty, so writing
 // it back never destroys what was in it.
 export async function readForChange<T>(
