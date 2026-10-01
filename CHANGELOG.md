@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 (2026-10-01)
+
+- Dimming is a setting: Settings has a `dim` row under General for how much darker the panels
+  without the keys are drawn. ⏎ steps through 38 (the default), 50, 65, 80, 0 (off) and 20; it's
+  kept as `dim` in `config.toml`, any whole number from 0 to 80. 0 turns dimming off entirely.
+
 ## 0.3.0 (2026-10-01)
 
 - Keep awake: `z` keeps the Mac awake while Hopper is open, so the night's work runs and a
