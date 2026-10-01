@@ -17,10 +17,17 @@ const drawn = Object.fromEntries(Object.entries(frames).map(([id, f]) => [id, an
 const listLength = Object.keys(frames).filter((id) => id.startsWith('list-')).length
 // Inside a <script> element, so "</" must not appear as such.
 const json = JSON.stringify({ columns, rows, listLength, frames: drawn }).replace(/<\//g, '<\\/')
-const latest = await fetch('https://api.github.com/repos/saltbark/hopper/releases/latest')
-  .then((r) => (r.ok ? (r.json() as Promise<{ tag_name: string }>) : null))
-  .then((r) => r?.tag_name ?? '')
-  .catch(() => '')
+// The release workflow names the tag it has just published (SITE_VERSION), since GitHub's latest
+// can lag behind it; otherwise ask, with the workflow's token when there is one.
+const token = process.env['GITHUB_TOKEN']
+const latest =
+  process.env['SITE_VERSION'] ||
+  (await fetch('https://api.github.com/repos/saltbark/hopper/releases/latest', {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  })
+    .then((r) => (r.ok ? (r.json() as Promise<{ tag_name: string }>) : null))
+    .then((r) => r?.tag_name ?? '')
+    .catch(() => ''))
 const page = (await readFile(join(here, 'index.html'), 'utf8'))
   .replace('/*FRAMES*/', () => json)
   .replace('__VERSION__', latest)

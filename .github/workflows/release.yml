@@ -1,11 +1,18 @@
-# A tag vX.Y.Z (from pnpm release) checks, packs and publishes that release. Run by hand, it packs
-# the branch and keeps the tarball as the run's artifact, publishing nothing.
+# A tag vX.Y.Z (from pnpm release) checks, packs and publishes that release, then deploys
+# hopper.saltbark.com so its header names the new version. Run by hand, it packs the branch and
+# keeps the tarball as the run's artifact, publishing nothing; tick "site" to deploy the site too.
+# The deploy needs the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets (the Saltbark account).
 name: release
 
 on:
   push:
     tags: ['v*.*.*']
   workflow_dispatch:
+    inputs:
+      site:
+        description: Deploy hopper.saltbark.com from this branch
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -43,3 +50,12 @@ jobs:
           awk -v v="$v" '$0 ~ "^## " v " " {on=1; next} /^## / {on=0} on' CHANGELOG.md >notes.md
           gh release create "$GITHUB_REF_NAME" release/hopper.tar.gz release/hopper.tar.gz.sha256 \
             --title "Hopper $v" --notes-file notes.md
+      - name: Deploy the site
+        if: github.ref_type == 'tag' || inputs.site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
+          # The tag just published; run by hand, the build asks GitHub for the latest.
+          SITE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: pnpm site:deploy
