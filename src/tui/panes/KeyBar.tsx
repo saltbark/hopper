@@ -1,4 +1,5 @@
 import { Box, Text } from 'ink'
+import type { ReactNode } from 'react'
 
 import { barKeys, hereKeys, type Hint, type Here } from '../keymap.ts'
 import { FORM_PROMPT, type Editing, type Form } from '../state.ts'
@@ -100,41 +101,52 @@ type BarProps = {
   error: string | null
 }
 
-// The bottom line: what the keys do right now, or the last message. At its right end, whatever is
-// on screen, ☕ while z is holding the Mac awake.
-export function KeyBar({ awake, ...props }: BarProps & { awake: boolean }) {
-  if (!awake) return <BarLine {...props} />
-  return (
-    <Box>
-      <Box flexGrow={1} flexShrink={1} minWidth={0}>
-        <BarLine {...props} />
+// While z is holding the Mac awake, the line ends in a coffee cup, whatever is on screen. It is
+// the emoji (U+FE0F), not the text glyph, which terminals draw small and a cell narrower than Ink
+// counts it. Last on the line, so a terminal that still draws it narrow moves nothing else.
+const CUP = '\u2615\uFE0F'
+
+// A line with nothing of its own at the right gets the cup there.
+const withCup = (awake: boolean, line: ReactNode) =>
+  awake ? (
+    <Box justifyContent="space-between">
+      <Box flexShrink={1} minWidth={0}>
+        {line}
       </Box>
       <Box flexShrink={0}>
-        <Text>{' ☕ '}</Text>
+        <Text>{'  ' + CUP}</Text>
       </Box>
     </Box>
+  ) : (
+    line
   )
-}
 
-function BarLine(props: BarProps) {
-  const { form, editing, query, here, message, error } = props
+// The bottom line: what the keys do right now, or the last message.
+export function KeyBar(props: BarProps & { awake: boolean }) {
+  const { form, editing, query, here, message, error, awake } = props
   const { focus } = here
-  if (form) return <FormBar form={form} />
+  // The panel's name at the right end, then the cup.
+  const named = (where: string) => (
+    <Text color={T.faint}>{'  ' + where + (awake ? '  ' + CUP : ' ')}</Text>
+  )
+  if (form) return withCup(awake, <FormBar form={form} />)
   if (editing) {
-    return (
+    return withCup(
+      awake,
       <Text wrap="truncate-end">
         {chip(editing.routine ? 'routine' : 'draft')}
         <Text color={T.text}>{` ${editing.project}`}</Text>
         {note(message, editingHint(editing, here))}
-      </Text>
+      </Text>,
     )
   }
   if (here.setting !== undefined) {
-    return (
+    return withCup(
+      awake,
       <Text wrap="truncate-end">
         {chip('settings')}{' '}
         {message ? <Text color={T.waiting}>{' ' + message}</Text> : keys(barKeys(here))}
-      </Text>
+      </Text>,
     )
   }
   // Projects finds as you type, so it has a line to type on, and every letter is the query's (?
@@ -148,21 +160,20 @@ function BarLine(props: BarProps) {
           <Text inverse> </Text>
           {note(message, '  ⏎ focuses it · tab new conversation there · ↑↓ choose · esc back')}
         </Text>
-        <Box flexShrink={0}>
-          <Text color={T.faint}>{'  projects '}</Text>
-        </Box>
+        <Box flexShrink={0}>{named('projects')}</Box>
       </Box>
     )
   }
   if (focus === 'session') {
-    return (
+    return withCup(
+      awake,
       <Text wrap="truncate-end">
         {chip('claude')}
         {note(
           message,
           `keys go to Claude · ${hintText(hereKeys(here).hints)} · ctrl+] then ? all keys`,
         )}
-      </Text>
+      </Text>,
     )
   }
   // The focused panel's keys for what is selected, then the global ones it doesn't already name.
@@ -201,7 +212,7 @@ function BarLine(props: BarProps) {
           {error ? <Text color={T.blocked}>{'  ' + error}</Text> : null}
           <Text color={T.text}>{'  ?'}</Text>
           <Text color={T.dim}> all keys</Text>
-          <Text color={T.faint}>{'  ' + where + ' '}</Text>
+          {named(where)}
         </Text>
       </Box>
     </Box>
