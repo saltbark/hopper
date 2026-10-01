@@ -174,7 +174,12 @@ describe('sources', () => {
     expect(hopperPrompt(hopper)).toContain(`${meta}/CLAUDE.md`)
     expect(hopperPrompt(hopper)).toContain(`code is in ${hopper.path}`)
     expect(hopperPrompt(hopper)).not.toContain('"## Open"')
+    // Pointed at the agents' guide, which a conversation in the home folder loads by itself.
+    const guide = join(home, 'CLAUDE.md')
+    expect(hopperPrompt(hopper, { guide })).toContain(`How Hopper works, for agents`)
+    expect(hopperPrompt(hopper, { guide })).toContain(guide)
     const inbox = projects.find((p) => p.key === 'meta/inbox')!
+    expect(hopperPrompt(inbox, { guide })).not.toContain(guide)
     expect(extraDirs(inbox)).toEqual([])
     expect(extraDirs(projects.find((p) => p.key === 'pm/meta')!)).toEqual([])
   })

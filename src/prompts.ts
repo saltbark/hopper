@@ -1,12 +1,26 @@
+import { dirname } from 'node:path'
+
 import type { Project } from './home.ts'
 
 // What Claude is told about the project when Hopper starts a conversation in it.
 // Unattended, the closing "talk it through first" is left off: nobody is there to talk to.
-export function hopperPrompt(project: Project, opts: { unattended?: boolean } = {}): string {
+// `guide` is the agents' guide in the home folder; a conversation running there loads it as its
+// CLAUDE.md, so only one running elsewhere is pointed at it.
+export function hopperPrompt(
+  project: Project,
+  opts: { unattended?: boolean; guide?: string | undefined } = {},
+): string {
   const { key, openFile, meta } = project
   const talk = opts.unattended
     ? []
     : ['Start by talking it through. Do not start on the work itself unless they ask.']
+  const guide =
+    opts.guide && dirname(opts.guide) !== project.runIn
+      ? [
+          `How Hopper works, for agents (making drafts, queueing, the hopper command): ${opts.guide}.`,
+          'Read it when the person asks for something in Hopper.',
+        ]
+      : []
   const opening = `This conversation was started from Hopper, for the project ${key}.`
   // A registry project's open file belongs to its meta repo, which has its own planning rules.
   if (meta) {
@@ -27,6 +41,7 @@ export function hopperPrompt(project: Project, opts: { unattended?: boolean } = 
       '(which sections items go under, moving finished items to _done.md, dates, the planning check).',
       'When the person asks you to file, add or capture something, add it there and say what you added.',
       "If the open file doesn't exist yet, ask before creating it.",
+      ...guide,
       ...talk,
     ].join(' ')
   }
@@ -36,6 +51,7 @@ export function hopperPrompt(project: Project, opts: { unattended?: boolean } = 
     `Its open items live in ${openFile}, one per line as "- [ ] **Title** — detail", under the file's first "## " heading.`,
     'When the person asks you to file, add or capture something, add it to that file',
     `(create it with "# ${key}" and "## Open" if it is missing) and say what you added.`,
+    ...guide,
     ...talk,
   ].join(' ')
 }
@@ -45,7 +61,6 @@ export function hopperPrompt(project: Project, opts: { unattended?: boolean } = 
 // own id, which follow-ups name in --after.
 export function unattendedPrompt(opts: {
   result: string
-  guide?: string | undefined
   draft?: string | undefined
   done?: string | undefined
   depth?: number | undefined
@@ -66,7 +81,6 @@ export function unattendedPrompt(opts: {
     'If you are blocked (a missing credential, a question only the person can answer), stop, and',
     'put the question in the result.',
     `When you finish or stop, write a result to ${result} (create the folder if needed).`,
-    opts.guide ? `How Hopper works, for agents: ${opts.guide}.` : '',
     'Its first line must be exactly "needs: you" if anything is waiting on the person (a',
     'decision, a review, a question, branches to merge), or "needs: nothing" if not. Then a',
     'one-line summary, then detail: branches and commits, decisions you took, what is left.',

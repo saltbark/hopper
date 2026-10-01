@@ -10,6 +10,7 @@ import { readIfThere } from '../fsutil.ts'
 import { extraDirs, type Project } from '../home.ts'
 import type { AccountState } from '../model.ts'
 import { hasRoom, routeFor } from '../routing.ts'
+import { guidePath } from '../start.ts'
 import { routinesDir, type Routine } from './files.ts'
 
 export type Run = {
@@ -184,7 +185,7 @@ export async function runRoutine(opts: {
   projects: Project[]
   accounts: AccountState[]
   sessions: Pick<Session, 'id' | 'state'>[]
-  systemPrompt: (project: Project) => string
+  systemPrompt: (project: Project, opts: { guide?: string }) => string
   now?: Date
 }): Promise<RunOutcome> {
   const { config, routine: r, projects, accounts, sessions } = opts
@@ -254,7 +255,7 @@ export async function runRoutine(opts: {
     name,
     prompt,
     systemPrompt: [
-      opts.systemPrompt(project),
+      opts.systemPrompt(project, { guide: guidePath(home) }),
       routineInstructions(r, result, previous?.result),
       perms.allowedTools ? limitedNote([folder]) : '',
     ]

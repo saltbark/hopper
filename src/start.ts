@@ -39,11 +39,10 @@ export async function startDraft(opts: {
   const { model, effort } = chosen(d, defaultsFor(config, project))
   const perms = result ? unattendedPermissions(model, [resultsDir(home)]) : undefined
   const systemPrompt = [
-    hopperPrompt(project, { unattended }),
+    hopperPrompt(project, { unattended, guide: guidePath(home) }),
     result
       ? unattendedPrompt({
           result,
-          guide: guidePath(home),
           draft: d.id,
           done: d.done,
           depth: d.depth,
