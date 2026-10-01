@@ -1,5 +1,6 @@
 import { Text } from 'ink'
 
+import type { Choice } from '../../../config.ts'
 import type { Draft } from '../../../drafts.ts'
 import type { OpenItem } from '../../../items.ts'
 import type { Item } from '../../../model.ts'
@@ -23,6 +24,8 @@ export function Detail(props: {
   routine?: RoutineView | undefined
   // The selected report, while a routine's reports have the keyboard.
   reportSel?: number | undefined
+  // What the selected draft or routine runs with where it picks no model or effort.
+  defaults: Choice
   width: number
   height: number
 }) {
@@ -35,6 +38,7 @@ export function Detail(props: {
     return (
       <RoutineDetail view={routine} width={w} height={props.height - 2} sel={props.reportSel} />
     )
-  if (item.kind === 'draft') return <DraftDetail item={item} draft={draft} width={w} />
+  if (item.kind === 'draft')
+    return <DraftDetail item={item} draft={draft} defaults={props.defaults} width={w} />
   return <ConversationDetail item={item} openItems={openItems} width={w} />
 }

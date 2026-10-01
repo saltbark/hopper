@@ -3,7 +3,7 @@ import { stripVTControlCharacters } from 'node:util'
 import { render } from 'ink-testing-library'
 import { describe, expect, it } from 'vitest'
 
-import type { Config } from '../src/config.ts'
+import { CHOICE_DEFAULTS, type Config } from '../src/config.ts'
 import type { Item } from '../src/model.ts'
 import type { Here } from '../src/tui/keymap.ts'
 import { HelpPane, helpMaxScroll } from '../src/tui/panes/HelpPane.tsx'
@@ -16,6 +16,7 @@ const here: Here = {
   summaryShown: true,
   untrusted: false,
   editing: null,
+  defaults: CHOICE_DEFAULTS,
 }
 const plain = (s: string | undefined) => stripVTControlCharacters(s ?? '')
 const draw = (h: Here, scroll: number, width = 100, height = 40) =>

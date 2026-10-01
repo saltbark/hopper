@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   addAccount,
+  chosen,
   ConfigError,
+  defaultsFor,
   OVERNIGHT_DEFAULTS,
   parseAccounts,
   parsePrefixList,
@@ -44,6 +46,24 @@ describe('settings', () => {
     expect(parseSettings('home = "/h"\nsound = "Pop"', '/c.toml').sound).toBe('Pop')
     expect(parseSettings('home = "/h"', '/c.toml').sound).toBeUndefined()
     expect(() => parseSettings('home = "/h"\nsound = 3', '/c.toml')).toThrow(/sound/)
+  })
+  it('reads the model and effort, which are optional', () => {
+    const s = parseSettings('home = "/h"\nmodel = "sonnet"\neffort = "low"', '/c.toml')
+    expect(s.model).toBe('sonnet')
+    expect(s.effort).toBe('low')
+    expect(parseSettings('home = "/h"', '/c.toml').model).toBeUndefined()
+    expect(() => parseSettings('home = "/h"\nmodel = 3', '/c.toml')).toThrow(/model/)
+  })
+  it('always names a model and effort: the draft, else its project, else config, else Hopper', () => {
+    expect(defaultsFor(base())).toEqual({ model: 'opus', effort: 'high' })
+    const cfg = { ...base(), model: 'sonnet' }
+    expect(defaultsFor(cfg)).toEqual({ model: 'sonnet', effort: 'high' })
+    const project = { model: 'haiku', effort: 'low' }
+    expect(defaultsFor(cfg, project)).toEqual({ model: 'haiku', effort: 'low' })
+    expect(chosen({ model: 'fable' }, defaultsFor(cfg, project))).toEqual({
+      model: 'fable',
+      effort: 'low',
+    })
   })
   it('sets one line and keeps the comments', () => {
     const text = '# Hopper settings.\nhome = "/h"\n\n# The sound.\n'

@@ -3,6 +3,7 @@
 // in step.
 
 import type { ProjectRow } from '../active.ts'
+import { choiceText, type Choice } from '../config.ts'
 import type { Item } from '../model.ts'
 import type { Row } from '../settings.ts'
 import type { Editing, Focus } from './state.ts'
@@ -21,6 +22,8 @@ export type Here = {
   summaryShown: boolean
   untrusted: boolean
   editing: Editing | null
+  // What the selected draft or routine falls back to for a model and effort it doesn't pick.
+  defaults: Choice
   // Set while the settings screen is open: the row selected there.
   setting?: Row | null | undefined
   // Set while a routine's list (its prompt, then its reports) has the keyboard: reading a report,
@@ -137,9 +140,9 @@ export const WRITING_KEYS: Hint[] = [
   ['esc', 'save and close'],
 ]
 
-// A draft's and a routine's keys, on its row in the list. For the help screen, with nothing
-// selected, the model and effort read "default".
-type Choices = { model?: string | undefined; effort?: string | undefined }
+// A draft's and a routine's keys, on its row in the list. The model and effort name what they
+// fall back to when it picks none; for the help screen, with nothing selected, Hopper's own.
+type Choices = { model?: string | undefined; effort?: string | undefined; defaults: Choice }
 
 const QUEUE_HINT = {
   none: 'up next: when there is room',
@@ -157,8 +160,8 @@ export function draftKeys(
     ['u', QUEUE_HINT[q] ?? QUEUE_HINT.none],
     ...(e.queue ? [['g', 'dispatch now'] as Hint] : []),
     ...(e.proposed ? [['U', 'queue every proposal tonight'] as Hint] : []),
-    ['m', `model (${e.model ?? 'default'})`],
-    ['e', `effort (${e.effort ?? 'default'})`],
+    ['m', `model: ${choiceText(e.model, e.defaults.model)}`],
+    ['e', `effort: ${choiceText(e.effort, e.defaults.effort)}`],
     ['w', 'move to a project'],
     ['r', 'make it a routine'],
     ['y', 'copy'],
@@ -173,8 +176,8 @@ export function routineKeys(e: Choices & { paused?: boolean }): Hint[] {
     ['s', 'run now'],
     ['S', 'schedule'],
     ['P', e.paused ? 'resume' : 'pause'],
-    ['m', `model (${e.model ?? 'default'})`],
-    ['e', `effort (${e.effort ?? 'default'})`],
+    ['m', `model: ${choiceText(e.model, e.defaults.model)}`],
+    ['e', `effort: ${choiceText(e.effort, e.defaults.effort)}`],
     ['w', 'project'],
     ['y', 'copy'],
     ['d', 'remove'],
@@ -244,9 +247,9 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   const it = h.item
   const done = h.focus === 'done'
   const hints: Hint[] = []
-  if (it?.kind === 'draft') hints.push(...draftKeys(it))
+  if (it?.kind === 'draft') hints.push(...draftKeys({ ...it, defaults: h.defaults }))
   else if (it?.kind === 'routine')
-    hints.push(...routineKeys({ ...it, paused: it.state === 'paused' }))
+    hints.push(...routineKeys({ ...it, defaults: h.defaults, paused: it.state === 'paused' }))
   else if (it?.id) {
     if (h.embedOpen) hints.push(['⏎ →', 'into the conversation'], ['i', 'interrupt'])
     else hints.push(['⏎ →', 'open it here'])
@@ -262,8 +265,8 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
 function summaryKeys(h: Here): Set<string> {
   if (h.focus === 'projects') return new Set(['⏎', 'tab'])
   if (h.focus === 'accounts') return new Set(PANEL_KEYS[3]![1].map(([k]) => k))
-  if (h.item?.kind === 'routine') return new Set(routineKeys({}).map(([k]) => k))
-  if (h.item?.kind === 'draft') return new Set(draftKeys({}).map(([k]) => k))
+  if (h.item?.kind === 'routine') return new Set(routineKeys(h).map(([k]) => k))
+  if (h.item?.kind === 'draft') return new Set(draftKeys(h).map(([k]) => k))
   if (h.item?.id) return new Set(['⏎', 'd', 'i'])
   return new Set()
 }

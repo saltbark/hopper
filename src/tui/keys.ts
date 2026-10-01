@@ -1,6 +1,14 @@
 import type { Key } from 'ink'
 
-import { preferFirst, prefixesOf, setDefaultAccount, showPrefix, suggestName } from '../config.ts'
+import {
+  choiceText,
+  defaultsFor,
+  preferFirst,
+  prefixesOf,
+  setDefaultAccount,
+  showPrefix,
+  suggestName,
+} from '../config.ts'
 import { EFFORTS, MODELS, nextOf } from '../conversations.ts'
 import { routineSessionId, type Item } from '../model.ts'
 import type { Actions } from './actions.ts'
@@ -52,7 +60,14 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         : undefined
     if (!r || ctx.reports?.open) return null
     const { rightW, bodyH } = ctx.layout
-    const view = { routine: r, reports: ctx.routineReports, account: it?.account, now: 0 }
+    const project = ctx.snap?.projects.find((p) => p.key === r.project)
+    const view = {
+      routine: r,
+      reports: ctx.routineReports,
+      account: it?.account,
+      now: 0,
+      defaults: defaultsFor(ctx.config, project),
+    }
     const { edit, top, start, slice } = reportRows(view, rightW - 4, bodyH - 2, ctx.reports?.sel)
     if (y - 2 === edit) return { routine: r.name, index: -1 }
     const line = y - 2 - top
@@ -403,15 +418,19 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     const e = act.editingOf(it)
     if (!it || !e) return {}
     const r = e.routine
+    const d = defaultsFor(
+      ctx.config,
+      ctx.snap?.projects.find((p) => p.key === e.project),
+    )
     const both: Record<string, () => unknown> = {
       s: () => (r ? act.runNow(e) : act.start(e)),
       m: () => {
         const model = nextOf(MODELS, e.model)
-        return act.saveEdit({ ...e, model }, `Model: ${model ?? 'default'}.`)
+        return act.saveEdit({ ...e, model }, `Model: ${choiceText(model, d.model)}.`)
       },
       e: () => {
         const effort = nextOf(EFFORTS, e.effort)
-        return act.saveEdit({ ...e, effort }, `Effort: ${effort ?? 'default'}.`)
+        return act.saveEdit({ ...e, effort }, `Effort: ${choiceText(effort, d.effort)}.`)
       },
       w: () => setEditing({ ...e, stage: 'pick', query: '', pickSel: 0 }),
       y: () => {

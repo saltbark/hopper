@@ -1,4 +1,4 @@
-import type { Account } from '../config.ts'
+import { choiceText, type Account, type Choice } from '../config.ts'
 import type { Draft } from '../drafts.ts'
 import type { AccountState, Item } from '../model.ts'
 import type { Routine } from '../routines/index.ts'
@@ -151,9 +151,12 @@ export const toDraft = (e: Editing, updated: number): Draft => ({
   ...e.extra,
 })
 
-// "sonnet · high", or "default model" when nothing is chosen.
-export const modelLabel = (model?: string, effort?: string) =>
-  [model ?? 'default model', effort].filter(Boolean).join(' · ')
+// "sonnet · high", or "opus (default) · high (default)" when nothing is chosen.
+export const modelLabel = (
+  model: string | undefined,
+  effort: string | undefined,
+  defaults: Choice,
+) => `${choiceText(model, defaults.model)} · ${choiceText(effort, defaults.effort)}`
 
 // Typed keys that count as text: printable, pasted newlines become real ones.
 export const typed = (input: string, key: { ctrl: boolean; meta: boolean; tab: boolean }) =>

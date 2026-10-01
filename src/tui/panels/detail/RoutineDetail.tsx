@@ -1,8 +1,10 @@
 import { Text } from 'ink'
 
+import type { Choice } from '../../../config.ts'
 import { when, wrapText } from '../../../format.ts'
 import { nextRun, type Report, type Routine, type Run } from '../../../routines/index.ts'
 import { routineKeys } from '../../keymap.ts'
+import { modelLabel } from '../../state.ts'
 import { T } from '../../theme.ts'
 import { Heading, keyLines, Keys, Rail, windowed } from '../primitives.tsx'
 import { row, title } from './parts.tsx'
@@ -14,11 +16,14 @@ export type RoutineView = {
   last?: Run | undefined
   account?: string | undefined
   now: number
+  // What it runs with where it picks no model or effort: its project's, else Hopper's.
+  defaults: Choice
 }
 
 const PROMPT_LINES = 4
 
-const keysFor = (r: Routine) => routineKeys({ ...r, paused: !r.enabled })
+const keysFor = (r: Routine, defaults: Choice) =>
+  routineKeys({ ...r, defaults, paused: !r.enabled })
 
 // Where the list sits in the panel, which the mouse reads too: the prompt's line, then the line
 // the report rows start on, and which of them show. `sel` is set while the list has the
@@ -30,7 +35,7 @@ export function reportRows(view: RoutineView, width: number, height: number, sel
   const rows = 6 + (r.check ? 1 : 0) + (view.account ? 1 : 0)
   const edit = rows + 1 + 1 + prompt
   const top = edit + 1 + 1 + 1
-  const tail = sel === undefined ? 1 + keyLines(keysFor(r), width).length : 0
+  const tail = sel === undefined ? 1 + keyLines(keysFor(r, view.defaults), width).length : 0
   const room = Math.max(1, height - top - tail)
   if (sel !== undefined) return { edit, top, ...windowed(reports, Math.max(0, sel), room), more: 0 }
   // Unfocused, the newest show and a line says how many more there are.
@@ -70,7 +75,7 @@ export function RoutineDetail({
         r.enabled ? T.text : T.waiting,
       )}
       {row('project', r.project)}
-      {row('model', [r.model ?? 'project default', r.effort].filter(Boolean).join(' · '))}
+      {row('model', modelLabel(r.model, r.effort, view.defaults))}
       {r.check ? row('check', r.check) : null}
       {view.account ? row('account', view.account) : null}
       <Text> </Text>
@@ -127,7 +132,7 @@ export function RoutineDetail({
       {focused ? null : (
         <>
           <Text> </Text>
-          <Keys keys={keysFor(r)} width={width} />
+          <Keys keys={keysFor(r, view.defaults)} width={width} />
         </>
       )}
     </>

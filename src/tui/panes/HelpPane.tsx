@@ -1,7 +1,7 @@
 import { Box, Text } from 'ink'
 import type { ReactNode } from 'react'
 
-import type { Config } from '../../config.ts'
+import { CHOICE_DEFAULTS, defaultsFor, type Choice, type Config } from '../../config.ts'
 import { tildify } from '../../paths.ts'
 import {
   ANYWHERE,
@@ -24,17 +24,20 @@ import { T } from '../theme.ts'
 // against their descriptions. The section for where you were when you pressed ? is lit. Taller
 // than the screen, it scrolls.
 
-const SECTIONS: [label: string, hints: Hint[]][] = [
+// A draft's and a routine's keys name the model and effort they fall back to, so the lines read
+// what config.toml says; the layout only counts lines, which don't change with it.
+const sections = (defaults: Choice): [label: string, hints: Hint[]][] => [
   ['anywhere', ANYWHERE],
   ...PANEL_KEYS,
-  ['a draft', draftKeys({})],
-  ['a routine', routineKeys({})],
+  ['a draft', draftKeys({ defaults })],
+  ['a routine', routineKeys({ defaults })],
   ['writing', WRITING_KEYS],
   ['a conversation', CONVERSATION_KEYS],
   ['routine reports', REPORTS_HELP],
   ['settings', SETTINGS_KEYS],
   ['mouse', MOUSE_KEYS],
 ]
+const SECTIONS = sections(CHOICE_DEFAULTS)
 
 const GAP = 4
 const MIN_COL = 42
@@ -140,6 +143,7 @@ export function HelpPane({
   height: number
 }) {
   const { cols, colW, visible, maxScroll } = layout(width, height)
+  const shown = sections(defaultsFor(config))
   const top = Math.max(0, Math.min(scroll, maxScroll))
   const lit = hereLabel(here)
   const more = top < maxScroll
@@ -158,7 +162,7 @@ export function HelpPane({
           >
             {col
               .flatMap((i) => {
-                const [label, hints] = SECTIONS[i]!
+                const [label, hints] = shown[i]!
                 return sectionLines(label, hints, label === lit, keyWidth(col), colW)
               })
               .slice(top, top + visible)}

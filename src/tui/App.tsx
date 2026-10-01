@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { activeRows, rollUp, type ProjectStat } from '../active.ts'
 import { playChime, type Chime } from '../chime.ts'
-import { prefixesOf, saveAccounts, type Config } from '../config.ts'
+import { defaultsFor, prefixesOf, saveAccounts, type Config } from '../config.ts'
 import { draftSessionId, gather, inScope, OTHER, routineSessionId, type Item } from '../model.ts'
 import { lastRan } from '../routines/index.ts'
 import { buildRows } from '../settings.ts'
@@ -250,6 +250,12 @@ export function App({
       : reports || (editingId && selectedItem?.sessionId === editingId)
         ? listFocus
         : null
+  // The model and effort a draft or routine in a project gets when it picks none.
+  const defaultsIn = (key: string | undefined) =>
+    defaultsFor(
+      config,
+      snap?.projects.find((p) => p.key === key),
+    )
   // What the key bar and the help screen describe.
   const here: Here = {
     focus,
@@ -260,6 +266,7 @@ export function App({
     summaryShown: !showingEmbed,
     untrusted: !!untrusted,
     editing,
+    defaults: defaultsIn(selectedItem?.key),
     setting: settings ? (settingRows[settings.sel] ?? null) : undefined,
     reports: reports
       ? {
@@ -394,7 +401,12 @@ export function App({
           height={bodyH}
         />
       ) : (
-        <DraftPane editing={editing} width={rightW} height={bodyH} />
+        <DraftPane
+          editing={editing}
+          defaults={defaultsIn(editing.project)}
+          width={rightW}
+          height={bodyH}
+        />
       )
     }
     if (embed && showingEmbed) {
@@ -452,6 +464,7 @@ export function App({
             last: lastRan(snap.runs, r.name),
             account: selectedItem?.account,
             now: snap.at,
+            defaults: defaultsIn(r.project),
           }
         : undefined
     return (
@@ -470,6 +483,7 @@ export function App({
           openItems={selectedItem ? openItems : undefined}
           routine={routine}
           reportSel={reports?.sel}
+          defaults={here.defaults}
           width={rightW}
           height={bodyH}
         />

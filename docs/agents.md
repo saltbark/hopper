@@ -102,7 +102,9 @@ The prompt.
 
 `hopper list --json` prints everything: projects, drafts (with whether each is ready to start
 and why not), conversations (group, project, model, account, state, result), routines and recent
-runs, and the last dispatch. `hopper status --json` adds accounts and usage.
+runs, and the last dispatch. A draft's or routine's `model` and `effort` are null where it picks
+none; it then runs with `defaults`, the project's (on each project) or Hopper's (at the top).
+`hopper status --json` adds accounts and usage.
 
 Groups a conversation can be in: `waiting` (on the person), `draft`, `proposed`, `running`,
 `routines`, `next` (queued), `done`, and `filed`: a routine's run that has finished, which

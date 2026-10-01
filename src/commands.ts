@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import type { Config } from './config.ts'
+import { defaultsFor, type Config } from './config.ts'
 import { EFFORTS, loadConversations, MODELS } from './conversations.ts'
 import { dispatch, lastDispatch, readiness, recordDispatch } from './dispatch.ts'
 import { listDrafts, newDraftId, QUEUES, saveDraft, type Draft, type Queue } from './drafts.ts'
@@ -109,6 +109,8 @@ export async function listJson(config: Config, snap?: Snapshot) {
     at: iso(s.at),
     home: config.home,
     overnight: config.overnight,
+    // What a draft or routine that picks no model or effort runs with, here and per project.
+    defaults: defaultsFor(config),
     projects: s.projects.map((p) => ({
       key: p.key,
       path: p.path,
@@ -116,6 +118,7 @@ export async function listJson(config: Config, snap?: Snapshot) {
       openFile: p.openFile || null,
       open: s.openCounts.get(p.key) ?? null,
       metaRepo: p.meta?.repo ?? null,
+      defaults: defaultsFor(config, p),
       lastConversation: iso(lastByProject.get(p.key)),
     })),
     drafts,

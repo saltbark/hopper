@@ -1,5 +1,6 @@
 import { Text } from 'ink'
 
+import type { Choice } from '../../config.ts'
 import { layout, locate, selection, type VisualLine } from '../editor.ts'
 import { Frame } from '../panels/primitives.tsx'
 import { modelLabel, type Editing } from '../state.ts'
@@ -7,10 +8,13 @@ import { modelLabel, type Editing } from '../state.ts'
 // The text box for a draft or a routine's prompt, with its cursor and selection.
 export function DraftPane({
   editing,
+  defaults,
   width,
   height,
 }: {
   editing: Editing
+  // What it runs with where it picks no model or effort.
+  defaults: Choice
   width: number
   height: number
 }) {
@@ -56,8 +60,8 @@ export function DraftPane({
       title={r ? `ROUTINE ${r.name}` : 'NEW CONVERSATION'}
       meta={
         r
-          ? `${editing.project} · ${r.schedule || 'run-now only'}${r.enabled ? '' : ' · paused'} · ${modelLabel(editing.model, editing.effort)}`
-          : `${editing.project} · ${modelLabel(editing.model, editing.effort)} · a draft until you start it`
+          ? `${editing.project} · ${r.schedule || 'run-now only'}${r.enabled ? '' : ' · paused'} · ${modelLabel(editing.model, editing.effort, defaults)}`
+          : `${editing.project} · ${modelLabel(editing.model, editing.effort, defaults)} · a draft until you start it`
       }
       width={width}
       height={height}

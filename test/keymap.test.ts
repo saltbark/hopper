@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { CHOICE_DEFAULTS } from '../src/config.ts'
 import type { Item } from '../src/model.ts'
 import { barKeys, hereKeys, type Here } from '../src/tui/keymap.ts'
 
@@ -10,6 +11,7 @@ const base: Here = {
   summaryShown: true,
   untrusted: false,
   editing: null,
+  defaults: CHOICE_DEFAULTS,
 }
 const conversation = { id: 'abc', kind: 'background' } as Item
 const keysOf = (h: Partial<Here>) => hereKeys({ ...base, ...h }).hints.map(([k]) => k)
@@ -43,7 +45,11 @@ describe('hereKeys', () => {
     expect(hereKeys({ ...base, focus: 'session' }).label).toBe('a conversation')
     const draft = { kind: 'draft', model: 'opus' } as Item
     const hints = hereKeys({ ...base, item: draft }).hints
-    expect(hints).toContainEqual(['m', 'model (opus)'])
+    expect(hints).toContainEqual(['m', 'model: opus'])
+    // One that picks none says what it falls back to.
+    const unset = hereKeys({ ...base, item: { kind: 'draft' } as Item }).hints
+    expect(unset).toContainEqual(['m', 'model: opus (default)'])
+    expect(unset).toContainEqual(['e', 'effort: high (default)'])
     expect(hints).toContainEqual(['s', 'start it'])
     expect(hints).toContainEqual(['d', 'throw away'])
     const editing = { stage: 'write' } as Here['editing']

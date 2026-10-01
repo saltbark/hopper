@@ -57,6 +57,9 @@ export type Config = {
   home: string
   // config.toml's sound, when set; see chime.ts.
   sound?: string
+  // config.toml's model and effort, when set; see defaultsFor.
+  model?: string
+  effort?: string
   overnight: Overnight
   accounts: Account[]
   routes: Route[]
@@ -69,6 +72,12 @@ home = "~/hopper"
 # Played when a conversation stops running and waits on you: a macOS sound (Glass, Ping, Pop,
 # Tink, Hero, Submarine, ...), "bell" for the terminal's own, or "off". Glass when not set.
 # sound = "Glass"
+
+# The model and effort a conversation starts with when neither it nor its project picks one.
+# Hopper always passes both to Claude, so what a conversation runs on doesn't depend on which
+# login starts it. opus and high when not set.
+# model = "opus"
+# effort = "high"
 
 # Overnight: drafts queued for tonight start inside this window, and one night may use up to
 # night_budget points of an account's weekly limit, keeping the last reserve points for the day.
@@ -132,7 +141,7 @@ function parseOvernight(raw: Record<string, unknown>, where: string): Overnight 
 export function parseSettings(
   text: string,
   path: string,
-): { home: string; sound?: string; overnight: Overnight } {
+): { home: string; sound?: string; model?: string; effort?: string; overnight: Overnight } {
   let raw: Record<string, unknown>
   try {
     raw = parse(text) as Record<string, unknown>
@@ -145,12 +154,50 @@ export function parseSettings(
   const sound = raw['sound']
   if (sound !== undefined && (typeof sound !== 'string' || !sound))
     throw new ConfigError(`${tildify(path)}: "sound" must be a sound's name, "bell" or "off"`)
+  const choice: { model?: string; effort?: string } = {}
+  for (const key of ['model', 'effort'] as const) {
+    const v = raw[key]
+    if (v === undefined) continue
+    if (typeof v !== 'string' || !v)
+      throw new ConfigError(
+        `${tildify(path)}: "${key}" must be a name like "${CHOICE_DEFAULTS[key]}"`,
+      )
+    choice[key] = v
+  }
   return {
     home: expandHome(home),
     ...(sound ? { sound } : {}),
+    ...choice,
     overnight: parseOvernight(raw, tildify(path)),
   }
 }
+
+// What a conversation starts with when it doesn't say. Hopper always passes a model and an
+// effort, so "default" names the same thing whichever login runs it, and can always be shown.
+export type Choice = { model: string; effort: string }
+export const CHOICE_DEFAULTS: Choice = { model: 'opus', effort: 'high' }
+
+// What a draft or routine in `project` gets for what it leaves unset: the project's own choice,
+// else config.toml's, else Hopper's.
+export function defaultsFor(
+  config: Pick<Config, 'model' | 'effort'>,
+  project?: { model?: string | undefined; effort?: string | undefined },
+): Choice {
+  return {
+    model: project?.model ?? config.model ?? CHOICE_DEFAULTS.model,
+    effort: project?.effort ?? config.effort ?? CHOICE_DEFAULTS.effort,
+  }
+}
+
+// What it actually runs with: its own choice where it made one, the defaults for the rest.
+export const chosen = (
+  own: { model?: string | undefined; effort?: string | undefined },
+  defaults: Choice,
+): Choice => ({ model: own.model ?? defaults.model, effort: own.effort ?? defaults.effort })
+
+// A model or effort as shown: what was picked, or the default it falls back to, named.
+export const choiceText = (own: string | undefined, fallback: string) =>
+  own ?? `${fallback} (default)`
 
 // Sets one top-level string in config.toml's text, keeping its comments; null takes it out.
 export function setSetting(text: string, key: string, value: string | null): string {

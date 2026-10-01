@@ -16,7 +16,9 @@ import {
 import {
   addAccount,
   setDefaultAccount,
+  choiceText,
   ConfigError,
+  defaultsFor,
   loadConfig,
   prefixesOf,
   saveAccounts,
@@ -27,7 +29,7 @@ import {
 } from './config.ts'
 import { ago, resetShort, when } from './format.ts'
 import { writeGuide } from './guide.ts'
-import { initHome } from './home.ts'
+import { initHome, loadProjects } from './home.ts'
 import { gather, OTHER } from './model.ts'
 import { configPath, tildify } from './paths.ts'
 import { hopperPrompt } from './prompts.ts'
@@ -276,9 +278,10 @@ async function routine(sub: string | undefined, rest: string[]) {
     return
   }
   if (sub === 'templates') {
+    const model = defaultsFor(config).model
     for (const t of await routineTemplates())
       console.log(
-        `${t.name.padEnd(16)} ${(t.schedule || '–').padEnd(18)} ${(t.model ?? 'default').padEnd(7)} ${(t.prompt.split('\n')[0] ?? '').slice(0, 60)}`,
+        `${t.name.padEnd(16)} ${(t.schedule || '–').padEnd(18)} ${choiceText(t.model, model).padEnd(15)} ${(t.prompt.split('\n')[0] ?? '').slice(0, 60)}`,
       )
     return
   }
@@ -307,11 +310,16 @@ async function routines() {
   const config = await requireConfig()
   const all = await listRoutines(config.home)
   if (!all.length) return console.log(`No routines yet in ${tildify(config.home)}/routines`)
+  const projects = await loadProjects(config.home).catch(() => [])
   for (const r of all) {
+    const model = defaultsFor(
+      config,
+      projects.find((p) => p.key === r.project),
+    ).model
     const next = r.enabled ? nextRun(r.schedule, new Date()) : null
     const status = !r.enabled ? 'paused' : next ? `next ${when(next.getTime())}` : 'run now only'
     console.log(
-      `${r.name.padEnd(20)} ${(r.schedule || '–').padEnd(22)} ${r.project.padEnd(18)} ${(r.model ?? 'default').padEnd(8)} ${status}`,
+      `${r.name.padEnd(20)} ${(r.schedule || '–').padEnd(22)} ${r.project.padEnd(18)} ${choiceText(r.model, model).padEnd(15)} ${status}`,
     )
   }
 }

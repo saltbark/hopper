@@ -4,7 +4,7 @@ import { appendFile, mkdir, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { limitedNote, startBackground, unattendedPermissions, type Session } from '../claude.ts'
-import type { Config } from '../config.ts'
+import { chosen, defaultsFor, type Config } from '../config.ts'
 import { recordConversation } from '../conversations.ts'
 import { readIfThere } from '../fsutil.ts'
 import { extraDirs, type Project } from '../home.ts'
@@ -244,8 +244,7 @@ export async function runRoutine(opts: {
 
   const result = resultPath(home, r.name, at)
   await mkdir(join(routinesDir(home), r.name, 'runs'), { recursive: true })
-  const model = r.model ?? project.model
-  const effort = r.effort ?? project.effort
+  const { model, effort } = chosen(r, defaultsFor(config, project))
   const when = at.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   const name = `↻ ${r.name} · ${when} ${at.toTimeString().slice(0, 5)}`
   const folder = join(routinesDir(home), r.name)
@@ -274,8 +273,8 @@ export async function runRoutine(opts: {
     startedAt: at.getTime(),
     unattended: true,
     result,
-    ...(model ? { model } : {}),
-    ...(effort ? { effort } : {}),
+    model,
+    effort,
   })
   await recordRun(home, {
     routine: r.name,
@@ -285,7 +284,7 @@ export async function runRoutine(opts: {
     account: account.name,
     result,
     prompt: promptHash(r.prompt),
-    ...(model ? { model } : {}),
+    model,
   })
   return { status: 'started', id, account: account.name }
 }

@@ -2,7 +2,7 @@ import { Box, Text } from 'ink'
 
 import type { Config } from '../../config.ts'
 import { tildify } from '../../paths.ts'
-import type { Row } from '../../settings.ts'
+import type { Edit, Row } from '../../settings.ts'
 import { Frame, windowed } from '../panels/primitives.tsx'
 import { filePath } from '../settingsActions.ts'
 import { T } from '../theme.ts'
@@ -46,6 +46,10 @@ function ListRow({ row, selected, width }: { row: Row; selected: boolean; width:
   )
 }
 
+// How a choice's "not set" reads: the default it falls back to, named where it has a name.
+const choiceName = (edit: Edit) =>
+  'fallback' in edit && edit.fallback ? `${edit.fallback} (default)` : 'default'
+
 const fileName = (file: Row['file']) =>
   file === 'config' ? 'config.toml' : file === 'accounts' ? 'accounts.toml' : 'projects.toml'
 
@@ -63,7 +67,7 @@ function About({ row, config }: { row: Row | undefined; config: Config }) {
         : row.edit.type === 'readonly'
           ? 'Set in the file: o opens it.'
           : row.edit.type === 'choice'
-            ? `⏎ cycles: ${row.edit.options.map((o) => o || 'default').join(', ')}.${row.isSet ? ' d goes back to the default.' : ''}`
+            ? `⏎ cycles: ${row.edit.options.map((o) => o || choiceName(row.edit)).join(', ')}.${row.isSet ? ' d goes back to the default.' : ''}`
             : `⏎ edits it.${row.isSet ? ' d goes back to the default.' : ''}`
   return (
     <>

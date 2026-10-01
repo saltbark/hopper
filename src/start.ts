@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { limitedNote, startBackground, unattendedPermissions } from './claude.ts'
-import type { Account, Config } from './config.ts'
+import { chosen, defaultsFor, type Account, type Config } from './config.ts'
 import { recordConversation } from './conversations.ts'
 import { deleteDraft, type Draft } from './drafts.ts'
 import { extraDirs, type Project } from './home.ts'
@@ -36,7 +36,8 @@ export async function startDraft(opts: {
   const name = `${unattended ? '☾ ' : ''}${project.key} · ${first}`
   const result = unattended ? draftResultPath(home, d.id) : undefined
   if (result) await mkdir(resultsDir(home), { recursive: true })
-  const perms = result ? unattendedPermissions(d.model, [resultsDir(home)]) : undefined
+  const { model, effort } = chosen(d, defaultsFor(config, project))
+  const perms = result ? unattendedPermissions(model, [resultsDir(home)]) : undefined
   const systemPrompt = [
     hopperPrompt(project, { unattended }),
     result
@@ -58,8 +59,8 @@ export async function startDraft(opts: {
     name,
     prompt: text,
     systemPrompt,
-    model: d.model,
-    effort: d.effort,
+    model,
+    effort,
     addDirs: [...(result ? [resultsDir(home)] : []), ...extraDirs(project)],
     ...perms,
   })
@@ -67,8 +68,8 @@ export async function startDraft(opts: {
     project: project.key,
     startedAt: opts.now ?? Date.now(),
     draft: d.id,
-    ...(d.model ? { model: d.model } : {}),
-    ...(d.effort ? { effort: d.effort } : {}),
+    model,
+    effort,
     ...(result ? { unattended: true, result } : {}),
     ...(d.depth ? { depth: d.depth } : {}),
     ...(d.queue ? { queue: d.queue } : {}),

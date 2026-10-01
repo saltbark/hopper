@@ -60,6 +60,11 @@ where they are.
   `<home>/state/conversations.json`; Claude Code doesn't report them. A routine's reports are
   the files in its `runs/` folder (`listReports`), not the run log, so a report written some
   other way shows too; the log only adds which conversation wrote it.
+- **Every conversation Hopper starts gets `--model` and `--effort`.** Left off, the login's own
+  settings (or its plan) would decide, and Hopper couldn't say which. What a draft or routine
+  doesn't pick comes from `defaultsFor` (`src/config.ts`): its project's, then `config.toml`'s,
+  then `CHOICE_DEFAULTS`. Wherever a default applies it is shown by name (`choiceText`:
+  "opus (default)"), never as a bare "default".
 - **Unattended means a mode that never asks, and a result file.** Routine runs and anything
   `hopper dispatch` starts get `unattendedPermissions` (`src/claude.ts`): `--permission-mode
 auto`, except for Haiku, which has no auto mode (Claude falls back to asking, and the run

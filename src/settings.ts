@@ -6,7 +6,9 @@ import { parse, stringify } from 'smol-toml'
 
 import { DEFAULT_SOUND, SOUNDS } from './chime.ts'
 import {
+  CHOICE_DEFAULTS,
   defaultAccount,
+  defaultsFor,
   OVERNIGHT_DEFAULTS,
   OVERNIGHT_KEYS,
   prefixesOf,
@@ -78,12 +80,15 @@ export const removeEntry = (doc: ProjectsDoc, table: TableName, index: number): 
 // ---------- rows ----------
 
 export type Target =
-  | { file: 'config'; field: 'home' | 'sound' | keyof typeof OVERNIGHT_KEYS }
+  | { file: 'config'; field: 'home' | 'sound' | 'model' | 'effort' | keyof typeof OVERNIGHT_KEYS }
   | { file: 'accounts'; account: string; field: 'label' | 'prefixes' | 'default' }
   | { file: 'projects'; table: TableName; index: number; field: string }
 
-// '' in options is "not set": the default.
-export type Edit = { type: 'text' } | { type: 'choice'; options: string[] } | { type: 'readonly' }
+// '' in options is "not set": the default, which `fallback` names where it has a name.
+export type Edit =
+  | { type: 'text' }
+  | { type: 'choice'; options: string[]; fallback?: string }
+  | { type: 'readonly' }
 
 export type FileKey = 'config' | 'accounts' | 'projects'
 
@@ -108,6 +113,11 @@ export type Row =
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const modelOptions = MODELS.map((m) => m ?? '')
 const effortOptions = EFFORTS.map((m) => m ?? '')
+// config.toml's choices: '' is Hopper's own default, so it isn't listed again under its name.
+const hopperOptions = (list: readonly (string | undefined)[], def: string) => [
+  '',
+  ...list.filter((m): m is string => !!m && m !== def),
+]
 // '' is the default sound, so it isn't listed again under its name.
 const soundOptions = ['', ...SOUNDS.filter((s) => s !== DEFAULT_SOUND)]
 
@@ -147,9 +157,32 @@ export function buildRows(
     isSet: !!config.sound,
     help: 'Played when a conversation stops running and waits on you, unless it is the one open on the right. A macOS sound, bell for the terminal’s own, or off. ⏎ plays the next one.',
     file: 'config',
-    edit: { type: 'choice', options: soundOptions },
+    edit: { type: 'choice', options: soundOptions, fallback: DEFAULT_SOUND },
     target: { file: 'config', field: 'sound' },
   })
+  const choiceHelp = {
+    model:
+      'The model a conversation starts with when neither it nor its project picks one. Hopper always tells Claude which, so it is the same on every login.',
+    effort: 'The effort a conversation starts with when neither it nor its project picks one.',
+  }
+  for (const key of ['model', 'effort'] as const) {
+    rows.push({
+      kind: 'setting',
+      id: `general.${key}`,
+      label: key,
+      value: config[key] ?? `${CHOICE_DEFAULTS[key]} (default)`,
+      raw: config[key] ?? '',
+      isSet: !!config[key],
+      help: choiceHelp[key],
+      file: 'config',
+      edit: {
+        type: 'choice',
+        options: hopperOptions(key === 'model' ? MODELS : EFFORTS, CHOICE_DEFAULTS[key]),
+        fallback: CHOICE_DEFAULTS[key],
+      },
+      target: { file: 'config', field: key },
+    })
+  }
 
   rows.push({
     kind: 'section',
@@ -351,7 +384,7 @@ export function buildRows(
       isSet: !!str(s['run_in']),
       help: 'repo: every conversation runs from the meta repo, so its CLAUDE.md and conventions apply, and reaches the code through its projects/ link. project: each runs in its own folder.',
       file: 'projects',
-      edit: { type: 'choice', options: ['', 'project'] },
+      edit: { type: 'choice', options: ['', 'project'], fallback: 'repo' },
       target: t('run_in'),
     })
   })
@@ -419,21 +452,23 @@ export function buildRows(
     field(
       'model',
       'model',
-      str(p['model']) || 'default',
-      'What new conversations here start with, unless the draft says otherwise.',
+      str(p['model']) || `${defaultsFor(config).model} (default)`,
+      'What new conversations here start with, unless the draft says otherwise. Not set, the model in General.',
       {
         type: 'choice',
         options: modelOptions,
+        fallback: defaultsFor(config).model,
       },
     )
     field(
       'effort',
       'effort',
-      str(p['effort']) || 'default',
-      'The effort new conversations here start with.',
+      str(p['effort']) || `${defaultsFor(config).effort} (default)`,
+      'The effort new conversations here start with. Not set, the effort in General.',
       {
         type: 'choice',
         options: effortOptions,
+        fallback: defaultsFor(config).effort,
       },
     )
   })

@@ -1,5 +1,6 @@
 import { Text } from 'ink'
 
+import type { Choice } from '../../../config.ts'
 import type { Draft } from '../../../drafts.ts'
 import { ago, wrapText } from '../../../format.ts'
 import type { OpenItem } from '../../../items.ts'
@@ -26,10 +27,12 @@ const draftWords = (d: Draft | undefined) =>
 export function DraftDetail({
   item,
   draft,
+  defaults,
   width,
 }: {
   item: Item
   draft?: Draft | undefined
+  defaults: Choice
   width: number
 }) {
   const lines = wrapText(draft?.text ?? '', width)
@@ -44,7 +47,7 @@ export function DraftDetail({
       </Text>
       <Text> </Text>
       {row('project', item.key)}
-      {row('model', modelLabel(draft?.model, draft?.effort))}
+      {row('model', modelLabel(draft?.model, draft?.effort, defaults))}
       {draft?.queue
         ? row('starts', item.waiting ?? 'on the next dispatch', item.waiting ? T.waiting : T.text)
         : null}
@@ -53,7 +56,7 @@ export function DraftDetail({
       {draft?.proposed ? row('from', draft.proposed) : null}
       {draft ? row('id', draft.id) : null}
       <Text> </Text>
-      <Keys keys={draftKeys(draft ?? {})} width={width} />
+      <Keys keys={draftKeys({ ...draft, defaults })} width={width} />
       <Text> </Text>
       <Heading label="text · ⏎ to keep writing" width={width} />
       {lines.map((l, i) => (
@@ -85,7 +88,9 @@ export function ConversationDetail(props: {
       {row('project', item.key === OTHER ? 'none of Hopper’s projects' : item.key)}
       {row('cwd', tildify(item.cwd))}
       {row('login', `${item.account} · ${item.kind}`)}
-      {row('model', [item.model ?? 'default', item.effort].filter(Boolean).join(' · '))}
+      {/* Hopper records what it started a conversation with; for one it didn't start, or started
+          before it recorded both, Claude Code doesn't say. */}
+      {row('model', `${item.model ?? 'not known'} · ${item.effort ?? 'not known'}`)}
       {item.routine ? row('routine', item.routine) : null}
       {item.result?.summary ? row('result', item.result.summary) : null}
       {item.id ? row('id', item.id) : null}
