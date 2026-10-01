@@ -14,10 +14,7 @@
       content="A terminal app for handing work to Claude Code across your projects and your Claude logins."
     />
     <meta name="theme-color" content="#0c1012" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c1012'/%3E%3Cpath d='M7 9h18l-6 9v6l-6 2v-8z' fill='none' stroke='%236fcac3' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E"
-    />
+    <link rel="icon" type="image/svg+xml" href="/frog.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -86,9 +83,8 @@
         color: var(--hi);
         font: 700 18px var(--mono);
       }
-      .mark svg {
-        width: 26px;
-        height: 26px;
+      .mark img {
+        image-rendering: pixelated;
       }
       nav a {
         color: var(--dim);
@@ -205,6 +201,14 @@
         letter-spacing: 0;
         white-space: pre;
         font-variant-ligatures: none;
+      }
+      /* A glyph the web font lacks: one column wide, whatever font draws it. */
+      pre.term .g {
+        display: inline-block;
+        width: 1ch;
+        overflow: hidden;
+        text-align: center;
+        vertical-align: top;
       }
       .keys {
         display: flex;
@@ -390,16 +394,7 @@
     <div class="wrap">
       <header class="top">
         <a class="mark" href="/" aria-label="Hopper">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="7" fill="#12181b" />
-            <path
-              d="M7 9h18l-6 9v6l-6 2v-8z"
-              fill="none"
-              stroke="#6fcac3"
-              stroke-width="2.4"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <img src="/frog.svg" width="32" height="30" alt="" />
           hopper
         </a>
         <nav>

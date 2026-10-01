@@ -96,6 +96,12 @@ function css(s: Style): string {
   return out.join(';')
 }
 
+// The web font has ASCII, box drawing and blocks; anything else (✓ ◇ ↻ ☾ ⏎, the braille spinner)
+// comes from a fallback font whose width differs, which pushes the rest of the row sideways. Each
+// such glyph gets a cell exactly one column wide, as a terminal would give it.
+const cells = (html: string) =>
+  html.replace(/[^\u0000-\u007f─-▟…·]/gu, (g) => `<span class="g">${g}</span>`)
+
 export function ansiToHtml(text: string): string {
   // Drop OSC sequences (links, titles), then any CSI that isn't a colour.
   const clean = text
@@ -114,7 +120,7 @@ export function ansiToHtml(text: string): string {
       if (c) html += `<span style="${c}">`
       open = c
     }
-    html += esc(chunk)
+    html += cells(esc(chunk))
   }
   for (let m = re.exec(clean); m; m = re.exec(clean)) {
     flush(clean.slice(last, m.index))
