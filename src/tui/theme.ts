@@ -75,8 +75,8 @@ export function stateMark(
     return state === 'paused' ? { mark: '○', color: T.dim } : { mark: '↻', color: T.focus }
   }
   // Waiting on you: a question is your turn, not a fault, so only a failure is red. On hold is
-  // a pause sign, whatever it was waiting with.
-  if (state === 'held') return { mark: '‖', color: T.held }
+  // a small clock, later, whatever it was waiting with.
+  if (state === 'held') return { mark: '◷', color: T.held }
   if (state === 'blocked') return { mark: '?', color: T.waiting, bold: true }
   if (state === 'failed' || state === 'stopped') return { mark: '✕', color: T.blocked }
   if (state === 'done') return { mark: '✓', color: T.waiting }

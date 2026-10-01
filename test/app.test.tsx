@@ -1036,7 +1036,7 @@ describe('on hold', () => {
     await press(stdin, 'h')
     await until(() => (lastFrame() ?? '').includes('ON HOLD 1'))
     expect(lastFrame()).not.toContain('WAITING ON YOU')
-    expect(lastFrame()).toContain('‖')
+    expect(lastFrame()).toContain('◷')
     expect([...(await loadHeld(home)).keys()]).toEqual(['s-Draft the spring newsletter'])
     await press(stdin, 'n')
     expect(lastFrame()).toContain('Nothing waiting on you.')
