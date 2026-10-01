@@ -165,25 +165,6 @@
         letter-spacing: -0.035em;
         font-weight: 700;
       }
-      .hero h1 .cursor {
-        display: inline-block;
-        width: 0.55em;
-        height: 0.95em;
-        margin-left: 0.12em;
-        vertical-align: -0.1em;
-        background: var(--focus);
-        animation: blink 1.1s steps(1) infinite;
-      }
-      @keyframes blink {
-        50% {
-          opacity: 0;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .hero h1 .cursor {
-          animation: none;
-        }
-      }
       .hero p.lede {
         margin: 0;
         font-size: 15.5px;
@@ -546,7 +527,7 @@
       </header>
 
       <section class="hero">
-        <h1>Toss work in the hopper.<span class="cursor" aria-hidden="true"></span></h1>
+        <h1>Toss work in the hopper.</h1>
         <p class="lede">
           Hand work to Claude Code and keep track of it. One window shows every conversation across
           your projects and your Claude logins, which ones are waiting on you, and opens them right
