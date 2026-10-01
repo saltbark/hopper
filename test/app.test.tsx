@@ -195,10 +195,10 @@ describe('App', () => {
     return { held, keepAwake }
   }
   const barOf = (frame: string | undefined) => (frame ?? '').trimEnd().split('\n').at(-1) ?? ''
-  // The emoji cup, last on the line: the same column on every screen.
-  const CUP_LAST = /\u2615\uFE0F$/
+  // The mark, last on the line: the same column on every screen.
+  const AWAKE_LAST = /awake$/
 
-  it('z holds the Mac awake, with ☕ at the end of the key bar, until z again; it is kept', async () => {
+  it('z holds the Mac awake, with awake at the end of the key bar, until z again; it is kept', async () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
     const { held, keepAwake } = fakeAwake()
     const { lastFrame, stdin, unmount } = render(
@@ -210,22 +210,22 @@ describe('App', () => {
       />,
     )
     await tick()
-    expect(barOf(lastFrame())).not.toContain('☕')
+    expect(barOf(lastFrame())).not.toMatch(AWAKE_LAST)
     await press(stdin, 'z')
     expect(held.now).toBe(1)
     expect(lastFrame()).toContain('Keeping this Mac awake')
-    expect(barOf(lastFrame()).trimEnd()).toMatch(CUP_LAST)
-    await press(stdin, 'j') // the message goes; the ☕ stays, after ? all keys
-    expect(barOf(lastFrame()).trimEnd()).toMatch(/all keys {2}\u2615\uFE0F$/)
+    expect(barOf(lastFrame()).trimEnd()).toMatch(AWAKE_LAST)
+    await press(stdin, 'j') // the message goes; the mark stays, after ? all keys
+    expect(barOf(lastFrame()).trimEnd()).toMatch(/all keys {2}awake$/)
     await until(async () => (await loadAwake(home)) === true)
     expect(await loadAwake(home)).toBe(true)
     await press(stdin, ',') // on every screen
-    expect(barOf(lastFrame()).trimEnd()).toMatch(CUP_LAST)
+    expect(barOf(lastFrame()).trimEnd()).toMatch(AWAKE_LAST)
     await press(stdin, '\u001b')
     await press(stdin, 'z')
     expect(held.now).toBe(0)
     expect(lastFrame()).toContain('This Mac can sleep again.')
-    expect(barOf(lastFrame())).not.toContain('☕')
+    expect(barOf(lastFrame())).not.toMatch(AWAKE_LAST)
     await until(async () => (await loadAwake(home)) === false)
     expect(await loadAwake(home)).toBe(false)
     unmount()
@@ -246,7 +246,7 @@ describe('App', () => {
     await until(() => held.now === 1)
     expect(held.now).toBe(1)
     await tick()
-    expect(barOf(lastFrame()).trimEnd()).toMatch(CUP_LAST)
+    expect(barOf(lastFrame()).trimEnd()).toMatch(AWAKE_LAST)
     unmount()
     expect(held.now).toBe(0)
   })
@@ -264,7 +264,7 @@ describe('App', () => {
     )
     await tick()
     await press(stdin, 'z')
-    expect(lastFrame()).not.toContain('☕')
+    expect(barOf(lastFrame()).trimEnd()).not.toMatch(/awake$/)
     expect(lastFrame()).not.toContain('Keeping this Mac awake')
     unmount()
   })

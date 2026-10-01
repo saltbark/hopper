@@ -101,20 +101,24 @@ type BarProps = {
   error: string | null
 }
 
-// While z is holding the Mac awake, the line ends in a coffee cup, whatever is on screen. It is
-// the emoji (U+FE0F), not the text glyph, which terminals draw small and a cell narrower than Ink
-// counts it. Last on the line, so a terminal that still draws it narrow moves nothing else.
-const CUP = '\u2615\uFE0F'
+// While z is holding the Mac awake, the line ends in "awake", whatever is on screen: in its own
+// colour, so it never takes the colour of the text beside it, and one cell in from the edge, as
+// the line starts. A word rather than a symbol: an emoji is drawn small, and narrower than Ink
+// counts it, by terminals that take it from a text font.
+const awakeMark = <Text color={T.running}>awake</Text>
 
-// A line with nothing of its own at the right gets the cup there.
-const withCup = (awake: boolean, line: ReactNode) =>
+// A line with nothing of its own at the right gets the mark there.
+const withAwake = (awake: boolean, line: ReactNode) =>
   awake ? (
     <Box justifyContent="space-between">
       <Box flexShrink={1} minWidth={0}>
         {line}
       </Box>
       <Box flexShrink={0}>
-        <Text>{'  ' + CUP}</Text>
+        <Text>
+          {'  '}
+          {awakeMark}{' '}
+        </Text>
       </Box>
     </Box>
   ) : (
@@ -125,9 +129,9 @@ const withCup = (awake: boolean, line: ReactNode) =>
 export function KeyBar(props: BarProps & { awake: boolean }) {
   const { form, editing, query, here, message, error, awake } = props
   const { focus } = here
-  if (form) return withCup(awake, <FormBar form={form} />)
+  if (form) return withAwake(awake, <FormBar form={form} />)
   if (editing) {
-    return withCup(
+    return withAwake(
       awake,
       <Text wrap="truncate-end">
         {chip(editing.routine ? 'routine' : 'draft')}
@@ -137,7 +141,7 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
     )
   }
   if (here.setting !== undefined) {
-    return withCup(
+    return withAwake(
       awake,
       <Text wrap="truncate-end">
         {chip('settings')}{' '}
@@ -148,7 +152,7 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
   // Projects finds as you type, so it has a line to type on, and every letter is the query's (?
   // included).
   if (focus === 'projects') {
-    return withCup(
+    return withAwake(
       awake,
       <Text wrap="truncate-end">
         {chip('find')}
@@ -159,7 +163,7 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
     )
   }
   if (focus === 'session') {
-    return withCup(
+    return withAwake(
       awake,
       <Text wrap="truncate-end">
         {chip('claude')}
@@ -203,7 +207,14 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
         <Text>
           {error ? <Text color={T.blocked}>{'  ' + error}</Text> : null}
           <Text color={T.text}>{'  ?'}</Text>
-          <Text color={T.dim}>{' all keys' + (awake ? '  ' + CUP : ' ')}</Text>
+          <Text color={T.dim}> all keys</Text>
+          {awake ? (
+            <Text>
+              {'  '}
+              {awakeMark}
+            </Text>
+          ) : null}
+          <Text> </Text>
         </Text>
       </Box>
     </Box>
