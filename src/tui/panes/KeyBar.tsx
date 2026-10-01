@@ -21,7 +21,7 @@ const keys = (list: Hint[]) =>
 const hintText = (list: Hint[]) => list.map(([k, d]) => `${k} ${d}`).join(' · ')
 
 // After the keys for where you are, a few that work from anywhere. The line truncates from the
-// end; ? sits at the right with the panel's name, so it never does. → and ← come first: in and out
+// end; ? sits at the right, so it never does. → and ← come first: in and out
 // of a conversation is the move made most.
 const GLOBAL: Hint[] = [
   ['→ ←', 'open and back'],
@@ -125,10 +125,6 @@ const withCup = (awake: boolean, line: ReactNode) =>
 export function KeyBar(props: BarProps & { awake: boolean }) {
   const { form, editing, query, here, message, error, awake } = props
   const { focus } = here
-  // The panel's name at the right end, then the cup.
-  const named = (where: string) => (
-    <Text color={T.faint}>{'  ' + where + (awake ? '  ' + CUP : ' ')}</Text>
-  )
   if (form) return withCup(awake, <FormBar form={form} />)
   if (editing) {
     return withCup(
@@ -150,18 +146,16 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
     )
   }
   // Projects finds as you type, so it has a line to type on, and every letter is the query's (?
-  // included). The panel is named at the right, as on the board.
+  // included).
   if (focus === 'projects') {
-    return (
-      <Box justifyContent="space-between">
-        <Text wrap="truncate-end">
-          {chip('find')}
-          <Text color={T.hi}>{'  ' + query}</Text>
-          <Text inverse> </Text>
-          {note(message, '  ⏎ focuses it · tab new conversation there · ↑↓ choose · esc back')}
-        </Text>
-        <Box flexShrink={0}>{named('projects')}</Box>
-      </Box>
+    return withCup(
+      awake,
+      <Text wrap="truncate-end">
+        {chip('find')}
+        <Text color={T.hi}>{'  ' + query}</Text>
+        <Text inverse> </Text>
+        {note(message, '  ⏎ focuses it · tab new conversation there · ↑↓ choose · esc back')}
+      </Text>,
     )
   }
   if (focus === 'session') {
@@ -177,7 +171,6 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
     )
   }
   // The focused panel's keys for what is selected, then the global ones it doesn't already name.
-  // The panel is named at the right, so it is known even without colour.
   // A routine's reports keep the keyboard to themselves, so none of the global keys apply.
   // A key the global ones already show (→) is left off the local hint.
   const bar = barKeys(here)
@@ -192,7 +185,6 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
       d,
     ])
     .filter(([k]) => k)
-  const where = here.reports ? hereKeys(here).label : focus === 'work' ? 'conversations' : focus
   return (
     <Box justifyContent="space-between">
       <Text wrap="truncate-end">
@@ -211,8 +203,7 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
         <Text>
           {error ? <Text color={T.blocked}>{'  ' + error}</Text> : null}
           <Text color={T.text}>{'  ?'}</Text>
-          <Text color={T.dim}> all keys</Text>
-          {named(where)}
+          <Text color={T.dim}>{' all keys' + (awake ? '  ' + CUP : ' ')}</Text>
         </Text>
       </Box>
     </Box>

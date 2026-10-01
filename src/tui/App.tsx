@@ -77,6 +77,7 @@ export function App({
   save = saveAccounts,
   chime = playChime,
   setTitle = noTitle,
+  onFocus,
   // Routines on their schedule and queued drafts, while the app is open. Tests turn it off
   // (HOPPER_NO_AUTOPILOT, in vitest.config.ts) unless they're about it.
   autopilot = !process.env['HOPPER_NO_AUTOPILOT'],
@@ -89,6 +90,9 @@ export function App({
   chime?: Chime
   // Writes the terminal tab's title; tests leave it out.
   setTitle?: (text: string) => void
+  // Told the panel with the keyboard whenever it changes, for tests: the screen shows it only in
+  // colour.
+  onFocus?: (panel: string) => void
   autopilot?: boolean
   keepAwake?: KeepAwake | null
 }) {
@@ -253,6 +257,7 @@ export function App({
   const showingEmbed = !!embed
   // The blue edge is where the keys go: nowhere on the left while the editor has them.
   const keysAt = editing || reports ? null : focus
+  useEffect(() => onFocus?.(focus === 'work' ? 'conversations' : focus), [focus, onFocus])
   // The list whose selected row the right panel is showing, which keeps its highlight while the
   // keys are over there.
   const editingId =
