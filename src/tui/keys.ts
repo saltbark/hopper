@@ -14,7 +14,7 @@ import { routineSessionId, type Item } from '../model.ts'
 import type { Actions } from './actions.ts'
 import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
-import { backspace, insert, move, type EditorState, type Move } from './editor.ts'
+import { backspace, insert, move, textWidth, type EditorState, type Move } from './editor.ts'
 import { keyToBytes } from './embed.ts'
 import { rank } from './fuzzy.ts'
 import { parseMouse, type MouseEvent } from './mouse.ts'
@@ -285,7 +285,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (key.escape) return void (e.routine ? act.keepRoutine(e) : act.keepDraft(e))
     const ed: EditorState = { text: e.text, cursor: e.cursor, anchor: e.anchor }
     const put = (n: EditorState) => setEditing({ ...e, ...n })
-    const to = (how: Move) => put(move(ed, how, ctx.layout.rightW - 4, key.shift))
+    const to = (how: Move) => put(move(ed, how, textWidth(ctx.layout.rightW), key.shift))
     if (key.return) return put(insert(ed, '\n'))
     // On a Mac, Backspace arrives as delete; Option+Backspace removes a word.
     if (key.backspace || key.delete) return put(backspace(ed, key.meta))

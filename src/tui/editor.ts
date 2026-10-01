@@ -63,7 +63,12 @@ export function wordRight(text: string, at: number): number {
 // A visual line: text[start..end) is shown on it; the newline or wrap point follows.
 export type VisualLine = { start: number; end: number }
 
-// Wraps at spaces where it can, hard-wraps words wider than the line, keeps blank lines.
+// The width to lay a draft out at, in a box this wide: inside the border and padding, less the
+// one column a line can run past it (see layout). Text that reached it wrapped again on screen.
+export const textWidth = (boxWidth: number) => boxWidth - 5
+
+// Wraps at spaces where it can, hard-wraps words wider than the line, keeps blank lines. A line
+// can run one column past width: with the space it wraps at, or with the cursor after its end.
 export function layout(text: string, width: number): VisualLine[] {
   const w = Math.max(4, width)
   const lines: VisualLine[] = []

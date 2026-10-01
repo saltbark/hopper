@@ -43,6 +43,16 @@ describe('layout', () => {
       'ij',
     ])
   })
+  it('runs one column past the width only with the space it wraps at', () => {
+    const text = 'aaaa bbbb cc'
+    expect(layout(text, 4).map((l) => text.slice(l.start, l.end))).toEqual(['aaaa ', 'bbbb ', 'cc'])
+    const words = 'the quick brown fox jumps over the lazy dog  twice over'
+    for (let w = 4; w < 20; w++)
+      for (const l of layout(words, w)) {
+        const shown = words.slice(l.start, l.end)
+        expect(shown.replace(/ $/, '').length).toBeLessThanOrEqual(w)
+      }
+  })
   it('puts the cursor at a wrap point on the next line', () => {
     const lines = layout('one two three', 8)
     expect(locate(lines, 8)).toEqual({ line: 1, col: 0 })

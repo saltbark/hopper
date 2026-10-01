@@ -1,7 +1,7 @@
 import { Text } from 'ink'
 
 import type { Choice } from '../../config.ts'
-import { layout, locate, selection, type VisualLine } from '../editor.ts'
+import { layout, locate, selection, textWidth, type VisualLine } from '../editor.ts'
 import { Frame } from '../panels/primitives.tsx'
 import { modelLabel, type Editing } from '../state.ts'
 
@@ -18,9 +18,8 @@ export function DraftPane({
   width: number
   height: number
 }) {
-  const w = width - 4
   const writing = editing.stage === 'write'
-  const lines = layout(editing.text, w)
+  const lines = layout(editing.text, textWidth(width))
   const cursorLine = locate(lines, editing.cursor).line
   const sel = selection(editing)
   const room = Math.max(1, height - 4)
