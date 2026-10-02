@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.2 (2026-10-02)
+
+- Lists sort by when a conversation last changed hands, not when it started: a running one by
+  when you last wrote to it, and one that's waiting, on hold or done by when Claude stopped. An
+  old conversation you reply to moves to the top, and Running doesn't reshuffle with every tool
+  call. A conversation with no transcript still sorts by its start.
+- A row's age, and a project's last activity, count from the same moment. The details line adds
+  "last written to" or "stopped" beside "started", and `hopper list --json` gives each
+  conversation an `activeAt`.
+
 ## 0.4.1 (2026-10-01)
 
 - Typing a draft no longer leaves a blank line after a line that reaches the right edge of the
