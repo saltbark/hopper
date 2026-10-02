@@ -64,13 +64,13 @@ export type Saver = typeof saveAccounts
 const noTitle = () => {}
 
 const LISTED = new Set<Item['where']>(['queue', 'needs', 'routine'])
-// Newest first, except routines: the soonest to run first, then the ones with no next run
-// (paused, run by hand), each by name.
+// Most recently active first, except routines: the soonest to run first, then the ones with no
+// next run (paused, run by hand), each by name.
 export const byGroup = (a: Item, b: Item) =>
   groupRank(groupOf(a)) - groupRank(groupOf(b)) ||
   (a.kind === 'routine' && b.kind === 'routine'
     ? (a.nextAt ?? Infinity) - (b.nextAt ?? Infinity) || a.name.localeCompare(b.name)
-    : b.startedAt - a.startedAt)
+    : b.activeAt - a.activeAt)
 
 export function App({
   config: initialConfig,
@@ -169,7 +169,7 @@ export function App({
     const count = (key: string, w: Item['where']) =>
       snap.items.filter((i) => i.key === key && i.where === w).length
     const last = new Map<string, number>()
-    for (const i of snap.items) last.set(i.key, Math.max(last.get(i.key) ?? 0, i.startedAt))
+    for (const i of snap.items) last.set(i.key, Math.max(last.get(i.key) ?? 0, i.activeAt))
     return snap.projects.map((p) => ({
       key: p.key,
       counts: {

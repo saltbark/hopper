@@ -101,6 +101,7 @@ export async function listJson(config: Config, snap?: Snapshot) {
       unattended: !!i.unattended,
       cwd: i.cwd,
       startedAt: iso(i.startedAt),
+      activeAt: iso(i.activeAt),
       result: i.resultPath
         ? { path: i.resultPath, needs: i.result?.needs ?? null, summary: i.result?.summary ?? null }
         : null,

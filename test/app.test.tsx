@@ -387,7 +387,12 @@ describe('App', () => {
       created: now,
       updated: now,
     }
-    const item = { ...draftSession(d, projects, 'bh'), where: 'needs' as const, key: 'meta/inbox' }
+    const item = {
+      ...draftSession(d, projects, 'bh'),
+      where: 'needs' as const,
+      key: 'meta/inbox',
+      activeAt: now,
+    }
     const snap = { ...snapshot, drafts: [d], items: [item] }
     const { lastFrame, stdin, unmount } = render(
       <App onFocus={onFocus} config={config} load={async () => snap} />,
@@ -423,7 +428,12 @@ describe('App', () => {
       created: now,
       updated: now,
     }
-    const item = { ...draftSession(d, projects, 'bh'), where: 'needs' as const, key: 'meta/inbox' }
+    const item = {
+      ...draftSession(d, projects, 'bh'),
+      where: 'needs' as const,
+      key: 'meta/inbox',
+      activeAt: now,
+    }
     const snap = { ...snapshot, drafts: [d], items: [item] }
     const { lastFrame, stdin, unmount } = render(
       <App onFocus={onFocus} config={config} load={async () => snap} />,
@@ -443,7 +453,12 @@ describe('App', () => {
       created: now,
       updated: now,
     }
-    const item = { ...draftSession(d, projects, 'bh'), where: 'needs' as const, key: 'meta/inbox' }
+    const item = {
+      ...draftSession(d, projects, 'bh'),
+      where: 'needs' as const,
+      key: 'meta/inbox',
+      activeAt: now,
+    }
     const snap = { ...snapshot, drafts: [d], items: [item] }
     const { lastFrame, stdin, unmount } = render(
       <App onFocus={onFocus} config={config} load={async () => snap} />,

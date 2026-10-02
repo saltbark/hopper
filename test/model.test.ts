@@ -193,4 +193,56 @@ describe('gather', () => {
       delete process.env['HOPPER_CLAUDE']
     }
   })
+
+  it('sorts by the newest message, not the start', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-model-'))
+    const login = join(home, 'login')
+    const t = (iso: string) => Date.parse(iso)
+    const session = (sessionId: string, startedAt: number) => ({
+      id: sessionId,
+      sessionId,
+      cwd: home,
+      kind: 'background',
+      state: 'done',
+      startedAt,
+    })
+    const listed = [
+      session('s-old', t('2026-09-28T09:00:00Z')),
+      session('s-late', t('2026-09-30T09:00:00Z')),
+      session('s-quiet', t('2026-09-29T09:00:00Z')),
+    ]
+    const answer = join(home, 'answer.json')
+    await writeFile(answer, JSON.stringify(listed))
+    const bin = await fakeClaude(
+      `case "$1" in auth) echo '{"loggedIn":true}';; agents) cat '${answer}';; esac`,
+    )
+    const message = (type: string, timestamp: string) =>
+      JSON.stringify({ type, message: { model: 'claude-opus-5-5' }, timestamp }) + '\n'
+    // Started first, answered last.
+    const old = transcriptPath(login, home, 's-old')
+    await mkdir(dirname(old), { recursive: true })
+    await writeFile(old, message('assistant', '2026-10-01T09:00:00Z'))
+    // Its last message is older than its start says; the start wins. s-late has no transcript.
+    await writeFile(transcriptPath(login, home, 's-quiet'), message('user', '2026-09-20T09:00:00Z'))
+    process.env['HOPPER_CLAUDE'] = bin
+    try {
+      let config: Config = {
+        path: join(home, 'c.toml'),
+        accountsPath: '',
+        home,
+        accounts: [],
+        routes: [],
+        overnight: OVERNIGHT_DEFAULTS,
+      }
+      config = addAccount(config, { name: 'bh', label: 'bh', configDir: login })
+      const snap = await gather(config, null, true)
+      expect(snap.items.map((i) => [i.sessionId, new Date(i.activeAt).toISOString()])).toEqual([
+        ['s-old', '2026-10-01T09:00:00.000Z'],
+        ['s-late', '2026-09-30T09:00:00.000Z'],
+        ['s-quiet', '2026-09-29T09:00:00.000Z'],
+      ])
+    } finally {
+      delete process.env['HOPPER_CLAUDE']
+    }
+  })
 })

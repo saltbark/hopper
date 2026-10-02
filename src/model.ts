@@ -28,7 +28,7 @@ import {
 } from './routines/index.ts'
 import { pickAccount } from './routing.ts'
 import { isRead, loadRead } from './seen.ts'
-import { findTranscript, lastReply } from './transcript.ts'
+import { findTranscript, readTranscript } from './transcript.ts'
 
 // Sessions whose cwd is under no project are grouped here, so outside work still shows.
 // The leading ~ sorts it after every real key in the tree.
@@ -66,6 +66,10 @@ export function projectForCwd(projects: Project[], cwd: string): Project | undef
 export type Item = Session & {
   where: Where
   key: string
+  // When it last moved, which lists sort by: a conversation's newest message, read from its
+  // transcript, or its start when that's later or there's no transcript; for a draft, its last
+  // edit, and for a routine, its last run, as startedAt.
+  activeAt: number
   // Recorded by Hopper when it started the conversation.
   model?: string
   effort?: string
@@ -133,9 +137,12 @@ export function toItems(
       ...s,
       where: classify(s, done),
       key: projectForCwd(projects, s.cwd)?.key ?? OTHER,
+      activeAt: s.startedAt,
     }))
-    .sort((a, b) => b.startedAt - a.startedAt)
+    .sort(byActivity)
 }
+
+export const byActivity = (a: Item, b: Item) => b.activeAt - a.activeAt
 
 // A draft shows alongside conversations, as one that hasn't started. Its session id is
 // namespaced so it can be marked done like any other.
@@ -264,11 +271,13 @@ export async function gather(
       const account = config.accounts.find((a) => a.name === it.account)
       if (!account) return
       const path = await findTranscript(account.configDir, it.cwd, it.sessionId)
-      const reply = path ? await lastReply(path) : null
-      if (reply) it.ranOn = reply.model
-      if (reply?.at) it.repliedAt = reply.at
+      const read = path ? await readTranscript(path) : null
+      if (read?.reply) it.ranOn = read.reply.model
+      if (read?.reply?.at) it.repliedAt = read.reply.at
+      if (read?.activeAt) it.activeAt = Math.max(it.startedAt, read.activeAt)
     }),
   )
+  items.sort(byActivity)
   const reports: Record<string, Report[]> = Object.fromEntries(
     await Promise.all(
       routines.map(async (r) => [r.name, await listReports(config.home, r.name, runs)] as const),

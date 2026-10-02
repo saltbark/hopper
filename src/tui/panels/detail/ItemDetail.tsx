@@ -84,6 +84,9 @@ export function ConversationDetail(props: {
         {inList ? <Mark state={state} kind={item.kind} /> : <Text color={T.faint}>✓</Text>}
         <Text color={inList ? color : T.dim}>{' ' + stateWords(item)}</Text>
         <Text color={T.dim}>{` · started ${ago(item.startedAt)} ago`}</Text>
+        {ago(item.activeAt) !== ago(item.startedAt) ? (
+          <Text color={T.dim}>{` · last message ${ago(item.activeAt)} ago`}</Text>
+        ) : null}
       </Text>
       <Text> </Text>
       {row('project', item.key === OTHER ? 'none of Hopper’s projects' : item.key)}

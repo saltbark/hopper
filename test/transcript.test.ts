@@ -4,7 +4,9 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { findTranscript, lastReply, transcriptPath } from '../src/transcript.ts'
+import { findTranscript, readTranscript, transcriptPath } from '../src/transcript.ts'
+
+const lastReply = async (path: string) => (await readTranscript(path))?.reply ?? null
 
 const reply = (model: string, text = 'ok') =>
   JSON.stringify({
@@ -47,6 +49,29 @@ describe('transcripts', () => {
     })
     await appendFile(path, reply('claude-opus-5-5'))
     expect((await lastReply(path))?.at).toBeNull()
+  })
+  it('says when the newest message came, either way, past Claude Code’s own entries', async () => {
+    const path = join(await mkdtemp(join(tmpdir(), 'hopper-transcript-')), 's.jsonl')
+    expect(await readTranscript(path)).toBeNull()
+    const line = (o: object) => JSON.stringify(o) + '\n'
+    await writeFile(path, line({ type: 'user', message: {}, timestamp: '2026-09-30T09:00:00Z' }))
+    await appendFile(
+      path,
+      line({
+        type: 'assistant',
+        message: { model: 'claude-opus-5-5' },
+        timestamp: '2026-09-30T10:00:00Z',
+      }),
+    )
+    await appendFile(path, line({ type: 'system', timestamp: '2026-09-30T12:00:00Z' }))
+    await appendFile(path, line({ type: 'cost-state' }))
+    expect((await readTranscript(path))?.activeAt).toBe(Date.parse('2026-09-30T10:00:00Z'))
+    // My reply counts, though Claude hasn't answered it yet.
+    await appendFile(path, line({ type: 'user', message: {}, timestamp: '2026-09-30T13:00:00Z' }))
+    expect(await readTranscript(path)).toEqual({
+      reply: { model: 'claude-opus-5-5', at: Date.parse('2026-09-30T10:00:00Z') },
+      activeAt: Date.parse('2026-09-30T13:00:00Z'),
+    })
   })
   it('finds one that moved to a worktree’s folder', async () => {
     const login = await mkdtemp(join(tmpdir(), 'hopper-login-'))
