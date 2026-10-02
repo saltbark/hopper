@@ -7,8 +7,9 @@ import { join } from 'node:path'
 // id it ran on (claude-opus-5-5). The transcript doesn't say whether [1m] was on: that is a
 // setting of the request, not part of the model's name.
 //
-// Also when the conversation last moved: its newest message, either way. Not the file's mtime:
-// Claude Code appends its own bookkeeping (cost-state, away_summary, …) long after the last one.
+// Also when its newest message came, either way, and when I last wrote to it: what the lists
+// sort by. Not the file's mtime: Claude Code appends its own bookkeeping (cost-state,
+// away_summary, …) long after the last message.
 
 // <config dir>/projects/<cwd, every other character a dash>/<session id>.jsonl. The default
 // login's config dir is ~/.claude.
@@ -63,6 +64,8 @@ const MODEL = /"model":"([^"]+)"/g
 // A message, mine or Claude's (a tool's result is written as one of mine), rather than an entry
 // Claude Code keeps for itself.
 const MESSAGE = /"type":"(user|assistant)"/
+// Of mine, the ones that aren't something I wrote: a tool's result, or text Claude Code adds.
+const NOT_WRITTEN = /"toolUseResult":|"type":"tool_result"|"isMeta":true/
 // When Claude Code wrote the entry, on the same line.
 const STAMP = /"timestamp":"([^"]+)"/
 // What Claude Code writes for a message it made up itself (an error, an interruption).
@@ -74,26 +77,34 @@ export type Transcript = {
   reply: Reply | null
   // When the newest message was written, or null when none says.
   activeAt: number | null
+  // When I last wrote to it (Hopper's first prompt counts), or null when none says.
+  promptedAt: number | null
 }
 
 function readLines(text: string): Transcript {
   let reply: Reply | null = null
   let activeAt: number | null = null
+  let promptedAt: number | null = null
   for (const line of text.split('\n')) {
     const stamp = Date.parse(STAMP.exec(line)?.[1] ?? '')
     const at = Number.isNaN(stamp) ? null : stamp
-    if (at !== null && MESSAGE.test(line)) activeAt = at
+    const message = MESSAGE.exec(line)?.[1]
+    if (at !== null && message) activeAt = at
+    if (at !== null && message === 'user' && !NOT_WRITTEN.test(line)) promptedAt = at
     let model: string | null = null
     for (const m of line.matchAll(MODEL)) if (m[1] && m[1] !== SYNTHETIC) model = m[1]
     if (model) reply = { model, at }
   }
-  return { reply, activeAt }
+  return { reply, activeAt, promptedAt }
 }
+
+const complete = (t: Transcript) => !!t.reply && t.activeAt !== null && t.promptedAt !== null
 
 // Read again only when the file has changed, since every poll asks.
 const cache = new Map<string, { size: number; mtimeMs: number; read: Transcript }>()
 
-// The newest reply and when the newest message came, or null when there is no transcript.
+// The newest reply, when the newest message came and when I last wrote, or null when there is
+// no transcript.
 export async function readTranscript(path: string): Promise<Transcript | null> {
   const s = await stat(path).catch(() => null)
   if (!s) return null
@@ -106,8 +117,17 @@ export async function readTranscript(path: string): Promise<Transcript | null> {
       await f.read(buf, 0, buf.length, from)
       return buf.toString('utf8')
     }
-    let found = readLines(await read(Math.max(0, s.size - TAIL)))
-    if ((!found.reply || found.activeAt === null) && s.size > TAIL) found = readLines(await read(0))
+    // A transcript only grows, so what an earlier read found still holds where the end has
+    // nothing newer: a long turn's tool output can push my prompt out of the tail, and reading
+    // the whole file on every poll while it works would be the cost of that.
+    const tail = readLines(await read(Math.max(0, s.size - TAIL)))
+    const before = hit && s.size >= hit.size ? hit.read : null
+    let found: Transcript = {
+      reply: tail.reply ?? before?.reply ?? null,
+      activeAt: tail.activeAt ?? before?.activeAt ?? null,
+      promptedAt: tail.promptedAt ?? before?.promptedAt ?? null,
+    }
+    if (!complete(found) && s.size > TAIL) found = readLines(await read(0))
     cache.set(path, { size: s.size, mtimeMs: s.mtimeMs, read: found })
     return found
   } finally {

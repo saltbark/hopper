@@ -66,9 +66,10 @@ export function projectForCwd(projects: Project[], cwd: string): Project | undef
 export type Item = Session & {
   where: Where
   key: string
-  // When it last moved, which lists sort by: a conversation's newest message, read from its
-  // transcript, or its start when that's later or there's no transcript; for a draft, its last
-  // edit, and for a routine, its last run, as startedAt.
+  // When it last changed hands, which lists sort by. A working conversation: when I last wrote
+  // to it; one that has stopped: its newest message. Both read from its transcript, or its start
+  // when that's later or there's no transcript. For a draft, its last edit, and for a routine,
+  // its last run, as startedAt.
   activeAt: number
   // Recorded by Hopper when it started the conversation.
   model?: string
@@ -143,6 +144,9 @@ export function toItems(
 }
 
 export const byActivity = (a: Item, b: Item) => b.activeAt - a.activeAt
+
+// Claude is in the middle of a turn: a background conversation running, or a busy terminal one.
+export const isWorking = (i: Item) => i.where === 'queue' || i.state === 'busy'
 
 // A draft shows alongside conversations, as one that hasn't started. Its session id is
 // namespaced so it can be marked done like any other.
@@ -274,7 +278,11 @@ export async function gather(
       const read = path ? await readTranscript(path) : null
       if (read?.reply) it.ranOn = read.reply.model
       if (read?.reply?.at) it.repliedAt = read.reply.at
-      if (read?.activeAt) it.activeAt = Math.max(it.startedAt, read.activeAt)
+      // While it works, when I last wrote to it: its newest message changes with every tool
+      // call, and the list would shuffle under me. Once it stops, its newest message is when
+      // Claude stopped, finished or asking.
+      const at = isWorking(it) ? read?.promptedAt : read?.activeAt
+      if (at) it.activeAt = Math.max(it.startedAt, at)
     }),
   )
   items.sort(byActivity)

@@ -71,6 +71,59 @@ describe('transcripts', () => {
     expect(await readTranscript(path)).toEqual({
       reply: { model: 'claude-opus-5-5', at: Date.parse('2026-09-30T10:00:00Z') },
       activeAt: Date.parse('2026-09-30T13:00:00Z'),
+      promptedAt: Date.parse('2026-09-30T13:00:00Z'),
+    })
+  })
+  it('says when I last wrote to it, not counting tools’ results or Claude Code’s own text', async () => {
+    const path = join(await mkdtemp(join(tmpdir(), 'hopper-transcript-')), 's.jsonl')
+    const line = (o: object) => JSON.stringify(o) + '\n'
+    await writeFile(
+      path,
+      line({
+        type: 'user',
+        message: { content: 'it said "isMeta":true once' },
+        timestamp: '2026-09-30T09:00:00Z',
+      }),
+    )
+    await appendFile(
+      path,
+      line({
+        type: 'user',
+        message: { content: [{ type: 'tool_result', content: 'ok' }] },
+        toolUseResult: { stdout: 'ok' },
+        timestamp: '2026-09-30T10:00:00Z',
+      }),
+    )
+    await appendFile(
+      path,
+      line({ type: 'user', isMeta: true, message: {}, timestamp: '2026-09-30T11:00:00Z' }),
+    )
+    expect(await readTranscript(path)).toMatchObject({
+      activeAt: Date.parse('2026-09-30T11:00:00Z'),
+      promptedAt: Date.parse('2026-09-30T09:00:00Z'),
+    })
+  })
+  it('finds my prompt after a long turn pushes it out of the end of the file', async () => {
+    const path = join(await mkdtemp(join(tmpdir(), 'hopper-transcript-')), 's.jsonl')
+    const line = (o: object) => JSON.stringify(o) + '\n'
+    await writeFile(path, line({ type: 'user', message: {}, timestamp: '2026-09-30T09:00:00Z' }))
+    await appendFile(path, reply('claude-opus-5-5'))
+    expect((await readTranscript(path))?.promptedAt).toBe(Date.parse('2026-09-30T09:00:00Z'))
+    const output = 'x'.repeat(150 * 1024)
+    for (const timestamp of ['2026-09-30T09:30:00Z', '2026-09-30T10:00:00Z'])
+      await appendFile(
+        path,
+        line({
+          type: 'user',
+          message: { content: [{ type: 'tool_result', content: output }] },
+          toolUseResult: {},
+          timestamp,
+        }),
+      )
+    expect(await readTranscript(path)).toMatchObject({
+      reply: { model: 'claude-opus-5-5' },
+      activeAt: Date.parse('2026-09-30T10:00:00Z'),
+      promptedAt: Date.parse('2026-09-30T09:00:00Z'),
     })
   })
   it('finds one that moved to a worktree’s folder', async () => {

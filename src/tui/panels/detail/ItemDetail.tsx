@@ -4,7 +4,7 @@ import type { Choice } from '../../../config.ts'
 import type { Draft } from '../../../drafts.ts'
 import { ago, wrapText } from '../../../format.ts'
 import type { OpenItem } from '../../../items.ts'
-import { OTHER, type Item } from '../../../model.ts'
+import { isWorking, OTHER, type Item } from '../../../model.ts'
 import { tildify } from '../../../paths.ts'
 import { draftKeys, holdKey } from '../../keymap.ts'
 import { modelLabel } from '../../state.ts'
@@ -85,7 +85,9 @@ export function ConversationDetail(props: {
         <Text color={inList ? color : T.dim}>{' ' + stateWords(item)}</Text>
         <Text color={T.dim}>{` · started ${ago(item.startedAt)} ago`}</Text>
         {ago(item.activeAt) !== ago(item.startedAt) ? (
-          <Text color={T.dim}>{` · last message ${ago(item.activeAt)} ago`}</Text>
+          <Text color={T.dim}>
+            {` · ${isWorking(item) ? 'last written to' : 'stopped'} ${ago(item.activeAt)} ago`}
+          </Text>
         ) : null}
       </Text>
       <Text> </Text>

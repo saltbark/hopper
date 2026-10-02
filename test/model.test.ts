@@ -194,22 +194,23 @@ describe('gather', () => {
     }
   })
 
-  it('sorts by the newest message, not the start', async () => {
+  it('sorts by when it last changed hands, not the start', async () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-model-'))
     const login = join(home, 'login')
     const t = (iso: string) => Date.parse(iso)
-    const session = (sessionId: string, startedAt: number) => ({
+    const session = (sessionId: string, startedAt: number, state = 'done') => ({
       id: sessionId,
       sessionId,
       cwd: home,
       kind: 'background',
-      state: 'done',
+      state,
       startedAt,
     })
     const listed = [
       session('s-old', t('2026-09-28T09:00:00Z')),
       session('s-late', t('2026-09-30T09:00:00Z')),
       session('s-quiet', t('2026-09-29T09:00:00Z')),
+      session('s-busy', t('2026-09-27T09:00:00Z'), 'working'),
     ]
     const answer = join(home, 'answer.json')
     await writeFile(answer, JSON.stringify(listed))
@@ -224,6 +225,13 @@ describe('gather', () => {
     await writeFile(old, message('assistant', '2026-10-01T09:00:00Z'))
     // Its last message is older than its start says; the start wins. s-late has no transcript.
     await writeFile(transcriptPath(login, home, 's-quiet'), message('user', '2026-09-20T09:00:00Z'))
+    // Still working: when I last wrote to it, not its tools' latest result.
+    await writeFile(
+      transcriptPath(login, home, 's-busy'),
+      message('user', '2026-09-29T12:00:00Z') +
+        JSON.stringify({ type: 'user', toolUseResult: {}, timestamp: '2026-10-02T09:00:00Z' }) +
+        '\n',
+    )
     process.env['HOPPER_CLAUDE'] = bin
     try {
       let config: Config = {
@@ -239,6 +247,7 @@ describe('gather', () => {
       expect(snap.items.map((i) => [i.sessionId, new Date(i.activeAt).toISOString()])).toEqual([
         ['s-old', '2026-10-01T09:00:00.000Z'],
         ['s-late', '2026-09-30T09:00:00.000Z'],
+        ['s-busy', '2026-09-29T12:00:00.000Z'],
         ['s-quiet', '2026-09-29T09:00:00.000Z'],
       ])
     } finally {

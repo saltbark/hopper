@@ -79,7 +79,7 @@ export const ItemRows = memo(function ItemRows(props: {
               {showAge ? (
                 <Text color={T.dim}>
                   {cell(
-                    // Since it last moved: a conversation’s newest message, a routine’s last run.
+                    // Since it last changed hands (Item.activeAt); a routine's, since it last ran.
                     it.kind === 'routine' && it.state === 'paused'
                       ? 'off'
                       : it.activeAt
