@@ -16,13 +16,14 @@ export type Hover = { panel: Panel; index: number } | null
 // letters on the list act on the selected row instead.
 export type Group = 'waiting' | 'held' | 'draft' | 'proposed' | 'running' | 'routines' | 'next'
 export const GROUPS: { id: Group; label: string }[] = [
+  // Running first: it and waiting on you are where I go back and forth all day.
+  { id: 'running', label: 'running' },
   { id: 'waiting', label: 'waiting on you' },
   // Waiting too, but I know about them and can't act yet (h). Not counted anywhere.
   { id: 'held', label: 'on hold' },
   { id: 'draft', label: 'drafts' },
   // Drafts an agent wrote for me to approve (the groomer, a review, a chain past its depth).
   { id: 'proposed', label: 'proposed' },
-  { id: 'running', label: 'running' },
   // Prompts that run on a schedule; each run is its own conversation.
   { id: 'routines', label: 'routines' },
   // Queued drafts: they start on their own, unattended, when ready and an account has room.

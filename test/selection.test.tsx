@@ -71,8 +71,8 @@ const bravo = session('Bravo', 'working', 2000)
 const charlie = session('Charlie', 'working', 3000)
 
 it('keeps the selected conversation when it moves to another group', async () => {
+  // Running first, newest first: Bravo, Charlie, then Alpha waiting.
   const { lastFrame, press, change, unmount } = await start([alpha, bravo, charlie])
-  await press('j')
   await press('j')
   expect(selected(lastFrame())).toBe('Charlie')
   await change(snapshot([alpha, bravo, { ...charlie, state: 'blocked' }]))
@@ -81,11 +81,16 @@ it('keeps the selected conversation when it moves to another group', async () =>
 })
 
 it('keeps the selected conversation when another one moves above it', async () => {
-  const { lastFrame, press, change, unmount } = await start([alpha, bravo, charlie])
+  // Bravo running, then Alpha and Charlie waiting; Charlie starts working again, above Alpha.
+  const { lastFrame, press, change, unmount } = await start([
+    alpha,
+    bravo,
+    { ...charlie, state: 'blocked' },
+  ])
   await press('j')
-  expect(selected(lastFrame())).toBe('Bravo')
-  await change(snapshot([alpha, bravo, { ...charlie, state: 'blocked' }]))
-  expect(selected(lastFrame())).toBe('Bravo')
+  expect(selected(lastFrame())).toBe('Alpha')
+  await change(snapshot([alpha, bravo, charlie]))
+  expect(selected(lastFrame())).toBe('Alpha')
   // And moving on from there goes on from where it is now.
   await press('k')
   expect(selected(lastFrame())).toBe('Charlie')
@@ -94,12 +99,12 @@ it('keeps the selected conversation when another one moves above it', async () =
 
 it('stays in the list on the next row when the selected one goes to Done', async () => {
   const { lastFrame, change, unmount } = await start([alpha, bravo, charlie])
-  expect(selected(lastFrame())).toBe('Alpha')
-  await change(snapshot([alpha, bravo, charlie], ['s-Alpha']))
+  expect(selected(lastFrame())).toBe('Bravo')
+  await change(snapshot([alpha, bravo, charlie], ['s-Bravo']))
   const f = lastFrame() ?? ''
-  expect(selected(f)).toBe('Bravo')
+  expect(selected(f)).toBe('Charlie')
   expect(f).toMatch(/DONE \(v\) ─+ 1/)
   // The right panel shows what is selected.
-  expect(f).toContain('id-Bravo')
+  expect(f).toContain('id-Charlie')
   unmount()
 })

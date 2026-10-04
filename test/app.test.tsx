@@ -365,12 +365,12 @@ describe('App', () => {
       <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
-    // The list's frame starts on line 9: a heading, the waiting session, a gap, a heading, then
-    // the running one on line 14.
+    // The list's frame starts on line 9: a heading, the running session on line 11, a gap, a
+    // heading, then the waiting one.
     await press(stdin, 'v')
-    await press(stdin, '\u001b[<35;20;14M')
+    await press(stdin, '\u001b[<35;20;11M')
     expect(focusOf()).toBe('done')
-    await press(stdin, '\u001b[<0;20;14M')
+    await press(stdin, '\u001b[<0;20;11M')
     expect(focusOf()).toBe('conversations')
     expect(lastFrame()).toMatch(/│ Sort the inbox  +│/)
     // A click on a heading only gives the list the keyboard.
@@ -1165,6 +1165,7 @@ describe('on hold', () => {
     )
     await until(() => (lastFrame() ?? '').includes('WAITING ON YOU 1'))
     expect(lastFrame()).toContain('WAITING ON YOU 1')
+    // n goes past the running one at the top, to the one waiting.
     await press(stdin, 'n')
     await press(stdin, 'h')
     await until(() => (lastFrame() ?? '').includes('ON HOLD 1'))

@@ -54,9 +54,10 @@ needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository secrets.
 
 ## The list
 
-Hopper opens on Conversations: every conversation that isn't done, grouped into waiting on you,
-drafts, running and up next. `w` `d` `r` `u` jump to each group. Done sits below. Above the list,
-beside Accounts, Projects shows the projects with something waiting, running or used today.
+Hopper opens on Conversations: every conversation that isn't done, grouped into running, waiting
+on you, on hold, drafts, proposed, routines and up next, in that order. `J` `K` move between the
+groups. Done sits below. Above the list, beside Accounts, Projects shows the projects with
+something waiting, running or used today.
 
 `p` goes to Projects, ready to search. Type a few letters and it lists every project and folder
 that matches. ⏎ narrows the list to it, `tab` starts a conversation there, `esc` goes back.
