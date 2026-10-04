@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.3 (2026-10-04)
+
+- Running is the first group in Conversations, then waiting on you, on hold, drafts, proposed,
+  routines and up next, so the two you go back and forth between sit together at the top.
+- `n` still jumps to the first conversation waiting on you, below the running ones.
+
 ## 0.4.2 (2026-10-02)
 
 - Lists sort by when a conversation last changed hands, not when it started: a running one by
