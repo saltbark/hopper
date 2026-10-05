@@ -57,7 +57,7 @@ describe('hereKeys', () => {
     expect(unset).toContainEqual(['m', 'model: opus[1m] (default)'])
     expect(unset).toContainEqual(['E', 'effort: high (default)'])
     expect(hints).toContainEqual(['s', 'start it'])
-    expect(hints).toContainEqual(['d e', 'throw away'])
+    expect(hints).toContainEqual(['e', 'throw away'])
     const editing = { stage: 'write' } as Here['editing']
     expect(hereKeys({ ...base, editing }).hints).toContainEqual(['esc', 'save and close'])
   })

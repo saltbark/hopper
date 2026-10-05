@@ -759,7 +759,9 @@ describe('conversations', () => {
       (await listDrafts(home)).some((d) => d.text.endsWith('of what agents did')),
     )
     await onList(lastFrame)
-    await press(stdin, 'd')
+    await press(stdin, 'd') // not a draft's key any more
+    expect(lastFrame()).not.toContain('Throw away the draft')
+    await press(stdin, 'e')
     expect(lastFrame()).toContain('Throw away the draft')
     await press(stdin, 'e')
     await until(async () => (await listDrafts(home)).length === 0)
@@ -1155,10 +1157,10 @@ describe('done', () => {
   it('e archives a conversation at once, without waiting for the load, and back', async () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
     const one = session({ name: 'Backups chat', state: 'done', sessionId: 'sess-1' })
-    // What a load would make of done.json, slowly: asking every account's claude takes a while.
+    // The first load, then none that finish: whatever moves after that, the mark moved by itself.
     let loads = 0
     const load = async (): Promise<Snapshot> => {
-      if (loads++) await new Promise((r) => setTimeout(r, 300))
+      if (loads++) await new Promise(() => {})
       return { ...snapshot, items: toItems([one], projects, await loadDone(home)) }
     }
     const { lastFrame, stdin, unmount } = render(
@@ -1167,12 +1169,14 @@ describe('done', () => {
     await tick()
     await press(stdin, 'n')
     await press(stdin, 'e')
+    await until(() => (lastFrame() ?? '').includes('Archived: Backups chat'))
     expect(lastFrame()).toContain('Archived: Backups chat')
     await press(stdin, 'n')
     expect(lastFrame()).toContain('Nothing waiting on you.')
     expect([...(await loadDone(home))]).toEqual(['sess-1'])
     await press(stdin, 'v')
     await press(stdin, 'e')
+    await until(() => (lastFrame() ?? '').includes('Back in Conversations: Backups chat'))
     expect(lastFrame()).toContain('Back in Conversations: Backups chat')
     await press(stdin, 'n')
     expect(lastFrame()).not.toContain('Nothing waiting on you.')

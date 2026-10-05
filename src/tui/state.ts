@@ -187,7 +187,7 @@ export const blankState = (account: Account): AccountState => ({
   counts: { queue: 0, needs: 0, done: 0, live: 0 },
 })
 
-// A removal is confirmed by pressing the key that asked for it again. d asks for every one; e
-// asks for a draft's or routine's too, since it throws those away as it files conversations.
+// A removal is confirmed by pressing the key that asked for it again: e for a draft or routine,
+// as it archives a conversation; d for an account or a setting.
 export const againKeys = (f: Form): string[] =>
-  f.kind === 'draft-remove' || f.kind === 'routine-remove' ? ['d', 'e'] : ['d']
+  f.kind === 'draft-remove' || f.kind === 'routine-remove' ? ['e'] : ['d']

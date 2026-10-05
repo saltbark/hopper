@@ -451,7 +451,6 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
           return act.saveEdit({ ...e, routine: { ...r, enabled } }, said)
         },
         M: () => act.markAllReports(r.name),
-        d: () => setForm({ kind: 'routine-remove', name: r.name }),
         e: () => setForm({ kind: 'routine-remove', name: r.name }),
       }
     }
@@ -465,7 +464,6 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
           .slice(0, 30)
         setForm({ kind: 'routine-name', value: suggested, editing: e })
       },
-      d: () => setForm({ kind: 'draft-remove', id: e.id, name: it.name }),
       e: () => setForm({ kind: 'draft-remove', id: e.id, name: it.name }),
       // Up next: off, then as soon as there's room, then tonight.
       u: () => {

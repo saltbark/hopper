@@ -67,7 +67,7 @@ that matches. ⏎ narrows the list to it, `tab` starts a conversation there, `es
 
 `tab` starts a new conversation as a draft. It's a real text box (arrows, option+arrows by word,
 shift to select, ⏎ for new lines) and it saves as you type. `esc`, then `s` starts it, `w` moves
-it to another project, `y` copies it, `d` or `e` throws it away (press it twice), or `esc` again
+it to another project, `y` copies it, `e` throws it away (press it twice), or `esc` again
 keeps it.
 
 A conversation opens in the right-hand panel. It's the actual Claude session, and every key goes
@@ -136,7 +136,7 @@ A routine is a prompt that runs on a schedule, each run its own conversation. Wr
 draft, then `esc`, `r`: name it and say when it runs (`daily 7:00`, `weekdays 7:00, 13:00`,
 `weekly mon 9:00`, `monthly 1st 9:00`, or blank to run it only by hand).
 
-From a routine's row, `s` runs it now, `S` changes the schedule, `P` pauses, `d` or `e` removes it and
+From a routine's row, `s` runs it now, `S` changes the schedule, `P` pauses, `e` removes it (twice) and
 `M` marks its reports read. Each run writes a report under `<home>/routines/<name>/runs/`. ⏎ on a
 routine lists its reports and starts on the newest unread one. A routine with unread reports has a dot on its
 row.

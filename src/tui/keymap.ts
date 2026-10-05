@@ -168,7 +168,7 @@ export function draftKeys(
     ['w', 'move to a project'],
     ['r', 'make it a routine'],
     ['y', 'copy'],
-    ['d e', 'throw away'],
+    ['e', 'throw away'],
   ]
 }
 
@@ -183,7 +183,7 @@ export function routineKeys(e: Choices & { paused?: boolean }): Hint[] {
     ['E', `effort: ${choiceText(e.effort, e.defaults.effort)}`],
     ['w', 'project'],
     ['y', 'copy'],
-    ['d e', 'remove'],
+    ['e', 'remove'],
   ]
 }
 
