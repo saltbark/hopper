@@ -18,9 +18,9 @@ const keysOf = (h: Partial<Here>) => hereKeys({ ...base, ...h }).hints.map(([k])
 
 describe('hereKeys', () => {
   it('follows what is selected in the list', () => {
-    expect(keysOf({ item: conversation })).toEqual(['⏎ →', 'd', 'h', 'J K'])
-    expect(keysOf({ item: conversation, embedOpen: true })).toEqual(['⏎ →', 'i', 'd', 'h', 'J K'])
-    expect(keysOf({ focus: 'done', item: conversation })).toEqual(['⏎ →', 'd'])
+    expect(keysOf({ item: conversation })).toEqual(['⏎ →', 'd e', 'h', 'J K'])
+    expect(keysOf({ item: conversation, embedOpen: true })).toEqual(['⏎ →', 'i', 'd e', 'h', 'J K'])
+    expect(keysOf({ focus: 'done', item: conversation })).toEqual(['⏎ →', 'd e'])
   })
   it('offers h on what waits on you, off hold on what is held, and nothing on running work', () => {
     expect(hereKeys({ ...base, item: conversation }).hints).toContainEqual(['h', 'on hold'])
@@ -32,7 +32,7 @@ describe('hereKeys', () => {
     const row = (isProject: boolean) => ({ key: 'pm', isProject }) as Here['row']
     expect(keysOf({ focus: 'projects', row: row(true) })).toEqual(['⏎', 'tab', '↑↓', 'esc'])
     expect(keysOf({ focus: 'projects', row: row(false) })).toEqual(['⏎', '↑↓', 'esc'])
-    expect(keysOf({ item: conversation, scope: 'pm' })).toEqual(['⏎ →', 'd', 'h', 'J K', 'esc'])
+    expect(keysOf({ item: conversation, scope: 'pm' })).toEqual(['⏎ →', 'd e', 'h', 'J K', 'esc'])
     expect(keysOf({ item: conversation })).not.toContain('esc')
   })
   it("offers a report's conversation only while Claude still has it", () => {
@@ -55,9 +55,9 @@ describe('hereKeys', () => {
     // One that picks none says what it falls back to.
     const unset = hereKeys({ ...base, item: { kind: 'draft' } as Item }).hints
     expect(unset).toContainEqual(['m', 'model: opus[1m] (default)'])
-    expect(unset).toContainEqual(['e', 'effort: high (default)'])
+    expect(unset).toContainEqual(['E', 'effort: high (default)'])
     expect(hints).toContainEqual(['s', 'start it'])
-    expect(hints).toContainEqual(['d', 'throw away'])
+    expect(hints).toContainEqual(['d e', 'throw away'])
     const editing = { stage: 'write' } as Here['editing']
     expect(hereKeys({ ...base, editing }).hints).toContainEqual(['esc', 'save and close'])
   })
@@ -69,7 +69,7 @@ describe('hereKeys', () => {
       barKeys({ ...base, item: conversation, embedOpen: true, summaryShown: false }).map(
         ([k]) => k,
       ),
-    ).toEqual(['⏎ →', 'i', 'd', 'h', 'J K'])
+    ).toEqual(['⏎ →', 'i', 'd e', 'h', 'J K'])
     expect(barKeys({ ...base, focus: 'accounts' })).toEqual([])
   })
 })

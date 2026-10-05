@@ -18,7 +18,7 @@ import { deleteDraft, newDraftId, saveDraft, type Draft } from '../drafts.ts'
 import { when } from '../format.ts'
 import { readIfThere } from '../fsutil.ts'
 import { setHeld } from '../held.ts'
-import { draftSessionId, routineSessionId, type Item } from '../model.ts'
+import { draftSessionId, routineSessionId, withDone, type Item } from '../model.ts'
 import { expandHome, isWithin, tildify } from '../paths.ts'
 import { hopperPrompt } from '../prompts.ts'
 import {
@@ -273,8 +273,10 @@ export function makeActions(ctx: AppCtx) {
     } catch (e) {
       return setMessage(`Couldn't mark it: ${(e as Error).message}`)
     }
+    // It moves now; the load after, which asks every account's claude, catches up behind it.
+    ctx.patch((s) => withDone(s, item.sessionId, done))
     setMessage(done ? `Done: ${item.name}` : `Back in Needs you: ${item.name}`)
-    await refresh(false)
+    void refresh(false)
   }
 
   // h on a conversation waiting on me: on hold, or off it. Only those wait; a reply ends a hold

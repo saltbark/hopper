@@ -9,6 +9,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { loadAwake, saveAwake } from '../src/awake.ts'
 import type { Session } from '../src/claude.ts'
 import { addAccount, OVERNIGHT_DEFAULTS, setPrefixes, type Config } from '../src/config.ts'
+import { loadDone } from '../src/done.ts'
 import { loadHeld } from '../src/held.ts'
 import { initHome, loadProjects } from '../src/home.ts'
 import { draftSession, toItems, type Snapshot } from '../src/model.ts'
@@ -529,7 +530,7 @@ describe('App', () => {
     await press(stdin, 'j')
     await press(stdin, 'd')
     expect(lastFrame()).toContain('Remove pm from Hopper?')
-    await press(stdin, 'y')
+    await press(stdin, 'd')
     expect(saved.at(-1)?.accounts.map((a) => a.name)).toEqual(['bh'])
     unmount()
   })
@@ -760,7 +761,7 @@ describe('conversations', () => {
     await onList(lastFrame)
     await press(stdin, 'd')
     expect(lastFrame()).toContain('Throw away the draft')
-    await press(stdin, 'y')
+    await press(stdin, 'e')
     await until(async () => (await listDrafts(home)).length === 0)
     expect(await listDrafts(home)).toEqual([])
     done()
@@ -793,7 +794,7 @@ describe('conversations', () => {
     unmount()
   })
 
-  it('m and e choose the model and effort, and they go to Claude and are recorded', async () => {
+  it('m and E choose the model and effort, and they go to Claude and are recorded', async () => {
     const { home, cfg, log, live } = await setup()
     const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
     await tick()
@@ -803,7 +804,7 @@ describe('conversations', () => {
     await onList(lastFrame)
     await press(stdin, 'm') // haiku
     await until(() => (lastFrame() ?? '').includes('model: haiku'))
-    await press(stdin, 'e') // low
+    await press(stdin, 'E') // low
     await until(() => (lastFrame() ?? '').includes('effort: low'))
     expect(lastFrame()).toContain('haiku · low')
     await press(stdin, 's')
@@ -1144,6 +1145,35 @@ describe('conversations', () => {
       sessions: ['sess-1'],
     })
     done()
+    unmount()
+  })
+})
+
+describe('done', () => {
+  it('e files a conversation in Done at once, without waiting for the load, and back', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
+    const one = session({ name: 'Backups chat', state: 'done', sessionId: 'sess-1' })
+    // What a load would make of done.json, slowly: asking every account's claude takes a while.
+    let loads = 0
+    const load = async (): Promise<Snapshot> => {
+      if (loads++) await new Promise((r) => setTimeout(r, 300))
+      return { ...snapshot, items: toItems([one], projects, await loadDone(home)) }
+    }
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={{ ...config, home }} load={load} />,
+    )
+    await tick()
+    await press(stdin, 'n')
+    await press(stdin, 'e')
+    expect(lastFrame()).toContain('Done: Backups chat')
+    await press(stdin, 'n')
+    expect(lastFrame()).toContain('Nothing waiting on you.')
+    expect([...(await loadDone(home))]).toEqual(['sess-1'])
+    await press(stdin, 'v')
+    await press(stdin, 'e')
+    expect(lastFrame()).toContain('Back in Needs you: Backups chat')
+    await press(stdin, 'n')
+    expect(lastFrame()).not.toContain('Nothing waiting on you.')
     unmount()
   })
 })

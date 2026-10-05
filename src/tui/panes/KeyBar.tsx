@@ -2,7 +2,7 @@ import { Box, Text } from 'ink'
 import type { ReactNode } from 'react'
 
 import { barKeys, hereKeys, type Hint, type Here } from '../keymap.ts'
-import { FORM_PROMPT, type Editing, type Form } from '../state.ts'
+import { againKeys, FORM_PROMPT, type Editing, type Form } from '../state.ts'
 import { T } from '../theme.ts'
 
 // A mode that changes what keys do says so at the left of the key bar.
@@ -68,10 +68,11 @@ function FormBar({ form }: { form: Form }) {
                 ? `  Throw away the draft ${form.name}?  `
                 : `  Remove the routine ${form.name}? Its schedule stops; past runs stay.  `}
           <Text bold color={T.hi}>
-            y
+            {againKeys(form).join(' or ')}
           </Text>
           <Text color={T.dim}>
-            {form.kind === 'draft-remove' ? ' throw away' : ' remove'} · any other key keeps it
+            {form.kind === 'draft-remove' ? ' again throws it away' : ' again removes it'} · any
+            other key keeps it
           </Text>
         </Text>
       ) : (

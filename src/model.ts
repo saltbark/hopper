@@ -143,6 +143,23 @@ export function toItems(
     .sort(byActivity)
 }
 
+// The snapshot with one conversation marked done or not, at once, for the list to move before
+// the next load says the same. Brought back, it goes where it would without the mark.
+export function withDone(snap: Snapshot, sessionId: string, done: boolean): Snapshot {
+  const items = snap.items.map((i) =>
+    i.sessionId !== sessionId ? i : { ...i, where: done ? ('done' as const) : classify(i) },
+  )
+  const accounts = snap.accounts.map((a) => {
+    const mine = items.filter((i) => i.account === a.account.name)
+    const n = (w: Where) => mine.filter((i) => i.where === w && !i.held).length
+    return {
+      ...a,
+      counts: { queue: n('queue'), needs: n('needs'), done: n('done'), live: n('live') },
+    }
+  })
+  return { ...snap, items, accounts }
+}
+
 export const byActivity = (a: Item, b: Item) => b.activeAt - a.activeAt
 
 // Claude is in the middle of a turn: a background conversation running, or a busy terminal one.

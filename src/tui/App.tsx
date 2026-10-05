@@ -133,7 +133,7 @@ export function App({
   const [follow, setFollow] = useState<string | null>(null)
   const [reportsFocus, setReportsFocus] = useState<Reports | null>(null)
 
-  const { snap, snapRef, error, refresh } = useSnapshot(config, load)
+  const { snap, snapRef, error, refresh, patch } = useSnapshot(config, load)
   const { usageText, askUsage } = useUsage(config.home, snapRef, refresh)
   useDraftAutosave(editing, config.home)
   useAutopilot(config, snap, refresh, setMessage, autopilot)
@@ -352,6 +352,7 @@ export function App({
     snap,
     snapRef,
     refresh,
+    patch,
     askUsage,
     suspendTerminal,
     exit,

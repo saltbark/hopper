@@ -41,7 +41,9 @@ const AUTH_EVERY = 12 // polls, so about a minute
 const USAGE_MAX_AGE_MS = 5 * 60_000
 
 // What Hopper sees, polled. One refresh runs at a time; one asked for meanwhile runs straight
-// after, so a change just made (a kept draft, a mark) never waits for the next poll.
+// after, so a change just made (a kept draft, a mark) never waits for the next poll. patch shows
+// a change before any load does; a load that started before it is thrown away, not shown, so the
+// change never flickers back.
 export function useSnapshot(config: Config, load: Loader) {
   const [snap, setSnap] = useState<Snapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -49,6 +51,7 @@ export function useSnapshot(config: Config, load: Loader) {
   const busy = useRef(false)
   const again = useRef(false)
   const polls = useRef(0)
+  const patches = useRef(0)
 
   const refresh = useCallback(
     async (withAuth: boolean) => {
@@ -59,8 +62,13 @@ export function useSnapshot(config: Config, load: Loader) {
       busy.current = true
       do {
         again.current = false
+        const before = patches.current
         try {
           const next = await load(config, snapRef.current, withAuth)
+          if (patches.current !== before) {
+            again.current = true
+            continue
+          }
           snapRef.current = next
           setSnap(next)
           setError(null)
@@ -82,7 +90,14 @@ export function useSnapshot(config: Config, load: Loader) {
     return () => clearInterval(t)
   }, [refresh])
 
-  return { snap, snapRef, error, refresh }
+  const patch = useCallback((change: (s: Snapshot) => Snapshot) => {
+    if (!snapRef.current) return
+    patches.current++
+    snapRef.current = change(snapRef.current)
+    setSnap(snapRef.current)
+  }, [])
+
+  return { snap, snapRef, error, refresh, patch }
 }
 
 // Usage is Claude Code's cache. Keep it fresh by asking /usage (free, answered locally) for any

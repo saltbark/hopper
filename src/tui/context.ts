@@ -21,6 +21,7 @@ export type AppCtx = {
   snap: Snapshot | null
   snapRef: { current: Snapshot | null }
   refresh: (withAuth: boolean) => Promise<void>
+  patch: (change: (s: Snapshot) => Snapshot) => void
   askUsage: (account: Account) => Promise<void>
   suspendTerminal: (fn: () => Promise<void>) => Promise<void>
   exit: () => void

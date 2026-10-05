@@ -67,7 +67,8 @@ that matches. ⏎ narrows the list to it, `tab` starts a conversation there, `es
 
 `tab` starts a new conversation as a draft. It's a real text box (arrows, option+arrows by word,
 shift to select, ⏎ for new lines) and it saves as you type. `esc`, then `s` starts it, `w` moves
-it to another project, `y` copies it, `x` throws it away, or `esc` again keeps it.
+it to another project, `y` copies it, `d` or `e` throws it away (press it twice), or `esc` again
+keeps it.
 
 A conversation opens in the right-hand panel. It's the actual Claude session, and every key goes
 to Claude, `esc` included. To come back to Hopper, press ← at Claude's empty prompt, or ctrl+]
@@ -77,7 +78,7 @@ from the list, `i` sends it an esc. `m` marks a conversation done.
 Ask Claude to file items and it will: it knows the project's `_open.md`. The first conversation in
 a new folder asks you to trust the folder once (`T`).
 
-Models: in a draft, after `esc`, `m` picks the model and `e` the effort. A project can set its own
+Models: in a draft, after `esc`, `m` picks the model and `E` the effort. A project can set its own
 defaults in `projects.toml` (`model = "haiku"`, `effort = "low"`), and `config.toml` sets Hopper's
 (`model`, `effort`: `opus[1m]` and `high` when not set). Hopper always tells Claude which model and
 effort to use, so a conversation runs the same whichever login starts it, and a default is always
@@ -87,7 +88,7 @@ conversation's details the full id of the model its newest reply came from (`ran
 ## Keys and mouse
 
 `p` `c` `v` `a` jump to projects, conversations, done and accounts. `n` jumps to the first thing
-waiting on you. `J` `K` (or shift+↑↓) move to the next group. `d` on a conversation marks it done,
+waiting on you. `J` `K` (or shift+↑↓) move to the next group. `d` or `e` on a conversation marks it done,
 or in Done brings it back. → on the list opens a conversation and ← comes back, so the arrows
 alone get you around. `x` twice quits.
 
@@ -135,7 +136,7 @@ A routine is a prompt that runs on a schedule, each run its own conversation. Wr
 draft, then `esc`, `r`: name it and say when it runs (`daily 7:00`, `weekdays 7:00, 13:00`,
 `weekly mon 9:00`, `monthly 1st 9:00`, or blank to run it only by hand).
 
-From a routine's row, `s` runs it now, `S` changes the schedule, `P` pauses, `d` removes it and
+From a routine's row, `s` runs it now, `S` changes the schedule, `P` pauses, `d` or `e` removes it and
 `M` marks its reports read. Each run writes a report under `<home>/routines/<name>/runs/`. ⏎ on a
 routine lists its reports and starts on the newest unread one. A routine with unread reports has a dot on its
 row.

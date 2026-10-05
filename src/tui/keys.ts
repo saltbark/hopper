@@ -24,7 +24,7 @@ import { itemLines } from './panels/ItemRows.tsx'
 import { projectLines } from './panels/ProjectRows.tsx'
 import { reportMaxScroll, reportRoom } from './panes/ReportPane.tsx'
 import { workItemAt } from './panes/WorkRows.tsx'
-import { asText, groupOf, typed, type Editing, type Hover, type Panel } from './state.ts'
+import { againKeys, asText, groupOf, typed, type Editing, type Hover, type Panel } from './state.ts'
 
 type Handler = (input: string, key: Key) => void
 
@@ -252,7 +252,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       form.kind === 'draft-remove' ||
       form.kind === 'setting-remove'
     ) {
-      if (input === 'y') void act.submitForm(form)
+      // The key that asked, again, like x x.
+      if (againKeys(form).includes(input)) void act.submitForm(form)
       else setForm(null)
       return
     }
@@ -430,7 +431,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         const model = nextOf(MODELS, e.model)
         return act.saveEdit({ ...e, model }, `Model: ${choiceText(model, d.model)}.`)
       },
-      e: () => {
+      E: () => {
         const effort = nextOf(EFFORTS, e.effort)
         return act.saveEdit({ ...e, effort }, `Effort: ${choiceText(effort, d.effort)}.`)
       },
@@ -451,6 +452,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         },
         M: () => act.markAllReports(r.name),
         d: () => setForm({ kind: 'routine-remove', name: r.name }),
+        e: () => setForm({ kind: 'routine-remove', name: r.name }),
       }
     }
     return {
@@ -464,6 +466,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         setForm({ kind: 'routine-name', value: suggested, editing: e })
       },
       d: () => setForm({ kind: 'draft-remove', id: e.id, name: it.name }),
+      e: () => setForm({ kind: 'draft-remove', id: e.id, name: it.name }),
       // Up next: off, then as soon as there's room, then tonight.
       u: () => {
         const q = e.extra?.queue
@@ -482,7 +485,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       return setMessage('Sent esc to Claude.')
     }
     if (key.return) return act.open(it)
-    if (input === 'd') return void act.markDone(it, panel === 'work')
+    // e as well as d: archiving, as in Gmail.
+    if (input === 'd' || input === 'e') return void act.markDone(it, panel === 'work')
     if (input === 'h' && panel === 'work') return void act.hold(it)
     if (input === 'g') return void act.dispatchNow()
   }

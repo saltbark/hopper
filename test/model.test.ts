@@ -15,6 +15,8 @@ import {
   projectForCwd,
   toItems,
   waitsOnMe,
+  withDone,
+  type Snapshot,
 } from '../src/model.ts'
 import { transcriptPath } from '../src/transcript.ts'
 import { fakeClaude } from './helpers.ts'
@@ -58,6 +60,22 @@ describe('classify', () => {
   })
   it('keeps an unknown state in the queue rather than losing it', () => {
     expect(classify(s({ state: 'starting' }))).toBe('queue')
+  })
+})
+
+describe('withDone', () => {
+  it('moves one conversation to Done and back to where it was, counts and all', () => {
+    const items = toItems(
+      [s({ sessionId: 'a', state: 'done' }), s({ sessionId: 'b', state: 'working' })],
+      projects,
+    )
+    const counts = { queue: 1, needs: 1, done: 0, live: 0 }
+    const snap = { items, accounts: [{ account: { name: 'bh' }, counts }] } as unknown as Snapshot
+    const done = withDone(snap, 'a', true)
+    expect(done.items.map((i) => i.where)).toEqual(['done', 'queue'])
+    expect(done.accounts[0]!.counts).toEqual({ queue: 1, needs: 0, done: 1, live: 0 })
+    expect(snap.items[0]!.where).toBe('needs')
+    expect(withDone(done, 'a', false).items[0]!.where).toBe('needs')
   })
 })
 
