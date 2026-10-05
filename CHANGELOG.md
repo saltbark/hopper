@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.4 (2026-10-05)
+
+- Done is now Archived, and `e` archives a conversation, as in Gmail; in Archived (`v`), `e`
+  brings it back. `d` no longer does anything in the list.
+- `e` also throws away a draft or removes a routine, and you confirm by pressing `e` again
+  rather than `y`. Removing an account or a setting is `d`, then `d` again. A draft's or
+  routine's effort moved to `E`.
+- Archiving moves the row at once, instead of after a full reload of every account's sessions.
+
 ## 0.4.3 (2026-10-04)
 
 - Running is the first group in Conversations, then waiting on you, on hold, drafts, proposed,

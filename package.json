@@ -1,6 +1,6 @@
 {
   "name": "hopper",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": true,
   "description": "Toss work in the hopper: a terminal app for Claude Code agents across projects and logins.",
   "license": "MIT",
