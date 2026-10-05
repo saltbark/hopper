@@ -49,7 +49,7 @@ export function OpenItems({
 // What Claude's state means to Hopper, in words.
 export const stateWords = (it: Item) =>
   it.where === 'done'
-    ? 'marked done'
+    ? 'archived'
     : it.held
       ? 'on hold: you know about it'
       : it.state === 'done'

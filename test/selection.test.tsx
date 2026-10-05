@@ -103,7 +103,7 @@ it('stays in the list on the next row when the selected one goes to Done', async
   await change(snapshot([alpha, bravo, charlie], ['s-Bravo']))
   const f = lastFrame() ?? ''
   expect(selected(f)).toBe('Charlie')
-  expect(f).toMatch(/DONE \(v\) ─+ 1/)
+  expect(f).toMatch(/ARCHIVED \(v\) ─+ 1/)
   // The right panel shows what is selected.
   expect(f).toContain('id-Charlie')
   unmount()

@@ -57,7 +57,7 @@ export function AccountDetail({ account, width }: { account: AccountView; width:
       {row('runs', routeWords(routes))}
       {row(
         'activity',
-        `${c.queue} running · ${c.needs} waiting on you · ${c.done} done · ${c.live} open terminals`,
+        `${c.queue} running · ${c.needs} waiting on you · ${c.done} archived · ${c.live} open terminals`,
       )}
       {resets.length ? row('resets', resets.join(' · ')) : null}
       {state.sessionError

@@ -107,10 +107,10 @@ export function ConversationDetail(props: {
         <Keys
           keys={
             inList
-              ? [['⏎', 'open here'], ['d e', 'mark done'], ...holdKey(item), ['i', 'interrupt']]
+              ? [['⏎', 'open here'], ['e', 'archive'], ...holdKey(item), ['i', 'interrupt']]
               : [
                   ['⏎', 'open here'],
-                  ['d e', 'bring it back'],
+                  ['e', 'bring it back'],
                 ]
           }
         />

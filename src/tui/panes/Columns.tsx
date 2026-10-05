@@ -149,7 +149,7 @@ export function ListColumn(props: {
         )}
       </Frame>
       <Frame
-        title="DONE"
+        title="ARCHIVED"
         keyHint="v"
         meta={String(done.length)}
         width={width}

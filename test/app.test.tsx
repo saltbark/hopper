@@ -1122,7 +1122,7 @@ describe('conversations', () => {
     unmount()
   })
 
-  it('d marks a finished conversation done, in Hopper’s own state', async () => {
+  it('e archives a finished conversation, in Hopper’s own state; d does nothing to it', async () => {
     const { home, cfg, projects } = await setup()
     const inbox = projects.find((p) => p.key === 'meta/inbox')!
     const snap: Snapshot = {
@@ -1140,7 +1140,9 @@ describe('conversations', () => {
     await press(stdin, 'n')
     expect(lastFrame()).toContain('Backups chat')
     await press(stdin, 'd')
-    await until(() => (lastFrame() ?? '').includes('Done: Backups chat'))
+    expect(lastFrame()).not.toContain('Archived: Backups chat')
+    await press(stdin, 'e')
+    await until(() => (lastFrame() ?? '').includes('Archived: Backups chat'))
     expect(JSON.parse(await readFile(join(home, 'state', 'done.json'), 'utf8'))).toEqual({
       sessions: ['sess-1'],
     })
@@ -1150,7 +1152,7 @@ describe('conversations', () => {
 })
 
 describe('done', () => {
-  it('e files a conversation in Done at once, without waiting for the load, and back', async () => {
+  it('e archives a conversation at once, without waiting for the load, and back', async () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
     const one = session({ name: 'Backups chat', state: 'done', sessionId: 'sess-1' })
     // What a load would make of done.json, slowly: asking every account's claude takes a while.
@@ -1165,13 +1167,13 @@ describe('done', () => {
     await tick()
     await press(stdin, 'n')
     await press(stdin, 'e')
-    expect(lastFrame()).toContain('Done: Backups chat')
+    expect(lastFrame()).toContain('Archived: Backups chat')
     await press(stdin, 'n')
     expect(lastFrame()).toContain('Nothing waiting on you.')
     expect([...(await loadDone(home))]).toEqual(['sess-1'])
     await press(stdin, 'v')
     await press(stdin, 'e')
-    expect(lastFrame()).toContain('Back in Needs you: Backups chat')
+    expect(lastFrame()).toContain('Back in Conversations: Backups chat')
     await press(stdin, 'n')
     expect(lastFrame()).not.toContain('Nothing waiting on you.')
     unmount()

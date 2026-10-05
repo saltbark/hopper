@@ -249,7 +249,7 @@ export function App({
   const selectedReport = reports ? routineReports[reports.sel] : undefined
   // While you're in a conversation, or just stepped back from one, the panel shows the one you
   // went into; otherwise whichever open one the selected row is. Stepped back, it only shows
-  // the one you went into while no other row is selected: when that one moves (to Done, say)
+  // the one you went into while no other row is selected: when that one moves (to Archived, say)
   // and the selection lands on its neighbour, the panel follows the selection.
   const front = embeds[0]
   const frontListed = !!front && [...work, ...done].some((i) => i.id === front.id)

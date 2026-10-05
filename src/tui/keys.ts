@@ -485,8 +485,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       return setMessage('Sent esc to Claude.')
     }
     if (key.return) return act.open(it)
-    // e as well as d: archiving, as in Gmail.
-    if (input === 'd' || input === 'e') return void act.markDone(it, panel === 'work')
+    // e archives, as in Gmail, and in Archived brings it back.
+    if (input === 'e') return void act.markDone(it, panel === 'work')
     if (input === 'h' && panel === 'work') return void act.hold(it)
     if (input === 'g') return void act.dispatchNow()
   }

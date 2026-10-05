@@ -308,7 +308,7 @@ export async function gather(
       routines.map(async (r) => [r.name, await listReports(config.home, r.name, runs)] as const),
     ),
   )
-  // An unattended conversation that finished and says nothing needs me goes straight to Done.
+  // An unattended conversation that finished and says nothing needs me goes straight to Archived.
   // A routine's run shows while it works; once finished it is filed with its routine's reports.
   // Only a run blocked on a question stays in the list, because
   // the conversation is the one place to answer it.

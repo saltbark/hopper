@@ -38,7 +38,7 @@ export const ANYWHERE: Hint[] = [
   ['n', 'next waiting on you'],
   ['p', 'projects: type to find one'],
   ['c', 'conversations'],
-  ['v', 'done'],
+  ['v', 'archived'],
   ['a', 'accounts'],
   ['→ ←', 'into a conversation and back'],
   [',', 'settings'],
@@ -66,7 +66,7 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
       ['j k', 'move'],
       ['J K', 'next group (shift+↑↓)'],
       ['⏎ →', 'open it, or go back in'],
-      ['d e', 'mark done'],
+      ['e', 'archive'],
       ['h', 'on hold, or off it (a reply takes it off too)'],
       ['i', 'interrupt (sends esc)'],
       ['u', 'a draft: up next, tonight, off'],
@@ -76,10 +76,10 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
     ],
   ],
   [
-    'done',
+    'archived',
     [
       ['⏎ →', 'open it here'],
-      ['d e', 'bring it back'],
+      ['e', 'bring it back'],
     ],
   ],
   [
@@ -258,11 +258,11 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
     else hints.push(['⏎ →', 'open it here'])
   }
   if (it && it.kind !== 'draft' && it.kind !== 'routine')
-    hints.push(['d e', done ? 'bring it back' : 'mark done'])
+    hints.push(['e', done ? 'bring it back' : 'archive'])
   if (it && !done) hints.push(...holdKey(it))
   if (!done) hints.push(['J K', 'groups'])
   if (!done && h.scope) hints.push(['esc', 'every project'])
-  return { label: done ? 'done' : 'the list', hints: [...trust, ...hints] }
+  return { label: done ? 'archived' : 'the list', hints: [...trust, ...hints] }
 }
 
 // Keys each summary on the right lists itself (panels/detail/), so the key bar leaves them out.
@@ -277,7 +277,7 @@ function summaryKeys(h: Here): Set<string> {
   if (h.focus === 'accounts') return new Set(PANEL_KEYS[3]![1].map(([k]) => k))
   if (h.item?.kind === 'routine') return new Set(routineKeys(h).flatMap(([k]) => k.split(' ')))
   if (h.item?.kind === 'draft') return new Set(draftKeys(h).flatMap(([k]) => k.split(' ')))
-  if (h.item?.id) return new Set(['⏎', 'd', 'e', 'i', ...holdKey(h.item).map(([k]) => k)])
+  if (h.item?.id) return new Set(['⏎', 'e', 'i', ...holdKey(h.item).map(([k]) => k)])
   return new Set()
 }
 

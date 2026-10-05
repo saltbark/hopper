@@ -275,7 +275,7 @@ export function makeActions(ctx: AppCtx) {
     }
     // It moves now; the load after, which asks every account's claude, catches up behind it.
     ctx.patch((s) => withDone(s, item.sessionId, done))
-    setMessage(done ? `Done: ${item.name}` : `Back in Needs you: ${item.name}`)
+    setMessage(done ? `Archived: ${item.name}` : `Back in Conversations: ${item.name}`)
     void refresh(false)
   }
 
@@ -499,7 +499,7 @@ export function makeActions(ctx: AppCtx) {
     if (f.kind === 'routine-remove') {
       setForm(null)
       await deleteRoutine(config.home, f.name)
-      setMessage(`Removed ${f.name}. Its runs stay in Done.`)
+      setMessage(`Removed ${f.name}. Its runs stay in Archived.`)
       return void refresh(false)
     }
   }

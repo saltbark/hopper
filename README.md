@@ -54,9 +54,9 @@ needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository secrets.
 
 ## The list
 
-Hopper opens on Conversations: every conversation that isn't done, grouped into running, waiting
+Hopper opens on Conversations: every conversation that isn't archived, grouped into running, waiting
 on you, on hold, drafts, proposed, routines and up next, in that order. `J` `K` move between the
-groups. Done sits below. Above the list, beside Accounts, Projects shows the projects with
+groups. Archived sits below. Above the list, beside Accounts, Projects shows the projects with
 something waiting, running or used today.
 
 `p` goes to Projects, ready to search. Type a few letters and it lists every project and folder
@@ -73,7 +73,7 @@ keeps it.
 A conversation opens in the right-hand panel. It's the actual Claude session, and every key goes
 to Claude, `esc` included. To come back to Hopper, press ← at Claude's empty prompt, or ctrl+]
 from anywhere. The conversation stays open, and ⏎ goes back in. Inside, ctrl+c interrupts Claude;
-from the list, `i` sends it an esc. `m` marks a conversation done.
+from the list, `i` sends it an esc. `e` archives a conversation.
 
 Ask Claude to file items and it will: it knows the project's `_open.md`. The first conversation in
 a new folder asks you to trust the folder once (`T`).
@@ -87,9 +87,9 @@ conversation's details the full id of the model its newest reply came from (`ran
 
 ## Keys and mouse
 
-`p` `c` `v` `a` jump to projects, conversations, done and accounts. `n` jumps to the first thing
-waiting on you. `J` `K` (or shift+↑↓) move to the next group. `d` or `e` on a conversation marks it done,
-or in Done brings it back. → on the list opens a conversation and ← comes back, so the arrows
+`p` `c` `v` `a` jump to projects, conversations, archived and accounts. `n` jumps to the first thing
+waiting on you. `J` `K` (or shift+↑↓) move to the next group. `e` on a conversation archives it, as
+in Gmail, or in Archived brings it back. → on the list opens a conversation and ← comes back, so the arrows
 alone get you around. `x` twice quits.
 
 The bottom line shows the keys for whatever is selected. `?` shows all of them.

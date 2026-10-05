@@ -18,9 +18,9 @@ const keysOf = (h: Partial<Here>) => hereKeys({ ...base, ...h }).hints.map(([k])
 
 describe('hereKeys', () => {
   it('follows what is selected in the list', () => {
-    expect(keysOf({ item: conversation })).toEqual(['⏎ →', 'd e', 'h', 'J K'])
-    expect(keysOf({ item: conversation, embedOpen: true })).toEqual(['⏎ →', 'i', 'd e', 'h', 'J K'])
-    expect(keysOf({ focus: 'done', item: conversation })).toEqual(['⏎ →', 'd e'])
+    expect(keysOf({ item: conversation })).toEqual(['⏎ →', 'e', 'h', 'J K'])
+    expect(keysOf({ item: conversation, embedOpen: true })).toEqual(['⏎ →', 'i', 'e', 'h', 'J K'])
+    expect(keysOf({ focus: 'done', item: conversation })).toEqual(['⏎ →', 'e'])
   })
   it('offers h on what waits on you, off hold on what is held, and nothing on running work', () => {
     expect(hereKeys({ ...base, item: conversation }).hints).toContainEqual(['h', 'on hold'])
@@ -32,7 +32,7 @@ describe('hereKeys', () => {
     const row = (isProject: boolean) => ({ key: 'pm', isProject }) as Here['row']
     expect(keysOf({ focus: 'projects', row: row(true) })).toEqual(['⏎', 'tab', '↑↓', 'esc'])
     expect(keysOf({ focus: 'projects', row: row(false) })).toEqual(['⏎', '↑↓', 'esc'])
-    expect(keysOf({ item: conversation, scope: 'pm' })).toEqual(['⏎ →', 'd e', 'h', 'J K', 'esc'])
+    expect(keysOf({ item: conversation, scope: 'pm' })).toEqual(['⏎ →', 'e', 'h', 'J K', 'esc'])
     expect(keysOf({ item: conversation })).not.toContain('esc')
   })
   it("offers a report's conversation only while Claude still has it", () => {
@@ -69,7 +69,7 @@ describe('hereKeys', () => {
       barKeys({ ...base, item: conversation, embedOpen: true, summaryShown: false }).map(
         ([k]) => k,
       ),
-    ).toEqual(['⏎ →', 'i', 'd e', 'h', 'J K'])
+    ).toEqual(['⏎ →', 'i', 'e', 'h', 'J K'])
     expect(barKeys({ ...base, focus: 'accounts' })).toEqual([])
   })
 })

@@ -26,8 +26,9 @@ where they are.
   in the project's run folder (`runIn`: a registry project's meta repo, a home project's home
   folder, else its own), with `hopperPrompt` appended so Claude knows the project's `_open.md`,
   then attaches. Claude reports a session that has answered as `done`; to Hopper that means
-  _needs you_, until it's marked done in `<home>/state/done.json`. One can be put on hold
-  (`h`, `<home>/state/held.json`): still waiting, but counted nowhere (`waitsOnMe`). The hold
+  _needs you_, until it's archived (`e`; still `<home>/state/done.json` and `done` in code).
+  One can be put on hold (`h`, `<home>/state/held.json`): still waiting, but counted nowhere
+  (`waitsOnMe`). The hold
   keeps when it was set, and a reply in the transcript after that ends it (`gather`), so there
   is nothing to clear by hand when the conversation moves on. `claude --bg` refuses
   untrusted folders (`UntrustedError`); trust is inherited, so Hopper trusts its home once.
