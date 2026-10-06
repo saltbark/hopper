@@ -70,6 +70,11 @@ shift to select, ⏎ for new lines) and it saves as you type. `esc`, then `s` st
 it to another project, `y` copies it, `e` throws it away (press it twice), or `esc` again
 keeps it.
 
+`o` on a draft opens its text in your own editor (`$VISUAL`, else `$EDITOR`, else vi) with Hopper
+suspended; the draft's other fields stay as they are, and quitting with an error (vim's `:cq`)
+changes nothing. `o` on a routine's prompt line does the same for its prompt. To write every draft
+there, from `tab` on, set `draft_editor = "external"` in `config.toml` (or in `,`).
+
 A conversation opens in the right-hand panel. It's the actual Claude session, and every key goes
 to Claude, `esc` included. To come back to Hopper, press ← at Claude's empty prompt, or ctrl+]
 from anywhere. The conversation stays open, and ⏎ goes back in. Inside, ctrl+c interrupts Claude;

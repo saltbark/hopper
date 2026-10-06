@@ -14,7 +14,7 @@ import {
   type Config,
 } from '../config.ts'
 import { setDone } from '../done.ts'
-import { deleteDraft, newDraftId, saveDraft, type Draft } from '../drafts.ts'
+import { deleteDraft, newDraftId, saveDraft, setDraftText, type Draft } from '../drafts.ts'
 import { when } from '../format.ts'
 import { readIfThere } from '../fsutil.ts'
 import { setHeld } from '../held.ts'
@@ -27,6 +27,7 @@ import {
   ROUTINE_NAME,
   runRoutine,
   saveRoutine,
+  setRoutinePrompt,
   type Report,
   type Routine,
 } from '../routines/index.ts'
@@ -36,6 +37,7 @@ import { startDraft } from '../start.ts'
 import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
 import { admit, EmbeddedSession } from './embed.ts'
+import { editorName, editText } from './external.ts'
 import { MOUSE_OFF, MOUSE_ON } from './mouse.ts'
 import { makeSettingsActions } from './settingsActions.ts'
 import {
@@ -85,7 +87,7 @@ export function makeActions(ctx: AppCtx) {
     if (ctx.focus === 'projects') go('work')
     const key = at ?? ctx.scopeProject ?? 'meta/inbox'
     const project = snap?.projects.find((p) => p.key === key)
-    setEditing(
+    write(
       newEditing({
         id: newDraftId(),
         project: key,
@@ -94,6 +96,7 @@ export function makeActions(ctx: AppCtx) {
         model: project?.model,
         effort: project?.effort,
       }),
+      true,
     )
   }
 
@@ -162,6 +165,62 @@ export function makeActions(ctx: AppCtx) {
     await saveDraft(config.home, toDraft(e, now()))
     void refresh(false)
   }
+
+  // Writing in the person's own editor ($VISUAL, $EDITOR), with Hopper suspended. Only the text
+  // goes to it, and it comes back into the file as the file is by then, so nothing else in it
+  // changes. `fresh` is a draft not saved yet (tab): it's kept only if something was written.
+  const writeOutside = async (e: Editing, fresh = false) => {
+    const r = e.routine
+    let text: string | null
+    try {
+      text = await editText(ctx.suspendTerminal, e.text, r ? r.name : `draft-${e.id}`)
+    } catch (err) {
+      return setMessage(`Couldn't open ${editorName()}: ${(err as Error).message}`)
+    }
+    if (text === null) return setMessage(`${editorName()} quit with an error: nothing changed.`)
+    if (!text.trim())
+      return setMessage(fresh ? 'Empty, so not kept.' : 'Empty, so nothing changed.')
+    if (!fresh && text === e.text.replace(/\s+$/, '')) return setMessage('No change.')
+    try {
+      if (r) {
+        const saved = await setRoutinePrompt(config.home, r.name, text)
+        if (saved)
+          ctx.patch((s) => ({
+            ...s,
+            routines: s.routines.map((x) => (x.name === r.name ? saved : x)),
+          }))
+        // Removed meanwhile, from another window: what was written brings it back.
+        else
+          await saveRoutine(config.home, toRoutine({ ...e, text }, r.name, r.schedule, r.enabled))
+        setMessage(`Saved ${r.name}'s prompt.`)
+      } else if (fresh) {
+        await saveDraft(config.home, toDraft({ ...e, text }, now()))
+        leaveEditor(draftSessionId(e.id))
+        setMessage('Draft kept.')
+      } else {
+        const saved = await setDraftText(config.home, e.id, text, now())
+        // The list's keys act on the snapshot's copy: it has the new text before any load does.
+        if (saved) {
+          ctx.patch((s) => ({ ...s, drafts: s.drafts.map((d) => (d.id === saved.id ? saved : d)) }))
+          setMessage('Draft saved.')
+        } else {
+          // Started or thrown away meanwhile (a queued one can start while you write): what
+          // was written is kept as a draft of its own.
+          const id = newDraftId()
+          await saveDraft(config.home, toDraft({ ...e, id, text, extra: undefined }, now()))
+          ctx.setFollow(draftSessionId(id))
+          setMessage('It started or went while you wrote, so what you wrote is a new draft.')
+        }
+      }
+    } catch (err) {
+      setMessage(`Not saved: ${(err as Error).message}`)
+    }
+    await refresh(false)
+  }
+
+  // Where tab, and ⏎ on a draft or a routine's prompt, write: Hopper's editor, or the person's.
+  const write = (e: Editing, fresh = false) =>
+    config.draftEditor === 'external' ? void writeOutside(e, fresh) : setEditing(e)
 
   // Goes into an open conversation: it moves to the front of the open ones and gets the keyboard.
   const enter = (session: EmbeddedSession, from: Panel) => {
@@ -305,7 +364,7 @@ export function makeActions(ctx: AppCtx) {
     }
     if (item.kind === 'draft') {
       const e = editingOf(item)
-      return e ? setEditing(e) : undefined
+      return e ? write(e) : undefined
     }
     const account = config.accounts.find((a) => a.name === item.account)
     if (!item.id || !account) return setMessage('Interactive session: switch to its terminal.')
@@ -327,7 +386,7 @@ export function makeActions(ctx: AppCtx) {
   // The routine's prompt, from the top of that list. Closing the editor comes back to the list.
   const editRoutine = (item: Item | undefined) => {
     const e = editingOf(item)
-    if (e) setEditing(e)
+    if (e) write(e)
   }
 
   const markReportsRead = async (routine: string, which: Report[] | 'all') => {
@@ -608,6 +667,7 @@ export function makeActions(ctx: AppCtx) {
     open,
     enterRoutine,
     editRoutine,
+    writeOutside,
     markReportsRead,
     markAllReports,
     readReport,

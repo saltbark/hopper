@@ -1018,6 +1018,177 @@ describe('conversations', () => {
     unmount()
   })
 
+  // A stand-in $VISUAL: it keeps what it was given, then writes HOPPER_EDITOR_WRITE in its place,
+  // or quits with an error, as vim's :cq does.
+  const fakeEditor = async (home: string) => {
+    const { chmod, writeFile } = await import('node:fs/promises')
+    const bin = join(home, 'editor')
+    const seen = join(home, 'seen.md')
+    const script = [
+      '#!/bin/sh',
+      'cp "$1" "$HOPPER_EDITOR_SEEN"',
+      '[ -n "$HOPPER_EDITOR_FAIL" ] && exit 1',
+      '[ -n "$HOPPER_EDITOR_RM" ] && rm "$HOPPER_EDITOR_RM"',
+      'printf "%s\\n" "$HOPPER_EDITOR_WRITE" > "$1"',
+    ]
+    await writeFile(bin, script.join('\n') + '\n')
+    await chmod(bin, 0o755)
+    process.env['VISUAL'] = bin
+    process.env['HOPPER_EDITOR_SEEN'] = seen
+    delete process.env['HOPPER_EDITOR_FAIL']
+    const write = (text: string) => void (process.env['HOPPER_EDITOR_WRITE'] = text)
+    const fail = (on = true) =>
+      void (on
+        ? (process.env['HOPPER_EDITOR_FAIL'] = '1')
+        : delete process.env['HOPPER_EDITOR_FAIL'])
+    // A file that goes while the editor is open.
+    const gone = (path: string) => void (process.env['HOPPER_EDITOR_RM'] = path)
+    const restore = () => {
+      for (const k of ['SEEN', 'WRITE', 'FAIL', 'RM']) delete process.env[`HOPPER_EDITOR_${k}`]
+      delete process.env['VISUAL']
+    }
+    return { seen: () => readFile(seen, 'utf8'), write, fail, gone, restore }
+  }
+
+  it('o writes a draft in $EDITOR: only its text goes there, and the rest of it stays', async () => {
+    const { home, cfg, live } = await setup()
+    const ed = await fakeEditor(home)
+    const { listDrafts, saveDraft } = await import('../src/drafts.ts')
+    await saveDraft(home, {
+      id: 'd-1',
+      project: 'meta/inbox',
+      text: 'first thoughts',
+      created: now,
+      updated: now,
+      model: 'sonnet',
+      queue: 'night',
+    })
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
+    await until(() => (lastFrame() ?? '').includes('first thoughts'))
+    expect(lastFrame()).toContain('o  write it in $EDITOR')
+    ed.write('second thoughts\nand a line more')
+    await press(stdin, 'o')
+    await until(
+      async () => (await listDrafts(home))[0]?.text === 'second thoughts\nand a line more',
+    )
+    expect(await ed.seen()).toBe('first thoughts\n')
+    expect((await listDrafts(home))[0]).toMatchObject({
+      id: 'd-1',
+      project: 'meta/inbox',
+      model: 'sonnet',
+      queue: 'night',
+      created: now,
+    })
+    await until(() => (lastFrame() ?? '').includes('Draft saved.'))
+    expect(lastFrame()).toContain('Draft saved.')
+    // Quitting the editor with an error (vim's :cq) changes nothing.
+    ed.fail()
+    ed.write('lost')
+    await press(stdin, 'o')
+    await until(() => (lastFrame() ?? '').includes('quit with an error'))
+    expect(lastFrame()).toContain('quit with an error')
+    expect((await listDrafts(home))[0]?.text).toBe('second thoughts\nand a line more')
+    // Started while it was being written (a queued one can be): what was written is a new draft.
+    ed.fail(false)
+    ed.gone(join(home, 'drafts', 'd-1.md'))
+    ed.write('kept anyway')
+    await press(stdin, 'o')
+    await until(async () => (await listDrafts(home))[0]?.text === 'kept anyway')
+    const [kept, ...rest] = await listDrafts(home)
+    expect(rest).toEqual([])
+    expect(kept?.id).not.toBe('d-1')
+    expect(kept).toMatchObject({ project: 'meta/inbox', model: 'sonnet' })
+    expect(kept?.queue).toBeUndefined()
+    ed.restore()
+    done()
+    unmount()
+  })
+
+  it('o on a routine’s prompt line writes the prompt in $EDITOR, keeping the rest', async () => {
+    const { home, cfg, snap, projects } = await setup()
+    const ed = await fakeEditor(home)
+    const { saveRoutine, loadRoutine } = await import('../src/routines/index.ts')
+    const routine = {
+      name: 'triage',
+      project: 'meta/inbox',
+      schedule: 'weekdays 9:00',
+      enabled: true,
+      prompt: 'Sort.',
+      model: 'haiku',
+    }
+    await saveRoutine(home, routine)
+    const inbox = projects.find((p) => p.key === 'meta/inbox')!
+    const withRoutine: Snapshot = {
+      ...snap,
+      routines: [routine],
+      items: toItems(
+        [
+          {
+            account: 'bh',
+            id: null,
+            sessionId: 'routine:triage',
+            kind: 'routine',
+            cwd: inbox.path,
+            name: 'triage',
+            startedAt: 0,
+            state: 'manual',
+          },
+        ],
+        projects,
+      ),
+    }
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={cfg} load={async () => withRoutine} />,
+    )
+    await tick()
+    await press(stdin, 'c')
+    await press(stdin, '\r') // no reports: on the prompt's line
+    expect(lastFrame()).toContain('o edit it in $EDITOR')
+    ed.write('Sort, then file.')
+    await press(stdin, 'o')
+    await until(async () => (await loadRoutine(home, 'triage'))?.prompt === 'Sort, then file.')
+    expect(await ed.seen()).toBe('Sort.\n')
+    expect(await loadRoutine(home, 'triage')).toEqual({ ...routine, prompt: 'Sort, then file.' })
+    await until(() => (lastFrame() ?? '').includes("Saved triage's prompt."))
+    expect(lastFrame()).toContain("Saved triage's prompt.")
+    ed.restore()
+    done()
+    unmount()
+  })
+
+  it('with draft_editor external, tab and ⏎ on a draft write it in $EDITOR', async () => {
+    const { home, cfg, live } = await setup()
+    const ed = await fakeEditor(home)
+    const { listDrafts } = await import('../src/drafts.ts')
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={{ ...cfg, draftEditor: 'external' }} load={live} />,
+    )
+    await tick()
+    // Nothing written: nothing kept.
+    ed.write('')
+    await press(stdin, '\t')
+    await until(() => (lastFrame() ?? '').includes('Empty, so not kept.'))
+    expect(await listDrafts(home)).toEqual([])
+    ed.write('from my own editor')
+    await press(stdin, '\t')
+    await until(async () => (await listDrafts(home)).length === 1)
+    expect(await ed.seen()).toBe('')
+    expect(lastFrame()).not.toContain('NEW CONVERSATION')
+    expect((await listDrafts(home))[0]).toMatchObject({
+      project: 'meta/inbox',
+      text: 'from my own editor',
+    })
+    await onList(lastFrame)
+    ed.write('from my own editor, again')
+    await press(stdin, '\r')
+    await until(async () => (await listDrafts(home))[0]?.text === 'from my own editor, again')
+    expect(await ed.seen()).toBe('from my own editor\n')
+    expect(lastFrame()).not.toContain('NEW CONVERSATION')
+    ed.restore()
+    done()
+    unmount()
+  })
+
   it('w moves a draft to another project before it starts', async () => {
     const { home, cfg, live } = await setup()
     const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)

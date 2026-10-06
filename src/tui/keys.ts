@@ -364,7 +364,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
   }
 
   // ---- a routine's list, in its details: the prompt, then its reports ----
-  // The list: j k and the arrows move, ⏎ or → edits the prompt or reads a report; m marks the
+  // The list: j k and the arrows move, ⏎ or → edits the prompt or reads a report, o edits the
+  // prompt in $EDITOR; m marks the
   // selected report read, M all of them. Reading: they scroll, J K go to the next older and
   // newer report. esc or ← goes back a level each time; c opens the conversation that wrote the
   // report, while Claude still has it.
@@ -385,6 +386,10 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         return ctx.setReports({ ...rs, sel: Math.max(-1, rs.sel - 1) })
       if (key.return || key.rightArrow)
         return rep ? void act.readReport(rs.routine, rs.sel) : act.editRoutine(ctx.selectedItem)
+      if (input === 'o' && rs.sel === -1) {
+        const e = act.editingOf(ctx.selectedItem)
+        return e ? void act.writeOutside(e) : undefined
+      }
       if (input === 'm' && rep) {
         if (!rep.unread) return setMessage('Already read.')
         return void act.markReportsRead(rs.routine, [rep])
@@ -465,6 +470,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         setForm({ kind: 'routine-name', value: suggested, editing: e })
       },
       e: () => setForm({ kind: 'draft-remove', id: e.id, name: it.name }),
+      o: () => act.writeOutside(e),
       // Up next: off, then as soon as there's room, then tonight.
       u: () => {
         const q = e.extra?.queue

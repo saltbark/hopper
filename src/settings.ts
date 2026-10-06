@@ -83,7 +83,14 @@ export const removeEntry = (doc: ProjectsDoc, table: TableName, index: number): 
 export type Target =
   | {
       file: 'config'
-      field: 'home' | 'sound' | 'dim' | 'model' | 'effort' | keyof typeof OVERNIGHT_KEYS
+      field:
+        | 'home'
+        | 'sound'
+        | 'dim'
+        | 'model'
+        | 'effort'
+        | 'draft_editor'
+        | keyof typeof OVERNIGHT_KEYS
     }
   | { file: 'accounts'; account: string; field: 'label' | 'prefixes' | 'default' }
   | { file: 'projects'; table: TableName; index: number; field: string }
@@ -202,6 +209,18 @@ export function buildRows(
       target: { file: 'config', field: key },
     })
   }
+  rows.push({
+    kind: 'setting',
+    id: 'general.draft_editor',
+    label: 'draft editor',
+    value: config.draftEditor ?? 'hopper (default)',
+    raw: config.draftEditor ?? '',
+    isSet: !!config.draftEditor,
+    help: 'Where drafts and routine prompts are written, from tab or ⏎ on one: hopper, its own editor, or external, your $VISUAL or $EDITOR (vi when neither is set), with Hopper suspended until it exits. o on one opens it there either way.',
+    file: 'config',
+    edit: { type: 'choice', options: ['', 'external'], fallback: 'hopper' },
+    target: { file: 'config', field: 'draft_editor' },
+  })
 
   rows.push({
     kind: 'section',
