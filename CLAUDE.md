@@ -112,9 +112,11 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   fallback, for sessions Hopper didn't start. `extraDirs` adds the project's own folder when it
   resolves outside the run folder (it does, through the meta repo's `projects/` symlink).
 - **Keys are letters and esc.** Inside an embedded conversation every key is Claude's, esc
-  included; the way back to Hopper is Claude's own ← at the empty prompt, or ctrl+] (the one Ctrl
-  binding), and both leave it live. Claude's interrupt is ctrl+c (passed through) or `i` from the
-  list. No other Ctrl or Cmd bindings. What the
+  included; the way back to Hopper is Claude's own ← at the empty prompt, or ctrl+] (one of two
+  Ctrl bindings), and both leave it live. Claude's interrupt is ctrl+c (passed through) or `i` from
+  the list. The other is ctrl+g while writing a draft or routine prompt (and on a draft's row or
+  the prompt's line, as `o`): it goes on in `$EDITOR`, Claude Code's own key for that, on purpose.
+  In a conversation ctrl+g is Claude's, passed through. No other Ctrl or Cmd bindings. What the
   keys do is described once, in `src/tui/keymap.ts` (the key bar and `?` both read it); a key
   added or changed in `keys.ts` gets its line there too. `esc` goes up a level; the top level is
   a menu of single letters.
