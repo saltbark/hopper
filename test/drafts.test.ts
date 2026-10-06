@@ -4,7 +4,14 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { deleteDraft, listDrafts, parseDraft, saveDraft, serializeDraft } from '../src/drafts.ts'
+import {
+  deleteDraft,
+  listDrafts,
+  parseDraft,
+  saveDraft,
+  serializeDraft,
+  setDraftText,
+} from '../src/drafts.ts'
 
 const d = {
   id: 'abc-1',
@@ -15,6 +22,18 @@ const d = {
 }
 
 describe('drafts', () => {
+  it('take new text from an editor, keeping every other field as the file has it', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-drafts-'))
+    const queued = { ...d, model: 'sonnet', queue: 'night' as const, after: ['x-1'], depth: 1 }
+    await saveDraft(home, queued)
+    const saved = await setDraftText(home, d.id, 'new words', 99)
+    expect(saved).toEqual({ ...queued, text: 'new words', updated: 99 })
+    expect(await listDrafts(home)).toEqual([saved])
+    // Gone meanwhile (started, thrown away): nothing is written back.
+    await deleteDraft(home, d.id)
+    expect(await setDraftText(home, d.id, 'too late', 100)).toBeNull()
+    expect(await listDrafts(home)).toEqual([])
+  })
   it('round-trip, blank lines and all', () => {
     expect(parseDraft('abc-1', serializeDraft(d))).toEqual(d)
   })

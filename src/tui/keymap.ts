@@ -136,6 +136,7 @@ export const MOUSE_KEYS: Hint[] = [
 
 export const WRITING_KEYS: Hint[] = [
   ['⏎', 'new line'],
+  ['ctrl+g', 'carry on in $EDITOR'],
   ['option+arrows', 'by word'],
   ['option+⌫ ctrl+w', 'delete a word'],
   ['cmd+arrows', 'to the ends'],
@@ -167,6 +168,7 @@ export function draftKeys(
     ['E', `effort: ${choiceText(e.effort, e.defaults.effort)}`],
     ['w', 'move to a project'],
     ['r', 'make it a routine'],
+    ['o', 'write it in $EDITOR'],
     ['y', 'copy'],
     ['e', 'throw away'],
   ]
@@ -192,6 +194,7 @@ export function routineKeys(e: Choices & { paused?: boolean }): Hint[] {
 export const PROMPT_LINE_KEYS: Hint[] = [
   ['j k ↑↓', 'move'],
   ['⏎ →', 'edit the prompt'],
+  ['o', 'edit it in $EDITOR'],
   ['M', 'mark all read'],
   ['esc ←', 'back to the list'],
 ]
@@ -215,6 +218,7 @@ export const REPORT_KEYS: Hint[] = [
 export const REPORTS_HELP: Hint[] = [
   ['j k ↑↓', 'move, or scroll a report'],
   ['⏎ →', 'read it, or edit the prompt'],
+  ['o ctrl+g', 'the prompt in $EDITOR'],
   ['m', 'mark read'],
   ['M', 'mark all read'],
   ['space', 'a page down'],

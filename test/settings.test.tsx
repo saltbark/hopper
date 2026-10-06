@@ -102,6 +102,18 @@ describe('the dim row', () => {
   })
 })
 
+describe('the draft editor row', () => {
+  const row = (c: Config) => buildRows(c, null, [], []).find((r) => r.id === 'general.draft_editor')
+  it("names Hopper's own as the default, and steps to external and back", () => {
+    expect(row(base('/h'))).toMatchObject({ value: 'hopper (default)', raw: '', isSet: false })
+    const ext = row({ ...base('/h'), draftEditor: 'external' })
+    expect(ext).toMatchObject({ value: 'external', raw: 'external', isSet: true })
+    if (ext?.kind !== 'setting' || ext.edit.type !== 'choice') throw new Error('not a choice')
+    expect(nextOption(ext.edit.options, '')).toBe('external')
+    expect(nextOption(ext.edit.options, 'external')).toBe('')
+  })
+})
+
 describe('the settings screen', () => {
   it('opens with a comma, changes a choice with enter, and writes it to projects.toml', async () => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-settings-'))

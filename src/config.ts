@@ -62,6 +62,8 @@ export type Config = {
   // config.toml's model and effort, when set; see defaultsFor.
   model?: string
   effort?: string
+  // config.toml's draft_editor, when set: where drafts and routine prompts are written.
+  draftEditor?: DraftEditor
   overnight: Overnight
   accounts: Account[]
   routes: Route[]
@@ -84,6 +86,11 @@ home = "~/hopper"
 # login starts it. opus[1m] (Opus with the 1M-token context) and high when not set.
 # model = "opus[1m]"
 # effort = "high"
+
+# Where drafts and routine prompts are written (tab, and ⏎ on one): "hopper", its own editor,
+# or "external": $VISUAL or $EDITOR (vi when neither is set), with Hopper suspended until it
+# exits. o on one opens it there either way. "hopper" when not set.
+# draft_editor = "external"
 
 # Overnight: drafts queued for tonight start inside this window, and one night may use up to
 # night_budget points of an account's weekly limit, keeping the last reserve points for the day.
@@ -144,6 +151,10 @@ function parseOvernight(raw: Record<string, unknown>, where: string): Overnight 
   return out
 }
 
+// Where drafts are written: Hopper's own editor, or the person's ($VISUAL, $EDITOR).
+export const DRAFT_EDITORS = ['hopper', 'external'] as const
+export type DraftEditor = (typeof DRAFT_EDITORS)[number]
+
 // config.toml's dim: Hopper's own amount, and the most it may be. At 100 the text would be black.
 export const DIM_DEFAULT = 38
 export const DIM_MAX = 80
@@ -157,6 +168,7 @@ export function parseSettings(
   dim?: number
   model?: string
   effort?: string
+  draftEditor?: DraftEditor
   overnight: Overnight
 } {
   let raw: Record<string, unknown>
@@ -193,11 +205,15 @@ export function parseSettings(
       )
     choice[key] = v
   }
+  const draftEditor = raw['draft_editor']
+  if (draftEditor !== undefined && !DRAFT_EDITORS.includes(draftEditor as DraftEditor))
+    throw new ConfigError(`${tildify(path)}: "draft_editor" is "hopper" or "external"`)
   return {
     home: expandHome(home),
     ...(sound ? { sound } : {}),
     ...(dim !== undefined ? { dim } : {}),
     ...choice,
+    ...(draftEditor ? { draftEditor: draftEditor as DraftEditor } : {}),
     overnight: parseOvernight(raw, tildify(path)),
   }
 }

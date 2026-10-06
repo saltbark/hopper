@@ -61,6 +61,14 @@ describe('settings', () => {
     expect(parseSettings('home = "/h"', '/c.toml').model).toBeUndefined()
     expect(() => parseSettings('home = "/h"\nmodel = 3', '/c.toml')).toThrow(/model/)
   })
+  it('reads where drafts are written, hopper or external', () => {
+    expect(parseSettings('home = "/h"', '/c.toml').draftEditor).toBeUndefined()
+    const s = parseSettings('home = "/h"\ndraft_editor = "external"', '/c.toml')
+    expect(s.draftEditor).toBe('external')
+    expect(() => parseSettings('home = "/h"\ndraft_editor = "nvim"', '/c.toml')).toThrow(
+      /draft_editor/,
+    )
+  })
   it('always names a model and effort: the draft, else its project, else config, else Hopper', () => {
     expect(defaultsFor(base())).toEqual({ model: 'opus[1m]', effort: 'high' })
     const cfg = { ...base(), model: 'sonnet' }
