@@ -43,6 +43,8 @@ describe('keyToBytes', () => {
     expect(keyToBytes('', key({ leftArrow: true }))).toBe('\x1b[D')
     expect(keyToBytes('', key({ tab: true, shift: true }))).toBe('\x1b[Z')
     expect(keyToBytes('c', key({ ctrl: true }))).toBe('\x03')
+    // ctrl+g is Claude's own external editor: it goes through as the bell character.
+    expect(keyToBytes('g', key({ ctrl: true }))).toBe('\x07')
     expect(keyToBytes('b', key({ meta: true }))).toBe('\x1bb')
   })
 })

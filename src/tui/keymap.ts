@@ -136,6 +136,7 @@ export const MOUSE_KEYS: Hint[] = [
 
 export const WRITING_KEYS: Hint[] = [
   ['⏎', 'new line'],
+  ['ctrl+g', 'carry on in $EDITOR'],
   ['option+arrows', 'by word'],
   ['option+⌫ ctrl+w', 'delete a word'],
   ['cmd+arrows', 'to the ends'],
@@ -217,7 +218,7 @@ export const REPORT_KEYS: Hint[] = [
 export const REPORTS_HELP: Hint[] = [
   ['j k ↑↓', 'move, or scroll a report'],
   ['⏎ →', 'read it, or edit the prompt'],
-  ['o', 'the prompt in $EDITOR'],
+  ['o ctrl+g', 'the prompt in $EDITOR'],
   ['m', 'mark read'],
   ['M', 'mark all read'],
   ['space', 'a page down'],

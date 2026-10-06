@@ -169,15 +169,21 @@ export function makeActions(ctx: AppCtx) {
   // Writing in the person's own editor ($VISUAL, $EDITOR), with Hopper suspended. Only the text
   // goes to it, and it comes back into the file as the file is by then, so nothing else in it
   // changes. `fresh` is a draft not saved yet (tab): it's kept only if something was written.
+  const fromEditor = async (e: Editing): Promise<string | null> => {
+    try {
+      const text = await editText(ctx.suspendTerminal, e.text, e.routine?.name ?? `draft-${e.id}`)
+      if (text === null) setMessage(`${editorName()} quit with an error: nothing changed.`)
+      return text
+    } catch (err) {
+      setMessage(`Couldn't open ${editorName()}: ${(err as Error).message}`)
+      return null
+    }
+  }
+
   const writeOutside = async (e: Editing, fresh = false) => {
     const r = e.routine
-    let text: string | null
-    try {
-      text = await editText(ctx.suspendTerminal, e.text, r ? r.name : `draft-${e.id}`)
-    } catch (err) {
-      return setMessage(`Couldn't open ${editorName()}: ${(err as Error).message}`)
-    }
-    if (text === null) return setMessage(`${editorName()} quit with an error: nothing changed.`)
+    const text = await fromEditor(e)
+    if (text === null) return
     if (!text.trim())
       return setMessage(fresh ? 'Empty, so not kept.' : 'Empty, so nothing changed.')
     if (!fresh && text === e.text.replace(/\s+$/, '')) return setMessage('No change.')
@@ -216,6 +222,18 @@ export function makeActions(ctx: AppCtx) {
       setMessage(`Not saved: ${(err as Error).message}`)
     }
     await refresh(false)
+  }
+
+  // ctrl+g while writing, as in Claude Code: what's typed so far goes to the person's editor and
+  // comes back into Hopper's, the cursor at the end. A draft is saved first, so nothing typed is
+  // lost while the editor has it; a routine still saves on esc.
+  const writeOutsideHere = async (e: Editing) => {
+    if (!e.routine && e.text.trim()) await saveDraft(config.home, toDraft(e, now()))
+    const text = await fromEditor(e)
+    if (text === null) return
+    setEditing((cur) =>
+      cur?.id === e.id ? { ...cur, text, cursor: text.length, anchor: null } : cur,
+    )
   }
 
   // Where tab, and ⏎ on a draft or a routine's prompt, write: Hopper's editor, or the person's.
@@ -668,6 +686,7 @@ export function makeActions(ctx: AppCtx) {
     enterRoutine,
     editRoutine,
     writeOutside,
+    writeOutsideHere,
     markReportsRead,
     markAllReports,
     readReport,

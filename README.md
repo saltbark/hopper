@@ -72,8 +72,10 @@ keeps it.
 
 `o` on a draft opens its text in your own editor (`$VISUAL`, else `$EDITOR`, else vi) with Hopper
 suspended; the draft's other fields stay as they are, and quitting with an error (vim's `:cq`)
-changes nothing. `o` on a routine's prompt line does the same for its prompt. To write every draft
-there, from `tab` on, set `draft_editor = "external"` in `config.toml` (or in `,`).
+changes nothing. `o` on a routine's prompt line does the same for its prompt. While writing,
+ctrl+g (Claude Code's key for it) takes what's typed so far to your editor and brings it back into
+Hopper's, the cursor at the end; on a draft's row it's `o`. To write every draft there, from `tab`
+on, set `draft_editor = "external"` in `config.toml` (or in `,`).
 
 A conversation opens in the right-hand panel. It's the actual Claude session, and every key goes
 to Claude, `esc` included. To come back to Hopper, press ← at Claude's empty prompt, or ctrl+]

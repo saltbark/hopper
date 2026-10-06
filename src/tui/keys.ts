@@ -29,6 +29,9 @@ import { againKeys, asText, groupOf, typed, type Editing, type Hover, type Panel
 type Handler = (input: string, key: Key) => void
 
 export const QUIT_PROMPT = 'Press x again to quit.'
+
+// Ink hands ctrl+g over as a g with ctrl set; the raw bell character too, in case.
+const isCtrlG = (input: string, key: Key) => (key.ctrl && input === 'g') || input === '\u0007'
 export const AWAKE_ON = 'Keeping this Mac awake until z again. A closed lid still sleeps it.'
 export const AWAKE_OFF = 'This Mac can sleep again.'
 
@@ -284,6 +287,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
   // esc saves and closes the editor; what was in it stays selected on the list, with its keys.
   const onWrite = (e: Editing, input: string, key: Key) => {
     if (key.escape) return void (e.routine ? act.keepRoutine(e) : act.keepDraft(e))
+    // ctrl+g, Claude Code's own key for it: on into $EDITOR, and back here with what was written.
+    if (isCtrlG(input, key)) return void act.writeOutsideHere(e)
     const ed: EditorState = { text: e.text, cursor: e.cursor, anchor: e.anchor }
     const put = (n: EditorState) => setEditing({ ...e, ...n })
     const to = (how: Move) => put(move(ed, how, textWidth(ctx.layout.rightW), key.shift))
@@ -386,7 +391,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
         return ctx.setReports({ ...rs, sel: Math.max(-1, rs.sel - 1) })
       if (key.return || key.rightArrow)
         return rep ? void act.readReport(rs.routine, rs.sel) : act.editRoutine(ctx.selectedItem)
-      if (input === 'o' && rs.sel === -1) {
+      if ((input === 'o' || isCtrlG(input, key)) && rs.sel === -1) {
         const e = act.editingOf(ctx.selectedItem)
         return e ? void act.writeOutside(e) : undefined
       }
@@ -532,6 +537,11 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
   const onBoard: Handler = (input, key) => {
     const focus = ctx.focus as Panel
     if (focus === 'projects') return onProjects(input, key)
+    // ctrl+g is o on a draft, and nothing anywhere else on the board: never the g it arrives as.
+    if (isCtrlG(input, key)) {
+      const e = focus === 'work' || focus === 'done' ? act.editingOf(ctx.selectedItem) : undefined
+      return e && !e.routine ? void act.writeOutside(e) : undefined
+    }
     const own = focus === 'work' || focus === 'done' ? rowKeys(ctx.selectedItem)[input] : undefined
     if (own) return void own()
     // esc comes back to the list, then shows every project again. It never goes up to Projects.
