@@ -2,7 +2,7 @@ import { readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { parseFrontmatter, serializeFrontmatter } from '../frontmatter.ts'
-import { readIfThere, writeAtomic } from '../fsutil.ts'
+import { inTurn, readForChange, readIfThere, writeAtomic } from '../fsutil.ts'
 import { checkSchedule } from './schedule.ts'
 
 // A routine is a prompt that runs on a schedule. Each run is its own conversation; what lasts
@@ -78,6 +78,29 @@ export async function saveRoutine(home: string, r: Routine): Promise<void> {
   const problem = checkSchedule(r.schedule)
   if (problem) throw new Error(problem)
   await writeAtomic(file(home, r.name), serializeRoutine(r))
+}
+
+// A new prompt for a routine on disk, written in an editor of the person's own, keeping the rest
+// as the file says now. null when it's gone.
+export async function setRoutinePrompt(
+  home: string,
+  name: string,
+  prompt: string,
+): Promise<Routine | null> {
+  const path = file(home, name)
+  return inTurn(path, async () => {
+    // One that doesn't parse is set aside, not written over.
+    const r = await readForChange(path, (t) => {
+      if (t === null) return null
+      const parsed = parseRoutine(name, t)
+      if (!parsed) throw new Error('unreadable')
+      return parsed
+    })
+    if (!r) return null
+    const next = { ...r, prompt }
+    await saveRoutine(home, next)
+    return next
+  })
 }
 
 export async function deleteRoutine(home: string, name: string): Promise<void> {

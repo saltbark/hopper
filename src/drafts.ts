@@ -2,7 +2,7 @@ import { readdir, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { parseFrontmatter, serializeFrontmatter, timeField } from './frontmatter.ts'
-import { readIfThere, writeAtomic } from './fsutil.ts'
+import { inTurn, readForChange, readIfThere, writeAtomic } from './fsutil.ts'
 
 // A conversation that hasn't started yet: somewhere to take your time with the first message.
 // It saves as you type, waits in Needs you, and starts when you say so. Kept in the home folder.
@@ -104,6 +104,28 @@ export async function listDrafts(home: string): Promise<Draft[]> {
 
 export const saveDraft = (home: string, d: Draft) =>
   writeAtomic(file(home, d.id), serializeDraft(d))
+
+// New text for a draft on disk, written in an editor of the person's own: everything else stays
+// as the file says now. null when the draft is gone (started or thrown away meanwhile).
+export async function setDraftText(
+  home: string,
+  id: string,
+  text: string,
+  updated: number,
+): Promise<Draft | null> {
+  const path = file(home, id)
+  return inTurn(path, async () => {
+    const mtime = await stat(path).then(
+      (s) => s.mtimeMs,
+      () => 0,
+    )
+    const d = await readForChange(path, (t) => (t === null ? null : parseDraft(id, t, mtime)))
+    if (!d) return null
+    const next = { ...d, text, updated }
+    await saveDraft(home, next)
+    return next
+  })
+}
 
 export async function deleteDraft(home: string, id: string): Promise<void> {
   await rm(file(home, id), { force: true })
