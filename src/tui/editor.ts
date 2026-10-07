@@ -146,3 +146,25 @@ export function move(s: EditorState, how: Move, width: number, select: boolean):
   }
   return { text: s.text, cursor: to, anchor: select ? (s.anchor ?? s.cursor) : null }
 }
+
+// What a box this many lines tall shows: the laid-out lines and the first one in view, which
+// follows the cursor once it passes the bottom. The pane draws from it and the mouse reads it.
+export function view(
+  s: Pick<EditorState, 'text' | 'cursor'>,
+  width: number,
+  room: number,
+): { lines: VisualLine[]; start: number } {
+  const lines = layout(s.text, width)
+  const cursorLine = locate(lines, s.cursor).line
+  return { lines, start: Math.max(0, Math.min(cursorLine - room + 1, lines.length - room)) }
+}
+
+// The place in the text at a visual line and column, as a click there would put the cursor:
+// past a line's end is its end, below the last line is the end of the text. A line that wraps
+// ends before the space it wraps at, since that place is shown at the start of the next.
+export function offsetAt(lines: VisualLine[], line: number, col: number): number {
+  const l = lines[Math.max(0, line)]
+  if (!l) return lines.at(-1)?.end ?? 0
+  const wraps = lines[line + 1]?.start === l.end
+  return l.start + Math.max(0, Math.min(col, l.end - l.start - (wraps ? 1 : 0)))
+}

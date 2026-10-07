@@ -14,7 +14,16 @@ import { routineSessionId, type Item } from '../model.ts'
 import type { Actions } from './actions.ts'
 import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
-import { backspace, insert, move, textWidth, type EditorState, type Move } from './editor.ts'
+import {
+  backspace,
+  insert,
+  move,
+  offsetAt,
+  textWidth,
+  view,
+  type EditorState,
+  type Move,
+} from './editor.ts'
 import { keyToBytes } from './embed.ts'
 import { rank } from './fuzzy.ts'
 import { parseMouse, type MouseEvent } from './mouse.ts'
@@ -22,6 +31,7 @@ import { accountLines } from './panels/Accounts.tsx'
 import { reportRows } from './panels/detail/RoutineDetail.tsx'
 import { itemLines } from './panels/ItemRows.tsx'
 import { projectLines } from './panels/ProjectRows.tsx'
+import { draftRoom } from './panes/DraftPane.tsx'
 import { reportMaxScroll, reportRoom } from './panes/ReportPane.tsx'
 import { workItemAt } from './panes/WorkRows.tsx'
 import { againKeys, asText, groupOf, typed, type Editing, type Hover, type Panel } from './state.ts'
@@ -76,6 +86,16 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     return line >= 0 && line < slice.length ? { routine: r.name, index: start + line } : null
   }
 
+  // The place in the editor's text under the pointer, laid out as DraftPane lays it out: the
+  // frame's top edge, then its lines, inside the left border and its padding.
+  const editorOffset = (e: Editing, x: number, y: number): number => {
+    const { leftW, midW, rightW, bodyH } = ctx.layout
+    const room = draftRoom(bodyH)
+    const { lines, start } = view(e, textWidth(rightW), room)
+    const row = Math.max(0, Math.min(room - 1, y - 2))
+    return offsetAt(lines, start + row, x - (leftW + midW) - 3)
+  }
+
   const onMouse = (events: MouseEvent[]) => {
     const { leftW, midW, bandH, workH, doneH, sessionCols, sessionRows } = ctx.layout
     const { embed, pick, focus } = ctx
@@ -100,6 +120,19 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       // A routine's reports hand the keyboard back when the wheel or a click is anywhere else.
       if (ctx.reports && panel !== 'right' && (ev.kind === 'press' || ev.kind.startsWith('wheel')))
         ctx.setReports(null)
+      // The editor has the right panel: a click puts the cursor there, a drag selects from where
+      // it was pressed. Nothing goes on to a conversation the editor is drawn over.
+      if (ctx.editing && panel === 'right') {
+        if (ev.kind === 'press' || ev.kind === 'drag') {
+          const drag = ev.kind === 'drag'
+          setEditing((e) => {
+            if (!e || e.stage !== 'write' || (drag && e.anchor === null)) return e
+            const at = editorOffset(e, ev.x, ev.y)
+            return drag ? { ...e, cursor: at } : { ...e, cursor: at, anchor: at }
+          })
+        }
+        continue
+      }
       // The conversation's own cells: its top edge carries the title.
       const cellAt = {
         col: Math.max(0, Math.min(sessionCols - 1, ev.x - (leftW + midW) - 2)),

@@ -8,7 +8,9 @@ import {
   layout,
   locate,
   move,
+  offsetAt,
   selectedText,
+  view,
   type EditorState,
 } from '../src/tui/editor.ts'
 
@@ -83,5 +85,24 @@ describe('moving', () => {
     expect(selectedText(s)).toBe(' world')
     expect(move(s, 'right', 80, false)).toEqual(at('hello world', 11))
     expect(move(s, 'left', 80, false)).toEqual(at('hello world', 5))
+  })
+})
+
+describe('the mouse', () => {
+  const text = 'one two three\nfour'
+  it('a click puts the cursor where it lands, on the lines as laid out', () => {
+    // at width 8: "one two " / "three" / "four"
+    const lines = layout(text, 8)
+    expect(offsetAt(lines, 1, 2)).toBe(10) // "th|ree"
+    expect(offsetAt(lines, 2, 0)).toBe(14)
+    // Past the end of a line that ends is its end; one that wraps, before the space it wraps at.
+    expect(offsetAt(lines, 2, 30)).toBe(18)
+    expect(offsetAt(lines, 0, 30)).toBe(7)
+    // Below the last line is the end of the text.
+    expect(offsetAt(lines, 9, 0)).toBe(18)
+  })
+  it('the view follows the cursor once it passes the bottom', () => {
+    expect(view({ text, cursor: 0 }, 8, 2).start).toBe(0)
+    expect(view({ text, cursor: text.length }, 8, 2).start).toBe(1)
   })
 })

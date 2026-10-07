@@ -492,6 +492,28 @@ describe('App', () => {
     unmount()
   })
 
+  it('in a draft a click puts the cursor and a drag selects, without copying', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
+    )
+    await tick()
+    await press(stdin, 'p')
+    await press(stdin, 'ide')
+    await press(stdin, '\t')
+    await press(stdin, 'hello world')
+    // At 100 columns the draft's text starts at column 71, row 2: inside the border and padding.
+    await press(stdin, '\u001b[<0;72;2M') // after the h
+    await press(stdin, 'a')
+    expect(lastFrame()).toContain('haello world')
+    await press(stdin, '\u001b[<0;78;2M') // on the w
+    await press(stdin, '\u001b[<32;90;2M') // past the end
+    await press(stdin, '\u001b[<0;90;2m')
+    expect(lastFrame()).not.toContain('Copied')
+    await press(stdin, 'there')
+    expect(lastFrame()).toContain('haello there')
+    unmount()
+  })
+
   it('v goes to Done, below the one list', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App onFocus={onFocus} config={config} load={async () => snapshot} />,

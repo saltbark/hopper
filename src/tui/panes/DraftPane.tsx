@@ -1,9 +1,12 @@
 import { Text } from 'ink'
 
 import type { Choice } from '../../config.ts'
-import { layout, locate, selection, textWidth, type VisualLine } from '../editor.ts'
+import { locate, selection, textWidth, view, type VisualLine } from '../editor.ts'
 import { Frame } from '../panels/primitives.tsx'
 import { modelLabel, type Editing } from '../state.ts'
+
+// How many lines of text the box shows, in a pane this tall.
+export const draftRoom = (height: number) => Math.max(1, height - 4)
 
 // The text box for a draft or a routine's prompt, with its cursor and selection.
 export function DraftPane({
@@ -19,12 +22,10 @@ export function DraftPane({
   height: number
 }) {
   const writing = editing.stage === 'write'
-  const lines = layout(editing.text, textWidth(width))
+  const room = draftRoom(height)
+  const { lines, start } = view(editing, textWidth(width), room)
   const cursorLine = locate(lines, editing.cursor).line
   const sel = selection(editing)
-  const room = Math.max(1, height - 4)
-  // Keep the cursor in view: follow it once it passes the bottom.
-  const start = Math.max(0, Math.min(cursorLine - room + 1, lines.length - room))
   const shown = lines.slice(start, start + room)
 
   const row = (l: VisualLine, i: number) => {

@@ -131,6 +131,7 @@ export const MOUSE_KEYS: Hint[] = [
   ['click', 'focuses a panel'],
   ['click click', 'on a row: select, then open'],
   ['drag', 'in a conversation: copy'],
+  ['click drag', 'in a draft: cursor, select'],
   ['modifier+drag', "copy elsewhere (your terminal's)"],
 ]
 
@@ -138,7 +139,7 @@ export const WRITING_KEYS: Hint[] = [
   ['⏎', 'new line'],
   ['option+arrows', 'by word'],
   ['option+⌫ ctrl+w', 'delete a word'],
-  ['cmd+arrows', 'to the ends'],
+  ['option+↑ ↓', 'to the top, bottom'],
   ['shift', 'selects'],
   ['esc', 'save and close'],
 ]

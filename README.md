@@ -66,7 +66,7 @@ that matches. ⏎ narrows the list to it, `tab` starts a conversation there, `es
 ## Conversations
 
 `tab` starts a new conversation as a draft. It's a real text box (arrows, option+arrows by word,
-shift to select, ⏎ for new lines) and it saves as you type. `esc`, then `s` starts it, `w` moves
+shift or a drag to select, a click to put the cursor, ⏎ for new lines) and it saves as you type. `esc`, then `s` starts it, `w` moves
 it to another project, `y` copies it, `e` throws it away (press it twice), or `esc` again
 keeps it.
 
