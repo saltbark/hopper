@@ -33,7 +33,7 @@ export async function startDraft(opts: {
   const text = d.text.trim()
   await mkdir(project.path, { recursive: true })
   const first = (text.split('\n')[0] ?? '').slice(0, 48)
-  const name = `${unattended ? '☾ ' : ''}${project.key} · ${first}`
+  const name = `${project.key} · ${first}`
   const result = unattended ? draftResultPath(home, d.id) : undefined
   if (result) await mkdir(resultsDir(home), { recursive: true })
   const { model, effort } = chosen(d, defaultsFor(config, project))
