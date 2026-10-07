@@ -301,13 +301,30 @@ describe('App', () => {
     unmount()
   })
 
-  it('a folder found narrows the list to every project in it, and tab there says to pick one', async () => {
+  it('Projects finds only projects unless the setting shows folders', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App onFocus={onFocus} config={config} load={async () => snapshot} />,
     )
     await tick()
     await press(stdin, 'p')
     await press(stdin, 'meta')
+    expect(lastFrame()).toContain('meta/inbox')
+    expect(lastFrame()).not.toContain('meta/ ')
+    unmount()
+  })
+
+  it('a folder found narrows the list to every project in it, and tab there says to pick one', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App
+        onFocus={onFocus}
+        config={{ ...config, showFolders: true }}
+        load={async () => snapshot}
+      />,
+    )
+    await tick()
+    await press(stdin, 'p')
+    await press(stdin, 'meta')
+    expect(lastFrame()).toContain('meta/ ')
     await press(stdin, '\t')
     expect(lastFrame()).toContain('meta is a folder. Pick a project in it.')
     await press(stdin, '\r')

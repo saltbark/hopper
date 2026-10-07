@@ -19,7 +19,7 @@ export function projectLines(rows: ProjectRow[], sel: number, height: number): L
   return [{ header: true }, ...slice.map((row, i) => ({ row, index: start + i }))]
 }
 
-// By full key; a folder ends in /. Counts of nothing are left blank, so the ones that matter
+// By full key; a folder (only listed when the setting shows them) ends in /. Counts of nothing are left blank, so the ones that matter
 // stand out.
 export const ProjectRows = memo(function ProjectRows(props: {
   rows: ProjectRow[]
@@ -71,9 +71,11 @@ export const ProjectRows = memo(function ProjectRows(props: {
             <Rail on={on} bg={bg} />
             <Text backgroundColor={bg}>
               {'  '}
+              {/* A folder isn't somewhere to start a conversation: dimmer, and slanted. */}
               <Text
-                color={on ? T.hi : here ? T.focus : lit(r.key) ? T.text : T.dim}
+                color={on ? T.hi : here ? T.focus : r.isProject && lit(r.key) ? T.text : T.dim}
                 bold={on || here}
+                italic={!r.isProject}
               >
                 {cell(r.isProject ? r.key : r.key + '/', Math.max(1, w - numW - 2 - ageW))}
               </Text>

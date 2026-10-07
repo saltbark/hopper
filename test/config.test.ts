@@ -42,6 +42,15 @@ describe('settings', () => {
   it('reports TOML errors with the path', () => {
     expect(() => parseSettings('home = ', '/c.toml')).toThrow(/c\.toml/)
   })
+  it('shows folders in Projects only when asked', () => {
+    const read = (line: string) => parseSettings(`home = "/h"\n${line}`, '/c.toml').showFolders
+    expect(read('')).toBeUndefined()
+    expect(read('show_folders = "yes"')).toBe(true)
+    expect(read('show_folders = true')).toBe(true)
+    expect(read('show_folders = "no"')).toBeUndefined()
+    expect(() => read('show_folders = "sometimes"')).toThrow(/show_folders/)
+  })
+
   it('reads the sound, which is optional', () => {
     expect(parseSettings('home = "/h"\nsound = "Pop"', '/c.toml').sound).toBe('Pop')
     expect(parseSettings('home = "/h"', '/c.toml').sound).toBeUndefined()

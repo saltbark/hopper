@@ -83,7 +83,14 @@ export const removeEntry = (doc: ProjectsDoc, table: TableName, index: number): 
 export type Target =
   | {
       file: 'config'
-      field: 'home' | 'sound' | 'dim' | 'model' | 'effort' | keyof typeof OVERNIGHT_KEYS
+      field:
+        | 'home'
+        | 'sound'
+        | 'dim'
+        | 'model'
+        | 'effort'
+        | 'show_folders'
+        | keyof typeof OVERNIGHT_KEYS
     }
   | { file: 'accounts'; account: string; field: 'label' | 'prefixes' | 'default' }
   | { file: 'projects'; table: TableName; index: number; field: string }
@@ -202,6 +209,19 @@ export function buildRows(
       target: { file: 'config', field: key },
     })
   }
+
+  rows.push({
+    kind: 'setting',
+    id: 'general.show_folders',
+    label: 'folders in Projects',
+    value: config.showFolders ? 'yes' : 'no (default)',
+    raw: config.showFolders ? 'yes' : '',
+    isSet: !!config.showFolders,
+    help: 'Whether finding in Projects lists the folders above projects too, drawn dimmer with a / at the end. ⏎ on one narrows the list to every project in it; a conversation can’t start in a folder.',
+    file: 'config',
+    edit: { type: 'choice', options: ['', 'yes'], fallback: 'no' },
+    target: { file: 'config', field: 'show_folders' },
+  })
 
   rows.push({
     kind: 'section',

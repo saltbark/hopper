@@ -89,6 +89,8 @@ export function makeSettingsActions(ctx: AppCtx, commit: Commit) {
               ? `Dim: ${DIM_DEFAULT}% (default)`
               : `Dim: ${value}%`,
         )
+      else if (key === 'show_folders')
+        setMessage(value ? 'Projects lists folders too.' : 'Projects lists only projects.')
       else setMessage(`${key} saved`)
     } catch (e) {
       setMessage(`Not saved: ${(e as Error).message}`)

@@ -59,9 +59,11 @@ on you, on hold, drafts, proposed, routines and up next, in that order. `J` `K` 
 groups. Archived sits below. Above the list, beside Accounts, Projects shows the projects with
 something waiting, running or used today.
 
-`p` goes to Projects, ready to search. Type a few letters and it lists every project and folder
-that matches. ⏎ narrows the list to it, `tab` starts a conversation there, `esc` goes back.
-`esc` on the list shows every project again.
+`p` goes to Projects, ready to search. Type a few letters and it lists every project that
+matches. ⏎ narrows the list to it, `tab` starts a conversation there, `esc` goes back.
+`esc` on the list shows every project again. With "folders in Projects" on in settings, it lists
+the folders above projects too, dimmer and ending in `/`: ⏎ on one narrows the list to every
+project in it.
 
 ## Conversations
 

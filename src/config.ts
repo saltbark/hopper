@@ -62,6 +62,8 @@ export type Config = {
   // config.toml's model and effort, when set; see defaultsFor.
   model?: string
   effort?: string
+  // config.toml's show_folders: Projects finds folders as well as projects. Off when not set.
+  showFolders?: boolean
   overnight: Overnight
   accounts: Account[]
   routes: Route[]
@@ -84,6 +86,10 @@ home = "~/hopper"
 # login starts it. opus[1m] (Opus with the 1M-token context) and high when not set.
 # model = "opus[1m]"
 # effort = "high"
+
+# Whether finding in Projects lists the folders above projects too (pm/lantern/), to narrow the
+# list to every project in one. A conversation can't start in a folder. "no" when not set.
+# show_folders = "yes"
 
 # Overnight: drafts queued for tonight start inside this window, and one night may use up to
 # night_budget points of an account's weekly limit, keeping the last reserve points for the day.
@@ -157,6 +163,7 @@ export function parseSettings(
   dim?: number
   model?: string
   effort?: string
+  showFolders?: boolean
   overnight: Overnight
 } {
   let raw: Record<string, unknown>
@@ -193,9 +200,20 @@ export function parseSettings(
       )
     choice[key] = v
   }
+  // "yes" or "no", as Hopper writes it, or a TOML boolean written by hand.
+  const rawFolders = raw['show_folders']
+  const showFolders =
+    rawFolders === true || rawFolders === 'yes'
+      ? true
+      : rawFolders === undefined || rawFolders === false || rawFolders === 'no'
+        ? undefined
+        : null
+  if (showFolders === null)
+    throw new ConfigError(`${tildify(path)}: "show_folders" is "yes" or "no"`)
   return {
     home: expandHome(home),
     ...(sound ? { sound } : {}),
+    ...(showFolders ? { showFolders } : {}),
     ...(dim !== undefined ? { dim } : {}),
     ...choice,
     overnight: parseOvernight(raw, tildify(path)),

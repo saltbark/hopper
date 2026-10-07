@@ -180,10 +180,13 @@ export function App({
       last: last.get(p.key) ?? 0,
     }))
   }, [snap])
-  // Projects: while it has the keys and something is typed, every project and folder that
-  // matches; otherwise the ones with something going on.
+  // Projects: while it has the keys and something is typed, every project that matches, and
+  // every folder too when the setting shows them; otherwise the ones with something going on.
   const finding = focus === 'projects' ? query : ''
-  const allKeys = useMemo(() => withFolders(projectKeys), [projectKeys])
+  const allKeys = useMemo(
+    () => (config.showFolders ? withFolders(projectKeys) : projectKeys),
+    [config.showFolders, projectKeys],
+  )
   const projectRows = useMemo(
     () =>
       finding

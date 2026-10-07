@@ -53,7 +53,7 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
   [
     'projects',
     [
-      ['type', 'find a project or a folder'],
+      ['type', 'find a project'],
       ['↑↓', 'move'],
       ['⏎', 'narrow the list to it'],
       ['tab', 'new conversation there'],
