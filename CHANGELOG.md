@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.5 (2026-10-07)
+
+- Conversations Hopper starts from Up next no longer have ☾ in front of their names; they're
+  named like any other conversation, in Hopper, `claude agents` and claude.ai.
+
 ## 0.4.4 (2026-10-05)
 
 - Done is now Archived, and `e` archives a conversation, as in Gmail; in Archived (`v`), `e`
