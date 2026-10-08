@@ -19,6 +19,10 @@ export function shortName(it: Item): string {
 export const itemLines = (items: Item[], sel: number, height: number) =>
   windowed(items, sel, height - 2)
 
+// A routine's next run, "in 12d", with two spaces before the project rather than one, so it
+// doesn't read as part of the project.
+const NEXT_W = 8
+
 export const ItemRows = memo(function ItemRows(props: {
   items: Item[]
   sel: number
@@ -71,11 +75,11 @@ export const ItemRows = memo(function ItemRows(props: {
             <Text backgroundColor={bg}>
               {' '}
               <Text color={lit ? T.hi : done ? T.dim : T.text} bold={lit}>
-                {cell(shortName(it), next ? nameW - 7 : nameW)}
+                {cell(shortName(it), next ? nameW - NEXT_W : nameW)}
               </Text>
               {next ? (
                 <Text color={T.faint}>
-                  {cell(it.nextAt ? 'in ' + until(it.nextAt) : '', 7, 'right')}
+                  {cell(it.nextAt ? 'in ' + until(it.nextAt) : '', NEXT_W - 1, 'right') + ' '}
                 </Text>
               ) : null}
               <Text color={T.dim}>{cell(where(it), whereW)}</Text>

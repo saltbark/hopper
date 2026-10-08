@@ -63,6 +63,6 @@ describe('the list columns', () => {
 
   it("gives a routine's next run a column between its name and its project", () => {
     const [, , scheduled] = lines(80)
-    expect(scheduled).toMatch(/morning-brief +in \dd pm\/meta/)
+    expect(scheduled).toMatch(/morning-brief +in \dd  pm\/meta/)
   })
 })
