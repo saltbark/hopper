@@ -6,7 +6,7 @@ import {
   type Session,
   type Usage,
 } from './claude.ts'
-import type { Account, Config } from './config.ts'
+import { chosen, defaultsFor, type Account, type Config } from './config.ts'
 import { loadConversations } from './conversations.ts'
 import { inWindow, readiness } from './dispatch.ts'
 import { loadDone } from './done.ts'
@@ -71,7 +71,7 @@ export type Item = Session & {
   // when that's later or there's no transcript. For a draft, its last edit, and for a routine,
   // its last run, as startedAt.
   activeAt: number
-  // Recorded by Hopper when it started the conversation.
+  // Recorded by Hopper when it started the conversation; for a routine, what its runs start with.
   model?: string
   effort?: string
   // The full id of the model its newest reply came from, read from its transcript, and when.
@@ -270,6 +270,14 @@ export async function gather(
     const r = routineOf.get(it.sessionId)
     if (!r) continue
     it.key = r.project
+    // What its runs start with, which the list shows like a conversation's.
+    it.model = chosen(
+      r,
+      defaultsFor(
+        config,
+        projects.find((p) => p.key === r.project),
+      ),
+    ).model
     const next = r.enabled ? nextRun(r.schedule, now) : null
     if (next) it.nextAt = next.getTime()
   }

@@ -41,20 +41,19 @@ export const ItemRows = memo(function ItemRows(props: {
   const showAge = w >= 40
   // Wide enough for the longest model, opus[1m], and the gap after it.
   const showModel = w >= 54
-  // A routine's next run gets its own column once there's room; only lists with routines in
-  // them give it up.
-  const showNext = w >= 64 && items.some((it) => it.kind === 'routine')
+  // A routine's next run gets a column of its own once there's room, between its name and its
+  // project, taken from its own name. So the columns to the right line up on every row, and
+  // only routines give anything up.
+  const showNext = w >= 64
   const whereW = Math.min(16, Math.max(10, Math.round(w * 0.28)))
-  const nameW = Math.max(
-    8,
-    w - 2 - whereW - 4 - (showAge ? 5 : 0) - (showModel ? 9 : 0) - (showNext ? 7 : 0),
-  )
+  const nameW = Math.max(8, w - 2 - whereW - 4 - (showAge ? 5 : 0) - (showModel ? 9 : 0))
   return (
     <>
       {slice.map((it, i) => {
         const isSel = start + i === sel
         const lit = isSel && focused
         const bg = lit ? T.sel : start + i === hover ? T.hover : undefined
+        const next = showNext && it.kind === 'routine'
         return (
           <Text key={it.account + it.sessionId} wrap="truncate-end">
             <Rail on={lit} bg={bg} />
@@ -72,8 +71,13 @@ export const ItemRows = memo(function ItemRows(props: {
             <Text backgroundColor={bg}>
               {' '}
               <Text color={lit ? T.hi : done ? T.dim : T.text} bold={lit}>
-                {cell(shortName(it), nameW)}
+                {cell(shortName(it), next ? nameW - 7 : nameW)}
               </Text>
+              {next ? (
+                <Text color={T.faint}>
+                  {cell(it.nextAt ? 'in ' + until(it.nextAt) : '', 7, 'right')}
+                </Text>
+              ) : null}
               <Text color={T.dim}>{cell(where(it), whereW)}</Text>
               <Text color={color(it.account)}>{cell(it.account, 4)}</Text>
               {showModel ? <Text color={T.faint}>{cell(it.model ?? '', 9)}</Text> : null}
@@ -89,11 +93,6 @@ export const ItemRows = memo(function ItemRows(props: {
                     5,
                     'right',
                   )}
-                </Text>
-              ) : null}
-              {showNext ? (
-                <Text color={T.faint}>
-                  {cell(it.nextAt ? 'in ' + until(it.nextAt) : '', 7, 'right')}
                 </Text>
               ) : null}
             </Text>
