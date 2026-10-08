@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.10 (2026-10-08)
+
+- Archived can be searched: `/` in Archived narrows it as you type, by a conversation's name
+  or its project. ⏎ keeps what it found, so `e` and the other keys work on it; esc drops the
+  search, and leaving Archived drops it too.
+
 ## 0.4.9 (2026-10-08)
 
 - A little more room between a routine's next run and its project in the list.
