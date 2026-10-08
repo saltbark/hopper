@@ -1221,6 +1221,60 @@ describe('done', () => {
     expect(lastFrame()).not.toContain('Nothing waiting on you.')
     unmount()
   })
+
+  it('/ searches Archived: ⏎ keeps what it found, esc drops it, and leaving drops it too', async () => {
+    const archived = [
+      session({ name: 'Backups chat', cwd: '/h/projects/meta/inbox', state: 'done' }),
+      session({ name: 'Check the tide tables', cwd: '/h/projects/meta/ideas', state: 'done' }),
+      session({ name: 'Spring newsletter', cwd: '/h/projects/meta/inbox', state: 'done' }),
+    ]
+    const ids = new Set(archived.map((s) => s.sessionId))
+    const snap: Snapshot = { ...snapshot, items: toItems(archived, projects, ids) }
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={config} load={async () => snap} />,
+    )
+    const frame = () => lastFrame() ?? ''
+    await tick()
+    await press(stdin, 'v')
+    await press(stdin, '/')
+    expect(frame()).toContain('esc drops it')
+    expect(frame()).toContain('/▌ 3/3')
+    // Every letter is the search's, j and k included.
+    await press(stdin, 'tide')
+    expect(frame()).toContain('/tide▌ 1/3')
+    expect(frame()).toContain('Check the tide tables')
+    expect(frame()).not.toContain('Backups chat')
+    // ⏎ keeps it, and the list has its keys again.
+    await press(stdin, '\r')
+    expect(frame()).toContain(' tide 1/3')
+    expect(frame()).not.toContain('esc drops it')
+    await press(stdin, 'j')
+    expect(frame()).toContain(' tide 1/3')
+    // / again edits it. A word can be the project too, spelled out as Projects finds them.
+    await press(stdin, '/')
+    expect(frame()).toContain('/tide▌')
+    for (let i = 0; i < 4; i++) await press(stdin, '\u007f')
+    await press(stdin, 'mi spring')
+    expect(frame()).toContain('/mi spring▌ 1/3')
+    expect(frame()).toContain('Spring newsletter')
+    await press(stdin, 'zz')
+    expect(frame()).toContain('Nothing matches.')
+    // esc drops it, staying in Archived.
+    await press(stdin, '\u001b')
+    expect(focusOf()).toBe('done')
+    expect(frame()).toContain('Backups chat')
+    expect(frame()).not.toContain('3/3')
+    // Kept, then esc: back to Conversations, and the search is gone.
+    await press(stdin, '/')
+    await press(stdin, 'backups')
+    await press(stdin, '\r')
+    expect(frame()).toContain(' backups 1/3')
+    await press(stdin, '\u001b')
+    expect(focusOf()).toBe('conversations')
+    expect(frame()).not.toContain('backups')
+    expect(frame()).toContain('Spring newsletter')
+    unmount()
+  })
 })
 
 describe('on hold', () => {

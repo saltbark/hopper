@@ -25,3 +25,14 @@ export function withFolders(keys: string[]): string[] {
   }
   return [...out]
 }
+
+// Archived's search: every word typed is somewhere in the name or the project, or spells out the
+// project the way Projects finds it, so "atl tide" finds "Check the tide tables" in bh/atlas.
+export function matches(query: string, name: string, key: string): boolean {
+  const hay = `${key} ${name}`.toLowerCase()
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((w) => hay.includes(w) || fuzzy(w, key))
+}

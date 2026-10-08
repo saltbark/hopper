@@ -45,6 +45,10 @@ export const groupOf = (i: Item): Group =>
           : 'waiting'
 export const groupRank = (g: Group) => GROUPS.findIndex((x) => x.id === g)
 
+// Archived's search: / starts typing it, ⏎ keeps it and gives the list its keys back, esc drops
+// it. Leaving Archived drops it too.
+export type Search = { query: string; typing: boolean }
+
 // A conversation before it starts, or a routine's prompt, open in the editor. Writing is roomy
 // (⏎ is a new line); esc saves it and closes the editor, leaving it selected on the list, where
 // its keys are. 'pick' is choosing another project for one, from the list.

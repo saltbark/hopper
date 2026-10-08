@@ -7,7 +7,7 @@ import type { AccountState, Item, Snapshot } from '../model.ts'
 import type { Report } from '../routines/index.ts'
 import type { Row } from '../settings.ts'
 import type { EmbeddedSession } from './embed.ts'
-import type { Editing, Focus, Form, Hover, Panel, Reports, Sel } from './state.ts'
+import type { Editing, Focus, Form, Hover, Panel, Reports, Search, Sel } from './state.ts'
 
 type Set<T> = Dispatch<SetStateAction<T>>
 
@@ -69,6 +69,9 @@ export type AppCtx = {
   // What's typed in Projects, which finds as you type while it has the keys.
   query: string
   setQuery: Set<string>
+  // Archived's search (/), while there is one.
+  search: Search | null
+  setSearch: Set<Search | null>
   editing: Editing | null
   setEditing: Set<Editing | null>
   untrusted: { dir: string; draft: Editing } | null
@@ -81,7 +84,9 @@ export type AppCtx = {
   setFollow: Set<string | null>
 
   work: Item[]
+  // Archived as shown, narrowed by the search, and all of it.
   done: Item[]
+  archived: Item[]
   projectKeys: string[]
   projectRows: ProjectRow[]
   accountStates: AccountState[]

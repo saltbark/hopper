@@ -91,7 +91,8 @@ conversation's details the full id of the model its newest reply came from (`ran
 
 `p` `c` `v` `a` jump to projects, conversations, archived and accounts. `n` jumps to the first thing
 waiting on you. `J` `K` (or shift+↑↓) move to the next group. `e` on a conversation archives it, as
-in Gmail, or in Archived brings it back. → on the list opens a conversation and ← comes back, so the arrows
+in Gmail, or in Archived brings it back. `/` in Archived searches it by name and project: ⏎ keeps
+what it found, esc drops it. → on the list opens a conversation and ← comes back, so the arrows
 alone get you around. `x` twice quits.
 
 The bottom line shows the keys for whatever is selected. `?` shows all of them.

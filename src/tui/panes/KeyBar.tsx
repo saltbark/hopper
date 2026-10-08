@@ -163,6 +163,18 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
       </Text>,
     )
   }
+  // So does Archived's search, while it's being typed.
+  if (focus === 'done' && here.search?.typing) {
+    return withAwake(
+      awake,
+      <Text wrap="truncate-end">
+        {chip('search')}
+        <Text color={T.hi}>{'  ' + here.search.query}</Text>
+        <Text inverse> </Text>
+        {note(message, '  ⏎ keeps what it found · ↑↓ choose · esc drops it')}
+      </Text>,
+    )
+  }
   if (focus === 'session') {
     return withAwake(
       awake,

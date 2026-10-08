@@ -7,7 +7,7 @@ import { AccountRow, AccountsHeader, accountLines } from '../panels/Accounts.tsx
 import { ItemRows } from '../panels/ItemRows.tsx'
 import { Frame } from '../panels/primitives.tsx'
 import { ProjectRows } from '../panels/ProjectRows.tsx'
-import type { Focus, Hover, Panel } from '../state.ts'
+import type { Focus, Hover, Panel, Search } from '../state.ts'
 import { T } from '../theme.ts'
 import { WorkRows } from './WorkRows.tsx'
 
@@ -106,6 +106,9 @@ export function ListColumn(props: {
   loaded: boolean
   work: Item[]
   done: Item[]
+  // How many are archived, and the search narrowing them, if any.
+  archived: number
+  search: Search | null
   workSel: number
   doneSel: number
   hover: Hover
@@ -118,7 +121,12 @@ export function ListColumn(props: {
   workH: number
   doneH: number
 }) {
-  const { work, done, hover, focus, held, color, width, workH, doneH } = props
+  const { work, done, search, hover, focus, held, color, width, workH, doneH } = props
+  // Archived's edge says what the search is, with a cursor while it's typed, and what it found.
+  const q = search?.query.trim()
+  const found = search
+    ? `${search.typing ? `/${search.query}▌` : q} ${done.length}/${props.archived}`
+    : String(done.length)
   return (
     <Box flexDirection="column" width={width}>
       <Frame
@@ -151,7 +159,7 @@ export function ListColumn(props: {
       <Frame
         title="ARCHIVED"
         keyHint="v"
-        meta={String(done.length)}
+        meta={found}
         width={width}
         height={doneH}
         focused={focus === 'done'}
@@ -165,7 +173,7 @@ export function ListColumn(props: {
           focused={focus === 'done' || held === 'done'}
           width={width}
           height={doneH}
-          empty="Nothing done."
+          empty={q ? 'Nothing matches.' : 'Nothing done.'}
           color={color}
           done
         />

@@ -7,7 +7,7 @@ import { canKeepAwake } from '../awake.ts'
 import { choiceText, type Choice } from '../config.ts'
 import type { Item } from '../model.ts'
 import type { Row } from '../settings.ts'
-import { groupOf, type Editing, type Focus } from './state.ts'
+import { groupOf, type Editing, type Focus, type Search } from './state.ts'
 
 export type Hint = [key: string, does: string]
 
@@ -30,6 +30,8 @@ export type Here = {
   // Set while a routine's list (its prompt, then its reports) has the keyboard: reading a report,
   // on the prompt's line, and whether the selected report's conversation is still there to open.
   reports?: { reading: boolean; onPrompt?: boolean; conversation: boolean } | undefined
+  // Archived's search, while there is one.
+  search?: Search | null | undefined
 }
 
 export const ANYWHERE: Hint[] = [
@@ -80,6 +82,7 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
     [
       ['⏎ →', 'open it here'],
       ['e', 'bring it back'],
+      ['/', 'search names and projects: ⏎ keeps it, esc drops it'],
     ],
   ],
   [
@@ -260,6 +263,7 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   }
   if (it && it.kind !== 'draft' && it.kind !== 'routine')
     hints.push(['e', done ? 'bring it back' : 'archive'])
+  if (done) hints.push(['/', h.search ? 'change the search' : 'search'])
   if (it && !done) hints.push(...holdKey(it))
   if (!done) hints.push(['J K', 'groups'])
   if (!done && h.scope) hints.push(['esc', 'every project'])

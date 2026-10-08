@@ -368,6 +368,25 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (typed(input, key)) find(ctx.query + input.replace(/\s/g, ''))
   }
 
+  // ---- Archived's search: / types it, ⏎ keeps what it found, esc drops it ----
+  const onSearch: Handler = (input, key) => {
+    const query = ctx.search!.query
+    if (key.escape) return act.endSearch()
+    if (key.return) return ctx.setSearch(query.trim() ? { query, typing: false } : null)
+    if (key.upArrow || key.downArrow) {
+      ctx.setEmbedShown(false)
+      const to = ctx.at('done') + (key.downArrow ? 1 : -1)
+      return setSel((s) => ({ ...s, done: Math.max(0, Math.min(ctx.lists.done - 1, to)) }))
+    }
+    const find = (q: string) => {
+      ctx.setEmbedShown(false)
+      ctx.setSearch({ query: q, typing: true })
+      setSel((s) => ({ ...s, done: 0 }))
+    }
+    if (key.backspace || key.delete) return find(query.slice(0, -1))
+    if (typed(input, key)) find(query + input.replace(/[\r\n]/g, ''))
+  }
+
   // ---- the settings screen ----
   const onSettings: Handler = (input, key) => {
     const rows = ctx.settingRows
@@ -516,6 +535,8 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       return setMessage('Sent esc to Claude.')
     }
     if (key.return) return act.open(it)
+    if (input === '/' && panel === 'done')
+      return ctx.setSearch({ query: ctx.search?.query ?? '', typing: true })
     // e archives, as in Gmail, and in Archived brings it back.
     if (input === 'e') return void act.markDone(it, panel === 'work')
     if (input === 'h' && panel === 'work') return void act.hold(it)
@@ -559,6 +580,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
   const onBoard: Handler = (input, key) => {
     const focus = ctx.focus as Panel
     if (focus === 'projects') return onProjects(input, key)
+    if (focus === 'done' && ctx.search?.typing) return onSearch(input, key)
     const own = focus === 'work' || focus === 'done' ? rowKeys(ctx.selectedItem)[input] : undefined
     if (own) return void own()
     // esc comes back to the list, then shows every project again. It never goes up to Projects.

@@ -20,7 +20,9 @@ describe('hereKeys', () => {
   it('follows what is selected in the list', () => {
     expect(keysOf({ item: conversation })).toEqual(['⏎ →', 'e', 'h', 'J K'])
     expect(keysOf({ item: conversation, embedOpen: true })).toEqual(['⏎ →', 'i', 'e', 'h', 'J K'])
-    expect(keysOf({ focus: 'done', item: conversation })).toEqual(['⏎ →', 'e'])
+    expect(keysOf({ focus: 'done', item: conversation })).toEqual(['⏎ →', 'e', '/'])
+    // Archived can be searched even when nothing is in it.
+    expect(keysOf({ focus: 'done' })).toEqual(['/'])
   })
   it('offers h on what waits on you, off hold on what is held, and nothing on running work', () => {
     expect(hereKeys({ ...base, item: conversation }).hints).toContainEqual(['h', 'on hold'])

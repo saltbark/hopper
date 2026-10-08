@@ -18,7 +18,7 @@ import { lastRan } from '../routines/index.ts'
 import { buildRows } from '../settings.ts'
 import { makeActions } from './actions.ts'
 import type { AppCtx } from './context.ts'
-import { rank, withFolders } from './fuzzy.ts'
+import { matches, rank, withFolders } from './fuzzy.ts'
 import {
   useChime,
   useDraftAutosave,
@@ -54,6 +54,7 @@ import {
   type Form,
   type Panel,
   type Reports,
+  type Search,
   type Sel,
 } from './state.ts'
 import { setDim } from './theme.ts'
@@ -116,9 +117,10 @@ export function App({
     done: 0,
     accounts: 0,
   })
-  // Which item each re-sorting list has selected, and the row it was on then.
+  // Which item each re-sorting list has selected, and the row it was on then. Archived's also
+  // carries the search it was pinned under: a new search starts on its first match.
   const [pinned, setPinned] = useState<
-    Record<'work' | 'done', { key: string | null; at: number } | null>
+    Record<'work' | 'done', { key: string | null; at: number; q?: string } | null>
   >({ work: null, done: null })
   const [hover, setHover] = useState<Hover>(null)
   const [scope, setScope] = useState<string | null>(null)
@@ -127,6 +129,7 @@ export function App({
   const [message, setMessage] = useState<string | null>(null)
   const [form, setForm] = useState<Form | null>(null)
   const [query, setQuery] = useState('')
+  const [search, setSearch] = useState<Search | null>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
   // A draft Claude refused to start because its folder isn't trusted yet; T trusts and starts it.
   const [untrusted, setUntrusted] = useState<{ dir: string; draft: Editing } | null>(null)
@@ -147,13 +150,19 @@ export function App({
 
   // ---- derived ----
   const color = useCallback((name: string) => accountColor(config, name), [config])
-  const { work, done } = useMemo(() => {
+  const { work, archived } = useMemo(() => {
     const scoped = (snap?.items ?? []).filter((i) => inScope(i.key, scope))
     return {
       work: scoped.filter((i) => LISTED.has(i.where)).sort(byGroup),
-      done: scoped.filter((i) => i.where === 'done'),
+      archived: scoped.filter((i) => i.where === 'done'),
     }
   }, [snap, scope])
+  // Archived as shown: what the search finds, in the same order.
+  const q = search?.query.trim() ?? ''
+  const done = useMemo(
+    () => (q ? archived.filter((i) => matches(q, i.name, i.key)) : archived),
+    [archived, q],
+  )
   const projectKeys = useMemo(() => (snap?.projects ?? []).map((p) => p.key), [snap])
   // Select a row that was just saved, once the list has it (state adjusted while rendering, as
   // React allows for a component's own state).
@@ -219,16 +228,17 @@ export function App({
   ] as const) {
     const pin = pinned[p]
     const key = list[at(p)]?.sessionId ?? null
-    if (pin && pin.at === sel[p] && pin.key !== key) {
+    const pq = p === 'done' ? q : ''
+    if (pin && pin.at === sel[p] && pin.key !== key && (pin.q ?? '') === pq) {
       const i = list.findIndex((w) => w.sessionId === pin.key)
       if (i >= 0) {
         setSel((s) => ({ ...s, [p]: i }))
-        setPinned((x) => ({ ...x, [p]: { key: pin.key, at: i } }))
+        setPinned((x) => ({ ...x, [p]: { key: pin.key, at: i, q: pq } }))
         continue
       }
     }
-    if (pin?.key !== key || pin?.at !== sel[p])
-      setPinned((x) => ({ ...x, [p]: { key, at: sel[p] } }))
+    if (pin?.key !== key || pin?.at !== sel[p] || (pin?.q ?? '') !== pq)
+      setPinned((x) => ({ ...x, [p]: { key, at: sel[p], q: pq } }))
   }
   const selectedRow = projectRows[at('projects')]
   const listFocus: Panel = focus === 'session' ? returnTo : focus
@@ -291,6 +301,7 @@ export function App({
     summaryShown: !showingEmbed,
     untrusted: !!untrusted,
     editing,
+    search,
     defaults: defaultsIn(selectedItem?.key),
     setting: settings ? (settingRows[settings.sel] ?? null) : undefined,
     reports: reports
@@ -393,6 +404,8 @@ export function App({
     setForm,
     query,
     setQuery,
+    search,
+    setSearch,
     editing,
     setEditing,
     untrusted,
@@ -403,6 +416,7 @@ export function App({
     routineReports,
     work,
     done,
+    archived,
     projectKeys,
     projectRows,
     accountStates,
@@ -554,6 +568,8 @@ export function App({
               loaded={!!snap}
               work={work}
               done={done}
+              archived={archived.length}
+              search={search}
               workSel={at('work')}
               doneSel={at('done')}
               hover={hover}

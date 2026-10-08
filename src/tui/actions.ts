@@ -63,12 +63,22 @@ const trustDir = (config: Config, dir: string) => (isWithin(dir, config.home) ? 
 export function makeActions(ctx: AppCtx) {
   const { config, snap, refresh, setMessage, setEditing, setForm, setSel } = ctx
 
+  // Drops Archived's search, keeping the conversation that was selected in it selected.
+  const endSearch = () => {
+    if (!ctx.search) return
+    const it = ctx.done[ctx.at('done')]
+    ctx.setSearch(null)
+    setSel((s) => ({ ...s, done: Math.max(0, it ? ctx.archived.indexOf(it) : 0) }))
+  }
+
   const go = (f: Focus) => {
     // Projects starts afresh each time you go to it: nothing typed, on its first row.
     if (f === 'projects' && ctx.focus !== 'projects') {
       ctx.setQuery('')
       setSel((s) => ({ ...s, projects: 0 }))
     }
+    // Leaving Archived drops its search; opening one of what it found doesn't.
+    if (f !== 'done' && f !== 'session') endSearch()
     ctx.setFocus(f)
     setMessage(null)
   }
@@ -594,6 +604,7 @@ export function makeActions(ctx: AppCtx) {
 
   return {
     go,
+    endSearch,
     focusProject,
     dispatchNow,
     setQueue,
