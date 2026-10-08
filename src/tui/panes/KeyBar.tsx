@@ -1,6 +1,7 @@
 import { Box, Text } from 'ink'
 import type { ReactNode } from 'react'
 
+import type { Update } from '../../update.ts'
 import { barKeys, hereKeys, type Hint, type Here } from '../keymap.ts'
 import { againKeys, FORM_PROMPT, type Editing, type Form } from '../state.ts'
 import { T } from '../theme.ts'
@@ -108,18 +109,48 @@ type BarProps = {
 // counts it, by terminals that take it from a text font.
 const awakeMark = <Text color={T.running}>awake</Text>
 
-// A line with nothing of its own at the right gets the mark there.
-const withAwake = (awake: boolean, line: ReactNode) =>
-  awake ? (
+// A newer Hopper (update.ts) sits just before it, in blue: V installs it, then it waits for
+// Hopper to be opened again.
+const updateMark = (u: Update) =>
+  u.stage === 'available' ? (
+    <Text>
+      <Text color={T.text}>V</Text>
+      <Text color={T.update}>{` update to ${u.version}`}</Text>
+    </Text>
+  ) : (
+    <Text color={T.update}>
+      {u.stage === 'installing' ? `installing ${u.version}…` : `reopen for ${u.version}`}
+    </Text>
+  )
+
+// Each mark after two spaces; null when there are none.
+const marksOf = (awake: boolean, update: Update | null) =>
+  awake || update ? (
+    <Text>
+      {update ? (
+        <Text>
+          {'  '}
+          {updateMark(update)}
+        </Text>
+      ) : null}
+      {awake ? (
+        <Text>
+          {'  '}
+          {awakeMark}
+        </Text>
+      ) : null}
+    </Text>
+  ) : null
+
+// A line with nothing of its own at the right gets the marks there.
+const withMarks = (marks: ReactNode, line: ReactNode) =>
+  marks ? (
     <Box justifyContent="space-between">
       <Box flexShrink={1} minWidth={0}>
         {line}
       </Box>
       <Box flexShrink={0}>
-        <Text>
-          {'  '}
-          {awakeMark}{' '}
-        </Text>
+        <Text>{marks} </Text>
       </Box>
     </Box>
   ) : (
@@ -127,13 +158,14 @@ const withAwake = (awake: boolean, line: ReactNode) =>
   )
 
 // The bottom line: what the keys do right now, or the last message.
-export function KeyBar(props: BarProps & { awake: boolean }) {
-  const { form, editing, query, here, message, error, awake } = props
+export function KeyBar(props: BarProps & { awake: boolean; update: Update | null }) {
+  const { form, editing, query, here, message, error, awake, update } = props
   const { focus } = here
-  if (form) return withAwake(awake, <FormBar form={form} />)
+  const marks = marksOf(awake, update)
+  if (form) return withMarks(marks, <FormBar form={form} />)
   if (editing) {
-    return withAwake(
-      awake,
+    return withMarks(
+      marks,
       <Text wrap="truncate-end">
         {chip(editing.routine ? 'routine' : 'draft')}
         <Text color={T.text}>{` ${editing.project}`}</Text>
@@ -142,8 +174,8 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
     )
   }
   if (here.setting !== undefined) {
-    return withAwake(
-      awake,
+    return withMarks(
+      marks,
       <Text wrap="truncate-end">
         {chip('settings')}{' '}
         {message ? <Text color={T.waiting}>{' ' + message}</Text> : keys(barKeys(here))}
@@ -153,8 +185,8 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
   // Projects finds as you type, so it has a line to type on, and every letter is the query's (?
   // included).
   if (focus === 'projects') {
-    return withAwake(
-      awake,
+    return withMarks(
+      marks,
       <Text wrap="truncate-end">
         {chip('find')}
         <Text color={T.hi}>{'  ' + query}</Text>
@@ -165,8 +197,8 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
   }
   // So does Archived's search, while it's being typed.
   if (focus === 'done' && here.search?.typing) {
-    return withAwake(
-      awake,
+    return withMarks(
+      marks,
       <Text wrap="truncate-end">
         {chip('search')}
         <Text color={T.hi}>{'  ' + here.search.query}</Text>
@@ -176,8 +208,8 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
     )
   }
   if (focus === 'session') {
-    return withAwake(
-      awake,
+    return withMarks(
+      marks,
       <Text wrap="truncate-end">
         {chip('claude')}
         {note(
@@ -221,12 +253,7 @@ export function KeyBar(props: BarProps & { awake: boolean }) {
           {error ? <Text color={T.blocked}>{'  ' + error}</Text> : null}
           <Text color={T.text}>{'  ?'}</Text>
           <Text color={T.dim}> all keys</Text>
-          {awake ? (
-            <Text>
-              {'  '}
-              {awakeMark}
-            </Text>
-          ) : null}
+          {marks}
           <Text> </Text>
         </Text>
       </Box>

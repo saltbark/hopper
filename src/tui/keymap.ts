@@ -46,6 +46,7 @@ export const ANYWHERE: Hint[] = [
   [',', 'settings'],
   ...(canKeepAwake ? [['z', 'keep this Mac awake, or let it sleep'] as Hint] : []),
   ['R', 'refresh'],
+  ['V', 'version, and installing a newer one'],
   ['esc', 'back'],
   ['x x', 'quit'],
 ]

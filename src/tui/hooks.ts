@@ -16,6 +16,7 @@ import { expandHome } from '../paths.ts'
 import { hopperPrompt } from '../prompts.ts'
 import { runRoutine } from '../routines/index.ts'
 import { parseProjectsDoc, type ProjectsDoc } from '../settings.ts'
+import type { Update, Updater } from '../update.ts'
 import type { EmbeddedSession } from './embed.ts'
 import { now, toDraft, type Editing } from './state.ts'
 import { titleText } from './title.ts'
@@ -346,3 +347,63 @@ export function useAwake(home: string, keepAwake: KeepAwake | null) {
   }, [home, on])
   return { awake: on && !!keepAwake, toggleAwake: keepAwake ? toggle : null }
 }
+
+// A newer Hopper (update.ts), for the bottom right and V: asked when the app opens and every hour
+// after, though the site itself only every few hours. Without an updater (a copy built from git,
+// or check_updates off) there is never one. A check landing mid-install doesn't undo the install.
+const UPDATE_POLL_MS = 60 * 60_000
+
+export function useUpdate(home: string, updater: Updater | null, say: (text: string) => void) {
+  const [update, setUpdate] = useState<Update | null>(null)
+  const installing = useRef(false)
+  const found = useCallback((u: Update | null) => {
+    if (!installing.current) setUpdate(u)
+  }, [])
+  useEffect(() => {
+    if (!updater) return
+    let live = true
+    const ask = () =>
+      void updater
+        .check(home)
+        .then((u) => live && found(u))
+        .catch(() => {})
+    ask()
+    const timer = setInterval(ask, UPDATE_POLL_MS)
+    return () => {
+      live = false
+      clearInterval(timer)
+    }
+  }, [home, updater, found])
+  const checkNow = useCallback(async () => {
+    const u = await updater!.check(home, true).catch(() => null)
+    found(u)
+    return u
+  }, [home, updater, found])
+  const install = useCallback(
+    async (u: Update) => {
+      if (!updater || installing.current) return
+      installing.current = true
+      setUpdate({ ...u, stage: 'installing' })
+      say(`Installing Hopper ${u.version}…`)
+      try {
+        await updater.install(u.version)
+        setUpdate({ ...u, stage: 'installed' })
+        say(installedText(u.version))
+      } catch (e) {
+        setUpdate({ ...u, stage: 'available' })
+        say(`Hopper ${u.version} didn't install: ${(e as Error).message}`)
+      } finally {
+        installing.current = false
+      }
+    },
+    [updater, say],
+  )
+  return {
+    update: updater ? update : null,
+    checkUpdate: updater ? checkNow : null,
+    installUpdate: install,
+  }
+}
+
+export const installedText = (v: string) =>
+  `Hopper ${v} is installed: quit (x x) and open it again to use it. Conversations keep running.`

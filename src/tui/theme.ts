@@ -28,6 +28,8 @@ export const T = {
   blocked: '#ec7a6f',
   draft: '#c69ce8',
   running: '#7fcf8f',
+  // A newer Hopper, at the bottom right: news, not something waiting on you.
+  update: '#7eaaea',
   // In a report: code, and the text of a link.
   code: '#a3c3f0',
   link: '#7eaaea',

@@ -14,6 +14,7 @@ import { loadHeld } from '../src/held.ts'
 import { initHome, loadProjects } from '../src/home.ts'
 import { draftSession, toItems, type Snapshot } from '../src/model.ts'
 import { App, byGroup } from '../src/tui/App.tsx'
+import type { Updater } from '../src/update.ts'
 import { fakeClaude } from './helpers.ts'
 
 let config: Config = {
@@ -268,6 +269,83 @@ describe('App', () => {
     expect(barOf(lastFrame()).trimEnd()).not.toMatch(/awake$/)
     expect(lastFrame()).not.toContain('Keeping this Mac awake')
     unmount()
+  })
+
+  // A stand-in for update.ts: a newer Hopper, and an install that works or doesn't.
+  const fakeUpdater = (fail = false) => {
+    const installed: string[] = []
+    const updater: Updater = {
+      check: async () => ({ version: '0.9.1', notes: ['Faster.'], stage: 'available' }),
+      install: async (v) => {
+        if (fail) throw new Error("Couldn't download it")
+        installed.push(v)
+      },
+    }
+    return { installed, updater }
+  }
+
+  it('says a newer Hopper is out at the bottom right, before awake; V V installs it', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
+    await saveAwake(home, true)
+    const { installed, updater } = fakeUpdater()
+    const { lastFrame, stdin, unmount } = render(
+      <App
+        onFocus={onFocus}
+        config={{ ...config, home }}
+        load={async () => snapshot}
+        keepAwake={fakeAwake().keepAwake}
+        updater={updater}
+      />,
+    )
+    await until(() => /0\.9\.1 {2}awake$/.test(barOf(lastFrame()).trimEnd()))
+    expect(barOf(lastFrame()).trimEnd()).toMatch(/all keys {2}V update to 0\.9\.1 {2}awake$/)
+    await press(stdin, 'V')
+    expect(lastFrame()).toContain('V again installs Hopper 0.9.1. Faster.')
+    expect(installed).toEqual([])
+    await press(stdin, 'V')
+    await until(() => installed.length > 0)
+    expect(installed).toEqual(['0.9.1'])
+    await until(() => barOf(lastFrame()).includes('reopen for 0.9.1'))
+    expect(lastFrame()).toContain('Hopper 0.9.1 is installed')
+    unmount()
+  })
+
+  it('a failed install says why and offers it again', async () => {
+    const { updater } = fakeUpdater(true)
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={config} load={async () => snapshot} updater={updater} />,
+    )
+    await until(() => barOf(lastFrame()).includes('update to 0.9.1'))
+    await press(stdin, 'V')
+    await press(stdin, 'V')
+    await until(() => (lastFrame() ?? '').includes("didn't install"))
+    expect(lastFrame()).toContain("Hopper 0.9.1 didn't install: Couldn't download it")
+    expect(barOf(lastFrame())).toContain('V update to 0.9.1')
+    unmount()
+  })
+
+  it('with checks off in settings, or built from source, there is no notice', async () => {
+    const { updater } = fakeUpdater()
+    const off = render(
+      <App
+        onFocus={onFocus}
+        config={{ ...config, checkUpdates: false }}
+        load={async () => snapshot}
+        updater={updater}
+      />,
+    )
+    await tick()
+    await tick()
+    expect(barOf(off.lastFrame())).not.toContain('update to')
+    off.unmount()
+    const source = render(
+      <App onFocus={onFocus} config={config} load={async () => snapshot} updater={null} />,
+    )
+    await tick()
+    await press(source.stdin, 'V')
+    expect(source.lastFrame()).toContain('built from source')
+    expect(barOf(source.lastFrame())).not.toContain('update to')
+    source.unmount()
   })
 
   it('p finds as you type and ⏎ focuses it; esc comes back to the list, then shows every project', async () => {

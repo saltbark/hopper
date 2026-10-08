@@ -609,6 +609,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     // Quitting takes a second x straight after, so a stray one never closes Hopper.
     if (input === 'x') return ctx.message === QUIT_PROMPT ? ctx.exit() : setMessage(QUIT_PROMPT)
     if (input === 'R') return void ctx.refresh(true)
+    if (input === 'V') return void act.updateKey()
     if (input === 'T' && ctx.untrusted) return void act.trust()
 
     // → and ← are between the list and the conversation on the right: on the list → is ⏎, it

@@ -16,6 +16,7 @@ import {
 } from '../model.ts'
 import { lastRan } from '../routines/index.ts'
 import { buildRows } from '../settings.ts'
+import { releaseUpdater, type Updater } from '../update.ts'
 import { makeActions } from './actions.ts'
 import type { AppCtx } from './context.ts'
 import { matches, rank, withFolders } from './fuzzy.ts'
@@ -27,6 +28,7 @@ import {
   useProjectItems,
   useAutopilot,
   useAwake,
+  useUpdate,
   useSnapshot,
   useTabTitle,
   useUsage,
@@ -63,6 +65,8 @@ export type { Loader }
 export type Saver = typeof saveAccounts
 
 const noTitle = () => {}
+// Made once: the app checks again whenever its updater changes.
+const RELEASE_UPDATER = releaseUpdater()
 
 const LISTED = new Set<Item['where']>(['queue', 'needs', 'routine'])
 // Most recently active first, except routines: the soonest to run first, then the ones with no
@@ -85,6 +89,9 @@ export function App({
   autopilot = !process.env['HOPPER_NO_AUTOPILOT'],
   // What z holds the Mac awake with (awake.ts); none off macOS. Tests pass their own.
   keepAwake = canKeepAwake ? caffeinate : null,
+  // How V and the bottom right learn of a newer Hopper (update.ts); none on a copy built from git.
+  // Tests pass their own.
+  updater = RELEASE_UPDATER,
 }: {
   config: Config
   load?: Loader
@@ -97,6 +104,7 @@ export function App({
   onFocus?: (panel: string) => void
   autopilot?: boolean
   keepAwake?: KeepAwake | null
+  updater?: Updater | null
 }) {
   const { exit, suspendTerminal: suspendInk } = useApp()
   const { columns, rows } = useWindowSize()
@@ -141,6 +149,11 @@ export function App({
   useDraftAutosave(editing, config.home)
   useAutopilot(config, snap, refresh, setMessage, autopilot)
   const { awake, toggleAwake } = useAwake(config.home, keepAwake)
+  const { update, checkUpdate, installUpdate } = useUpdate(
+    config.home,
+    config.checkUpdates === false ? null : updater,
+    setMessage,
+  )
   const suspendTerminal = useTabTitle(snap, setTitle, suspendInk)
   const settingsDoc = useSettingsDoc(!!settings, config.home)
   const settingRows = useMemo(
@@ -372,6 +385,9 @@ export function App({
     exit,
     awake,
     toggleAwake,
+    update,
+    checkUpdate,
+    installUpdate,
     focus,
     setFocus,
     returnTo,
@@ -593,6 +609,7 @@ export function App({
         message={message}
         error={error}
         awake={awake}
+        update={update}
       />
     </Box>
   )

@@ -64,6 +64,8 @@ export type Config = {
   effort?: string
   // config.toml's show_folders: Projects finds folders as well as projects. Off when not set.
   showFolders?: boolean
+  // config.toml's check_updates = "no": a release copy doesn't ask whether there's a newer one.
+  checkUpdates?: false
   overnight: Overnight
   accounts: Account[]
   routes: Route[]
@@ -90,6 +92,10 @@ home = "~/hopper"
 # Whether finding in Projects lists the folders above projects too (pm/lantern/), to narrow the
 # list to every project in one. A conversation can't start in a folder. "no" when not set.
 # show_folders = "yes"
+
+# Whether Hopper asks hopper.saltbark.com every few hours for a newer release, and says so at the
+# bottom right (V installs it). A copy built from source never asks. "yes" when not set.
+# check_updates = "no"
 
 # Overnight: drafts queued for tonight start inside this window, and one night may use up to
 # night_budget points of an account's weekly limit, keeping the last reserve points for the day.
@@ -164,6 +170,7 @@ export function parseSettings(
   model?: string
   effort?: string
   showFolders?: boolean
+  checkUpdates?: false
   overnight: Overnight
 } {
   let raw: Record<string, unknown>
@@ -200,20 +207,21 @@ export function parseSettings(
       )
     choice[key] = v
   }
-  // "yes" or "no", as Hopper writes it, or a TOML boolean written by hand.
-  const rawFolders = raw['show_folders']
-  const showFolders =
-    rawFolders === true || rawFolders === 'yes'
-      ? true
-      : rawFolders === undefined || rawFolders === false || rawFolders === 'no'
-        ? undefined
-        : null
-  if (showFolders === null)
-    throw new ConfigError(`${tildify(path)}: "show_folders" is "yes" or "no"`)
+  // "yes" or "no", as Hopper writes it, or a TOML boolean written by hand; undefined when not set.
+  const yesNo = (key: string) => {
+    const v = raw[key]
+    if (v === undefined) return undefined
+    if (v === true || v === 'yes') return true
+    if (v === false || v === 'no') return false
+    throw new ConfigError(`${tildify(path)}: "${key}" is "yes" or "no"`)
+  }
+  const showFolders = yesNo('show_folders')
+  const checkUpdates = yesNo('check_updates')
   return {
     home: expandHome(home),
     ...(sound ? { sound } : {}),
     ...(showFolders ? { showFolders } : {}),
+    ...(checkUpdates === false ? { checkUpdates } : {}),
     ...(dim !== undefined ? { dim } : {}),
     ...choice,
     overnight: parseOvernight(raw, tildify(path)),

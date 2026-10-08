@@ -90,6 +90,7 @@ export type Target =
         | 'model'
         | 'effort'
         | 'show_folders'
+        | 'check_updates'
         | keyof typeof OVERNIGHT_KEYS
     }
   | { file: 'accounts'; account: string; field: 'label' | 'prefixes' | 'default' }
@@ -221,6 +222,18 @@ export function buildRows(
     file: 'config',
     edit: { type: 'choice', options: ['', 'yes'], fallback: 'no' },
     target: { file: 'config', field: 'show_folders' },
+  })
+  rows.push({
+    kind: 'setting',
+    id: 'general.check_updates',
+    label: 'check updates',
+    value: config.checkUpdates === false ? 'no' : 'yes',
+    raw: config.checkUpdates === false ? 'no' : '',
+    isSet: config.checkUpdates === false,
+    help: 'Whether Hopper asks hopper.saltbark.com every few hours for a newer release, and says so at the bottom right; V installs it. A copy built from source never asks.',
+    file: 'config',
+    edit: { type: 'choice', options: ['', 'no'], fallback: 'yes' },
+    target: { file: 'config', field: 'check_updates' },
   })
 
   rows.push({

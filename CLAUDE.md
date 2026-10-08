@@ -118,6 +118,13 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   keys do is described once, in `src/tui/keymap.ts` (the key bar and `?` both read it); a key
   added or changed in `keys.ts` gets its line there too. `esc` goes up a level; the top level is
   a menu of single letters.
+- **Only a release copy checks for updates** (`src/update.ts`, `useUpdate` in `hooks.ts`). A copy
+  built from git (no `RELEASE` file) never asks and shows nothing, so a working checkout isn't
+  nagged. A release copy reads `hopper.saltbark.com/latest.json` (written by `site/build.ts` from
+  the tag and its `CHANGELOG.md` entry) at most every six hours, cached in
+  `<home>/state/update.json`; `V V` or `hopper update` runs `install.sh` for that version. A
+  running app can't swap itself: once `~/.hopper/app/current` is newer than what's running, the
+  bottom right says to reopen it. App's `updater` prop is what checks; tests pass a fake.
 - **Releasing** (only when asked; unattended runs never release or deploy). From the main
   checkout on `main` with a clean tree (`scripts/release.ts` refuses otherwise):
   `pnpm release minor` (or `patch`, `major`, a version) bumps `package.json`, writes a

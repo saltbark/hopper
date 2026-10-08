@@ -6,6 +6,7 @@ import type { Account, Config } from '../config.ts'
 import type { AccountState, Item, Snapshot } from '../model.ts'
 import type { Report } from '../routines/index.ts'
 import type { Row } from '../settings.ts'
+import type { Update } from '../update.ts'
 import type { EmbeddedSession } from './embed.ts'
 import type { Editing, Focus, Form, Hover, Panel, Reports, Search, Sel } from './state.ts'
 
@@ -28,6 +29,10 @@ export type AppCtx = {
   // Whether z is holding the Mac awake, and the toggle; null where it can't (off macOS).
   awake: boolean
   toggleAwake: (() => void) | null
+  // A newer Hopper, and asking for one now (null on a copy built from git, or with checks off).
+  update: Update | null
+  checkUpdate: (() => Promise<Update | null>) | null
+  installUpdate: (u: Update) => Promise<void>
 
   focus: Focus
   setFocus: Set<Focus>

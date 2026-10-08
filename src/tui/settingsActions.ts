@@ -91,6 +91,8 @@ export function makeSettingsActions(ctx: AppCtx, commit: Commit) {
         )
       else if (key === 'show_folders')
         setMessage(value ? 'Projects lists folders too.' : 'Projects lists only projects.')
+      else if (key === 'check_updates')
+        setMessage(value ? 'Hopper won’t check for updates.' : 'Hopper checks for updates.')
       else setMessage(`${key} saved`)
     } catch (e) {
       setMessage(`Not saved: ${(e as Error).message}`)

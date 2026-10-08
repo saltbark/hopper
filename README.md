@@ -20,8 +20,8 @@ You need Node 22.6 or later and [Claude Code](https://claude.com/claude-code), s
 curl -fsSL https://hopper.saltbark.com/install.sh | sh
 ```
 
-That puts the latest release in `~/.hopper/app` and links `~/.local/bin/hopper`. Run it again to
-upgrade, or set `HOPPER_VERSION=0.1.0` for a particular one. Then:
+That puts the latest release in `~/.hopper/app` and links `~/.local/bin/hopper`. Set
+`HOPPER_VERSION=0.1.0` for a particular one. Then:
 
 ```sh
 hopper init               # config, home folder, and your current Claude login as the first account
@@ -29,7 +29,16 @@ hopper status             # what Hopper sees, as text
 hopper                    # the app
 ```
 
-To build it from source instead, you also need pnpm:
+### Updating
+
+When a newer release is out, the app says so at the bottom right: `V update to 0.5.0`. `V` says
+what's in it, and `V` again installs it. Quit and open Hopper again to use it (conversations keep
+running meanwhile). `hopper update` does the same from a shell, and so does running the install
+line again. Hopper asks hopper.saltbark.com at most every six hours; turn that off with "check
+updates" in settings (`check_updates = "no"` in `config.toml`).
+
+To build it from source instead, you also need pnpm. A copy built from source never checks for
+updates; pull and build it to update.
 
 ```sh
 git clone https://github.com/saltbark/hopper.git

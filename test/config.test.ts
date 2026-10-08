@@ -50,6 +50,14 @@ describe('settings', () => {
     expect(read('show_folders = "no"')).toBeUndefined()
     expect(() => read('show_folders = "sometimes"')).toThrow(/show_folders/)
   })
+  it('checks for updates unless told not to', () => {
+    const read = (line: string) => parseSettings(`home = "/h"\n${line}`, '/c.toml').checkUpdates
+    expect(read('')).toBeUndefined()
+    expect(read('check_updates = "yes"')).toBeUndefined()
+    expect(read('check_updates = "no"')).toBe(false)
+    expect(read('check_updates = false')).toBe(false)
+    expect(() => read('check_updates = "weekly"')).toThrow(/check_updates/)
+  })
 
   it('reads the sound, which is optional', () => {
     expect(parseSettings('home = "/h"\nsound = "Pop"', '/c.toml').sound).toBe('Pop')

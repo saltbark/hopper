@@ -35,6 +35,21 @@ await mkdir(join(here, 'dist'), { recursive: true })
 await writeFile(join(here, 'dist', 'index.html'), page)
 await copyFile(join(here, 'frog.svg'), join(here, 'dist', 'frog.svg'))
 await copyFile(join(here, 'install.sh'), join(here, 'dist', 'install.sh'))
+// What a release copy of Hopper asks for to learn of a newer one (src/update.ts): the version, and
+// its entry in CHANGELOG.md as plain lines, one per bullet.
+if (latest) {
+  const v = latest.replace(/^v/, '')
+  const changelog = await readFile(join(here, '..', 'CHANGELOG.md'), 'utf8')
+  const entry = changelog.split(/^## /m).find((s) => s.startsWith(`${v} `)) ?? ''
+  const notes = entry
+    .split('\n')
+    .slice(1)
+    .join('\n')
+    .split(/^- /m)
+    .map((b) => b.replace(/\s+/g, ' ').replace(/`/g, '').trim())
+    .filter(Boolean)
+  await writeFile(join(here, 'dist', 'latest.json'), JSON.stringify({ version: v, notes }) + '\n')
+}
 console.log(
   `site/dist/index.html: ${Object.keys(drawn).length} frames, ${Math.round(page.length / 1024)} KB, latest release ${latest || 'none'}`,
 )

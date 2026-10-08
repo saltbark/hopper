@@ -33,9 +33,12 @@ import {
 import { pickAccount } from '../routing.ts'
 import { markAllRead, markRead } from '../seen.ts'
 import { startDraft } from '../start.ts'
+import type { Latest } from '../update.ts'
+import { isRelease, version } from '../version.ts'
 import { copyToClipboard } from './clipboard.ts'
 import type { AppCtx } from './context.ts'
 import { admit, EmbeddedSession } from './embed.ts'
+import { installedText } from './hooks.ts'
 import { MOUSE_OFF, MOUSE_ON } from './mouse.ts'
 import { makeSettingsActions } from './settingsActions.ts'
 import {
@@ -49,6 +52,9 @@ import {
   type Form,
   type Panel,
 } from './state.ts'
+
+export const updatePrompt = (u: Latest) =>
+  [`V again installs Hopper ${u.version}.`, ...u.notes].join(' ')
 
 const whenNext = (schedule: string) => {
   const n = nextRun(schedule, new Date())
@@ -602,9 +608,35 @@ export function makeActions(ctx: AppCtx) {
     setMessage(`Queued ${proposed.length} for tonight (${config.overnight.window}).`)
   }
 
+  // V: which Hopper this is, or the newer one. Installing takes a second V straight after, the
+  // first saying what's in it; installed, it's in use once Hopper is opened again.
+  const updateKey = async () => {
+    const u = ctx.update
+    if (u?.stage === 'installing') return setMessage(`Installing Hopper ${u.version}…`)
+    if (u?.stage === 'installed') return setMessage(installedText(u.version))
+    if (u)
+      return ctx.message === updatePrompt(u) ? ctx.installUpdate(u) : setMessage(updatePrompt(u))
+    if (!ctx.checkUpdate)
+      return setMessage(
+        isRelease()
+          ? `Hopper ${version()}. Checking for updates is off in settings.`
+          : `Hopper ${version()}, built from source: pull and build it to update.`,
+      )
+    setMessage('Asking for a newer Hopper…')
+    const found = await ctx.checkUpdate()
+    setMessage(
+      !found
+        ? `Hopper ${version()} is the latest.`
+        : found.stage === 'installed'
+          ? installedText(found.version)
+          : updatePrompt(found),
+    )
+  }
+
   return {
     go,
     endSearch,
+    updateKey,
     focusProject,
     dispatchNow,
     setQueue,

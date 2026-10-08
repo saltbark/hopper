@@ -37,7 +37,8 @@ import { listRoutines, loadRoutine, nextRun, runRoutine, removeLaunchd } from '.
 import { App } from './tui/App.tsx'
 import { MOUSE_OFF, MOUSE_ON } from './tui/mouse.ts'
 import { TITLE_RESTORE, TITLE_SAVE, titleSeq } from './tui/title.ts'
-import { version } from './version.ts'
+import { fetchLatest, newer, runInstaller } from './update.ts'
+import { isRelease, version } from './version.ts'
 
 const HELP = `hopper: toss work in the hopper, hop from item to item.
 
@@ -58,6 +59,7 @@ const HELP = `hopper: toss work in the hopper, hop from item to item.
                    [--check "cmd"] [--enable]   add one (paused unless --enable)
   hopper dispatch [--json]               start queued drafts that are ready now
   hopper version         which Hopper this is (also --version)
+  hopper update          install the latest release (a copy built from source updates with git)
   hopper help            this
 
 For agents: docs/agents.md, written to <home>/CLAUDE.md.
@@ -326,6 +328,27 @@ async function routines() {
   }
 }
 
+// install.sh again, for the version the site names; when the site doesn't answer, install.sh
+// still finds the latest on GitHub. An open app says it's installed and waits to be reopened.
+async function update() {
+  if (!isRelease()) {
+    console.error(
+      `This Hopper (${version()}) is built from source: pull and build it to update, or install a release with\n  curl -fsSL https://hopper.saltbark.com/install.sh | sh`,
+    )
+    process.exit(1)
+  }
+  const latest = await fetchLatest()
+  if (latest && !newer(latest.version, version()))
+    return console.log(`Hopper ${version()} is the latest.`)
+  if (latest) console.log(`Hopper ${version()} → ${latest.version}`)
+  try {
+    await runInstaller(latest?.version ?? null, false)
+  } catch (e) {
+    console.error(`hopper: ${(e as Error).message}`)
+    process.exit(1)
+  }
+}
+
 const [cmd, ...rest] = process.argv.slice(2)
 try {
   if (!cmd) await tui()
@@ -339,6 +362,7 @@ try {
   else if (cmd === 'routine') await routine(rest[0], rest.slice(1))
   else if (cmd === 'dispatch') await dispatchCmd(rest)
   else if (cmd === 'version' || cmd === '--version' || cmd === '-v') console.log(version())
+  else if (cmd === 'update') await update()
   else if (cmd === 'help' || cmd === '--help' || cmd === '-h') console.log(HELP)
   else {
     console.error(`Unknown command "${cmd}".\n\n${HELP}`)
