@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0 (2026-10-08)
+
+- A release copy says when a newer Hopper is out, and V installs it
+
 ## 0.4.10 (2026-10-08)
 
 - Archived can be searched: `/` in Archived narrows it as you type, by a conversation's name
