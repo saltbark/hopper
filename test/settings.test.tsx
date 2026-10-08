@@ -16,6 +16,7 @@ import {
   setField,
 } from '../src/settings.ts'
 import { App } from '../src/tui/App.tsx'
+import { LABEL_W } from '../src/tui/panes/SettingsPane.tsx'
 
 const base = (home: string): Config => {
   let c: Config = {
@@ -82,6 +83,15 @@ describe('rows', () => {
     expect(rows.find((r) => r.id === 'source.0.repo')).toMatchObject({
       warn: 'not on this machine',
     })
+  })
+})
+
+describe('the rows', () => {
+  it('every setting Hopper names fits its label column, with a space before the value', () => {
+    const long = buildRows(base('/h'), null, [], [])
+      .filter((r) => r.kind === 'setting' && r.label.length >= LABEL_W)
+      .map((r) => r.label)
+    expect(long).toEqual([])
   })
 })
 

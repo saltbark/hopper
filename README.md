@@ -61,7 +61,7 @@ something waiting, running or used today.
 
 `p` goes to Projects, ready to search. Type a few letters and it lists every project that
 matches. ⏎ narrows the list to it, `tab` starts a conversation there, `esc` goes back.
-`esc` on the list shows every project again. With "folders in Projects" on in settings, it lists
+`esc` on the list shows every project again. With "show folders" on in settings, it lists
 the folders above projects too, dimmer and ending in `/`: ⏎ on one narrows the list to every
 project in it.
 

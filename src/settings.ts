@@ -213,8 +213,8 @@ export function buildRows(
   rows.push({
     kind: 'setting',
     id: 'general.show_folders',
-    label: 'folders in Projects',
-    value: config.showFolders ? 'yes' : 'no (default)',
+    label: 'show folders',
+    value: config.showFolders ? 'yes' : 'no',
     raw: config.showFolders ? 'yes' : '',
     isSet: !!config.showFolders,
     help: 'Whether finding in Projects lists the folders above projects too, drawn dimmer with a / at the end. ⏎ on one narrows the list to every project in it; a conversation can’t start in a folder.',

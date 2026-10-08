@@ -7,7 +7,7 @@ import { Frame, windowed } from '../panels/primitives.tsx'
 import { filePath } from '../settingsActions.ts'
 import { T } from '../theme.ts'
 
-const LABEL_W = 14
+export const LABEL_W = 14
 
 function ListRow({ row, selected, width }: { row: Row; selected: boolean; width: number }) {
   const mark = <Text color={T.focus}>{selected ? '▌' : ' '}</Text>
@@ -32,7 +32,8 @@ function ListRow({ row, selected, width }: { row: Row; selected: boolean; width:
       </Text>
     )
   }
-  const label = row.label.padEnd(LABEL_W).slice(0, LABEL_W)
+  // A label too long for its column is cut short of it, so a space always comes before the value.
+  const label = row.label.slice(0, LABEL_W - 1).padEnd(LABEL_W)
   return (
     <Box width={width}>
       <Text wrap="truncate-end" backgroundColor={selected ? T.sel : undefined}>
