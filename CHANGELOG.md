@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.7 (2026-10-08)
+
+- The model column in the lists is wide enough for opus[1m], which it used to cut to
+  "opus[…" at every window size.
+
 ## 0.4.6 (2026-10-08)
 
 - In a draft, a click puts the cursor where you click and a drag selects. A drag there no
