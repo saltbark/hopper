@@ -2,7 +2,11 @@
 
 ## 0.5.0 (2026-10-08)
 
-- A release copy says when a newer Hopper is out, and V installs it
+- Hopper says when a newer release is out: "V update to …" at the bottom right. V says
+  what's in it, V again installs it, and then reopening Hopper puts it in use. Conversations
+  keep running meanwhile.
+- `hopper update` installs the latest release from a shell.
+- "check updates" in settings turns the check off. A copy built from source never checks.
 
 ## 0.4.10 (2026-10-08)
 
