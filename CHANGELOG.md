@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.9 (2026-10-08)
+
+- A little more room between a routine's next run and its project in the list.
+
 ## 0.4.8 (2026-10-08)
 
 - Routines line up with conversations in the list. A routine's next run now sits between its
