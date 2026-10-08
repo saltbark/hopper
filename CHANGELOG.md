@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.6 (2026-10-08)
+
+- In a draft, a click puts the cursor where you click and a drag selects. A drag there no
+  longer copies text from the conversation hidden behind the draft.
+- Projects lists only projects. Turn on "show folders" in settings to list the folders above
+  them too, drawn dimmer and in italics; ⏎ on one narrows the list to every project in it.
+- A setting's name too long for its column no longer runs into its value.
+
 ## 0.4.5 (2026-10-07)
 
 - Conversations Hopper starts from Up next no longer have ☾ in front of their names; they're
