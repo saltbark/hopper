@@ -39,14 +39,15 @@ export const ItemRows = memo(function ItemRows(props: {
   // Narrow panels drop the age column first, then squeeze the project column. Wide ones give
   // what's left to the name.
   const showAge = w >= 40
-  const showModel = w >= 52
+  // Wide enough for the longest model, opus[1m], and the gap after it.
+  const showModel = w >= 54
   // A routine's next run gets its own column once there's room; only lists with routines in
   // them give it up.
   const showNext = w >= 64 && items.some((it) => it.kind === 'routine')
   const whereW = Math.min(16, Math.max(10, Math.round(w * 0.28)))
   const nameW = Math.max(
     8,
-    w - 2 - whereW - 4 - (showAge ? 5 : 0) - (showModel ? 7 : 0) - (showNext ? 7 : 0),
+    w - 2 - whereW - 4 - (showAge ? 5 : 0) - (showModel ? 9 : 0) - (showNext ? 7 : 0),
   )
   return (
     <>
@@ -75,7 +76,7 @@ export const ItemRows = memo(function ItemRows(props: {
               </Text>
               <Text color={T.dim}>{cell(where(it), whereW)}</Text>
               <Text color={color(it.account)}>{cell(it.account, 4)}</Text>
-              {showModel ? <Text color={T.faint}>{cell(it.model ?? '', 7)}</Text> : null}
+              {showModel ? <Text color={T.faint}>{cell(it.model ?? '', 9)}</Text> : null}
               {showAge ? (
                 <Text color={T.dim}>
                   {cell(
