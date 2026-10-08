@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.8 (2026-10-08)
+
+- Routines line up with conversations in the list. A routine's next run now sits between its
+  name and its project, so every row ends at the panel's edge.
+- Routines show the model they run with, their own or the default.
+
 ## 0.4.7 (2026-10-08)
 
 - The model column in the lists is wide enough for opus[1m], which it used to cut to
