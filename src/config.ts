@@ -99,7 +99,7 @@ home = "~/hopper"
 # check_updates = "no"
 
 # Whether a conversation you start works in its own git worktree ("yes") or edits the folder it
-# runs in ("no"). "no" when not set. Queued work and routines always get a worktree.
+# runs in ("no"). "yes" when not set. Queued work and routines always get a worktree.
 # worktree = "no"
 
 # Overnight: drafts queued for tonight start inside this window, and one night may use up to
@@ -240,7 +240,7 @@ export function parseSettings(
 // and whether to work in a worktree, so "default" names the same thing whichever login runs it,
 // and can always be shown.
 export type Choice = { model: string; effort: string; worktree: string }
-export const CHOICE_DEFAULTS: Choice = { model: 'opus[1m]', effort: 'high', worktree: 'no' }
+export const CHOICE_DEFAULTS: Choice = { model: 'opus[1m]', effort: 'high', worktree: 'yes' }
 export const CHOICE_KEYS = ['model', 'effort', 'worktree'] as const
 type Own = { [K in keyof Choice]?: string | undefined }
 

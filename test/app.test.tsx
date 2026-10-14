@@ -770,8 +770,8 @@ describe('conversations', () => {
     expect(logged).toContain('|attach abc12345')
     // Picking no model or effort still tells Claude which, so the login doesn't decide.
     expect(logged).toContain('--model opus[1m] --effort high')
-    // Nor a worktree: it edits where it runs, rather than Claude making it enter one first.
-    expect(logged).toContain('--settings {"worktree":{"bgIsolation":"none"}}')
+    // Nor a worktree: it works in one unless told otherwise, whatever the login's settings say.
+    expect(logged).toContain('--settings {"worktree":{"bgIsolation":"worktree"}}')
     // The conversation is inside Hopper, and typing goes to it.
     expect(lastFrame()).toContain('CONVERSATION')
     expect(lastFrame()).toContain(' claude ')
@@ -956,16 +956,16 @@ describe('conversations', () => {
     await press(stdin, 'sort the inbox')
     await press(stdin, '\u001b')
     await onList(lastFrame)
-    expect(lastFrame()).toContain('worktree: no (default)')
-    await press(stdin, 'W') // yes
-    await until(() => (lastFrame() ?? '').includes('worktree: yes'))
+    expect(lastFrame()).toContain('worktree: yes (default)')
+    await press(stdin, 'W') // no
+    await until(() => (lastFrame() ?? '').includes('worktree: no'))
     await press(stdin, 's')
     await until(() => (lastFrame() ?? '').includes('Started on'))
     expect(await readFile(log, 'utf8')).toContain(
-      '--settings {"worktree":{"bgIsolation":"worktree"}}',
+      '--settings {"worktree":{"bgIsolation":"none"}}',
     )
     const { loadConversations } = await import('../src/conversations.ts')
-    expect((await loadConversations(home))['abc12345']).toMatchObject({ worktree: true })
+    expect((await loadConversations(home))['abc12345']).toMatchObject({ worktree: false })
     done()
     unmount()
   })

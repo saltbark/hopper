@@ -79,15 +79,15 @@ describe('settings', () => {
     expect(() => parseSettings('home = "/h"\nmodel = 3', '/c.toml')).toThrow(/model/)
   })
   it('always names a model, effort and worktree: the draft, else its project, else config, else Hopper', () => {
-    expect(defaultsFor(base())).toEqual({ model: 'opus[1m]', effort: 'high', worktree: 'no' })
+    expect(defaultsFor(base())).toEqual({ model: 'opus[1m]', effort: 'high', worktree: 'yes' })
     const cfg = { ...base(), model: 'sonnet' }
-    expect(defaultsFor(cfg)).toEqual({ model: 'sonnet', effort: 'high', worktree: 'no' })
-    const project = { model: 'haiku', effort: 'low', worktree: 'yes' }
-    expect(defaultsFor(cfg, project)).toEqual({ model: 'haiku', effort: 'low', worktree: 'yes' })
-    expect(chosen({ model: 'fable', worktree: 'no' }, defaultsFor(cfg, project))).toEqual({
+    expect(defaultsFor(cfg)).toEqual({ model: 'sonnet', effort: 'high', worktree: 'yes' })
+    const project = { model: 'haiku', effort: 'low', worktree: 'no' }
+    expect(defaultsFor(cfg, project)).toEqual({ model: 'haiku', effort: 'low', worktree: 'no' })
+    expect(chosen({ model: 'fable', worktree: 'yes' }, defaultsFor(cfg, project))).toEqual({
       model: 'fable',
       effort: 'low',
-      worktree: 'no',
+      worktree: 'yes',
     })
   })
   it('reads worktree as yes or no', () => {
