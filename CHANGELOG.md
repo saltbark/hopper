@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 (2026-10-17)
+
+- Conversations are listed in a new order: drafts, proposed, running, waiting on you, on hold,
+  up next, then routines. What you're writing sits at the top, and routines, which you rarely
+  touch, move to the bottom.
+
 ## 0.5.0 (2026-10-08)
 
 - Hopper says when a newer release is out: "V update to …" at the bottom right. V says
