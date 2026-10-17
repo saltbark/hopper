@@ -63,8 +63,8 @@ needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository secrets.
 
 ## The list
 
-Hopper opens on Conversations: every conversation that isn't archived, grouped into running, waiting
-on you, on hold, drafts, proposed, routines and up next, in that order. `J` `K` move between the
+Hopper opens on Conversations: every conversation that isn't archived, grouped into drafts, proposed,
+running, waiting on you, on hold, up next and routines, in that order. `J` `K` move between the
 groups. Archived sits below. Above the list, beside Accounts, Projects shows the projects with
 something waiting, running or used today.
 

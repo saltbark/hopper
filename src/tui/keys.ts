@@ -594,7 +594,7 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     // In Accounts, a is its own key again: add an account.
     if (jump[input] && !(input === 'a' && focus === 'accounts')) return act.go(jump[input])
     if (input === 'n') {
-      // Straight to the first thing waiting on me, below running. On hold doesn't count.
+      // Straight to the first thing waiting on me. On hold doesn't count.
       act.go('work')
       const first = ctx.work.findIndex((w) => groupOf(w) === 'waiting')
       if (first < 0) return setMessage('Nothing waiting on you.')
