@@ -34,7 +34,17 @@ import { projectLines } from './panels/ProjectRows.tsx'
 import { draftRoom } from './panes/DraftPane.tsx'
 import { reportMaxScroll, reportRoom } from './panes/ReportPane.tsx'
 import { workItemAt } from './panes/WorkRows.tsx'
-import { againKeys, asText, groupOf, typed, type Editing, type Hover, type Panel } from './state.ts'
+import {
+  againKeys,
+  asText,
+  groupOf,
+  pastedText,
+  typed,
+  type Editing,
+  type Form,
+  type Hover,
+  type Panel,
+} from './state.ts'
 
 type Handler = (input: string, key: Key) => void
 
@@ -43,8 +53,12 @@ export const AWAKE_ON = 'Keeping this Mac awake until z again. A closed lid stil
 export const AWAKE_OFF = 'This Mac can sleep again.'
 
 // Every key and mouse event, by what has the keyboard: the conversation, the input line, the
-// editor, Projects (which finds as you type), or the board. Built from the current context on every render.
-export function makeInput(ctx: AppCtx, act: Actions): Handler {
+// editor, Projects (which finds as you type), or the board; and pastes, which come apart from
+// keys. Built from the current context on every render.
+export function makeInput(
+  ctx: AppCtx,
+  act: Actions,
+): { key: Handler; paste: (text: string) => void } {
   const { setMessage, setEditing, setForm, setSel } = ctx
 
   // ---- the mouse: the wheel scrolls what's under it; a click gives that panel the keyboard ----
@@ -276,15 +290,15 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
   }
 
   // ---- the one-line input in the key bar ----
+  const confirming = (form: Form) =>
+    form.kind === 'remove' ||
+    form.kind === 'routine-remove' ||
+    form.kind === 'draft-remove' ||
+    form.kind === 'setting-remove'
   const onForm: Handler = (input, key) => {
     const form = ctx.form!
     if (key.escape) return setForm(null)
-    if (
-      form.kind === 'remove' ||
-      form.kind === 'routine-remove' ||
-      form.kind === 'draft-remove' ||
-      form.kind === 'setting-remove'
-    ) {
+    if (confirming(form)) {
       // The key that asked, again, like x x.
       if (againKeys(form).includes(input)) void act.submitForm(form)
       else setForm(null)
@@ -360,12 +374,12 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       const to = ctx.at('projects') + (key.downArrow ? 1 : -1)
       return setSel((s) => ({ ...s, projects: Math.max(0, Math.min(ctx.lists.projects - 1, to)) }))
     }
-    const find = (query: string) => {
-      ctx.setQuery(query)
-      setSel((s) => ({ ...s, projects: 0 }))
-    }
-    if (key.backspace || key.delete) return find(ctx.query.slice(0, -1))
-    if (typed(input, key)) find(ctx.query + input.replace(/\s/g, ''))
+    if (key.backspace || key.delete) return findProject(ctx.query.slice(0, -1))
+    if (typed(input, key)) findProject(ctx.query + input.replace(/\s/g, ''))
+  }
+  const findProject = (query: string) => {
+    ctx.setQuery(query)
+    setSel((s) => ({ ...s, projects: 0 }))
   }
 
   // ---- Archived's search: / types it, ⏎ keeps what it found, esc drops it ----
@@ -378,13 +392,13 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
       const to = ctx.at('done') + (key.downArrow ? 1 : -1)
       return setSel((s) => ({ ...s, done: Math.max(0, Math.min(ctx.lists.done - 1, to)) }))
     }
-    const find = (q: string) => {
-      ctx.setEmbedShown(false)
-      ctx.setSearch({ query: q, typing: true })
-      setSel((s) => ({ ...s, done: 0 }))
-    }
-    if (key.backspace || key.delete) return find(query.slice(0, -1))
-    if (typed(input, key)) find(query + input.replace(/[\r\n]/g, ''))
+    if (key.backspace || key.delete) return findDone(query.slice(0, -1))
+    if (typed(input, key)) findDone(query + input.replace(/[\r\n]/g, ''))
+  }
+  const findDone = (query: string) => {
+    ctx.setEmbedShown(false)
+    ctx.setSearch({ query, typing: true })
+    setSel((s) => ({ ...s, done: 0 }))
   }
 
   // ---- the settings screen ----
@@ -652,7 +666,37 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     onAccounts(input, key)
   }
 
-  return (input, key) => {
+  // ---- a paste: all of it at once, never as keys ----
+  // A conversation gets it as one paste. Hopper's own fields take it as typed text, the one-line
+  // ones with line breaks as spaces. Anywhere that doesn't take text, it does nothing.
+  const onPaste = (pasted: string) => {
+    if (ctx.focus === 'session') {
+      if (ctx.pick) ctx.setPick(null)
+      return ctx.embed?.paste(pasted)
+    }
+    if (ctx.message && !ctx.editing) setMessage(null)
+    const text = pastedText(pasted)
+    const line = text.replace(/\s*\n\s*/g, ' ').trim()
+    const e = ctx.editing
+    if (ctx.help) return
+    if (ctx.form) {
+      if (!confirming(ctx.form)) setForm({ ...ctx.form, value: ctx.form.value + line })
+      return
+    }
+    if (ctx.settings) return
+    if (e?.stage === 'pick')
+      return setEditing({ ...e, query: e.query + text.replace(/\s/g, ''), pickSel: 0 })
+    if (e)
+      return setEditing({
+        ...e,
+        ...insert({ text: e.text, cursor: e.cursor, anchor: e.anchor }, text),
+      })
+    if (ctx.reports) return
+    if (ctx.focus === 'projects') return findProject(ctx.query + text.replace(/\s/g, ''))
+    if (ctx.focus === 'done' && ctx.search?.typing) findDone(ctx.search.query + line)
+  }
+
+  const onKey: Handler = (input, key) => {
     // Mouse events arrive as text; they are never keys, whatever has focus.
     const mouse = parseMouse(input)
     if (mouse) return onMouse(mouse)
@@ -667,4 +711,5 @@ export function makeInput(ctx: AppCtx, act: Actions): Handler {
     if (ctx.reports) return onReports(input, key)
     onBoard(input, key)
   }
+  return { key: onKey, paste: onPaste }
 }

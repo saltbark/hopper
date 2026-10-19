@@ -176,6 +176,10 @@ export const typed = (input: string, key: { ctrl: boolean; meta: boolean; tab: b
   !key.tab &&
   [...input].every((ch) => ch >= ' ' || ch === '\r' || ch === '\n')
 export const asText = (input: string) => input.replace(/\r\n?/g, '\n')
+// A paste as Hopper's own fields take it: line breaks as \n, tabs as spaces, and no other
+// control characters, which a field can't show.
+export const pastedText = (text: string) =>
+  [...asText(text).replace(/\t/g, '    ')].filter((ch) => ch >= ' ' || ch === '\n').join('')
 
 // Handlers stamp times through this, so render stays pure.
 export const now = () => Date.now()

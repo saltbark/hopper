@@ -379,6 +379,19 @@ describe('App', () => {
     unmount()
   })
 
+  it('a paste in Projects finds what was pasted', async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={config} load={async () => snapshot} />,
+    )
+    await tick()
+    await press(stdin, 'p')
+    await press(stdin, '\u001b[200~ide\n\u001b[201~')
+    expect(focusOf()).toBe('projects')
+    expect(lastFrame()).toContain(' find   ide')
+    expect(lastFrame()).toContain(' 1 found ─╮')
+    unmount()
+  })
+
   it('Projects finds only projects unless the setting shows folders', async () => {
     const { lastFrame, stdin, unmount } = render(
       <App onFocus={onFocus} config={config} load={async () => snapshot} />,
@@ -681,7 +694,7 @@ describe('conversations', () => {
     bin = await fakeClaude(
       'echo "$PWD|$*" >> "$HOPPER_FAKE_LOG"\n' +
         'case "$1" in --bg) if [ -n "$HOPPER_FAKE_UNTRUSTED" ]; then echo "Workspace not trusted."; exit 1; fi; echo "backgrounded · abc12345 · name";;\n' +
-        '  attach) printf "fake claude screen\\n❯ "; while read -r line; do case "$line" in leave) printf "  enter to return · space to reply\\n";; box) printf "the prompt box\\n──────────\\n❯ \\n──────────\\033[1A\\r\\033[2C";; "") printf "\\033[2J\\033[Hback in the conversation\\n❯ ";; *) printf "you said: %s\\n❯ " "$line";; esac; done;; esac\n' +
+        '  attach) printf "fake claude screen\\n❯ "; while read -r line; do case "$line" in leave) printf "  enter to return · space to reply\\n";; box) printf "the prompt box\\n──────────\\n❯ \\n──────────\\033[1A\\r\\033[2C";; bracketed) printf "\\033[?2004hpastes on\\n❯ ";; *"[200~"*) printf "a paste: %s\\n❯ " "${line#*200~}";; "") printf "\\033[2J\\033[Hback in the conversation\\n❯ ";; *) printf "you said: %s\\n❯ " "$line";; esac; done;; esac\n' +
         'exit 0',
     )
     await new Promise<void>((resolve) =>
@@ -940,6 +953,28 @@ describe('conversations', () => {
     unmount()
   })
 
+  it('a paste goes into a draft whole, line breaks and all; a one-line field takes it on one line', async () => {
+    const { home, cfg, live } = await setup()
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
+    await tick()
+    await press(stdin, '\t')
+    await press(stdin, 'Notes:\r')
+    // A paste with an x in it: as keys, x on its own would ask to quit.
+    await press(stdin, '\u001b[200~fix the box\r\n\tthen x it\u001b[201~')
+    await press(stdin, '\u001b')
+    await onList(lastFrame)
+    const { listDrafts } = await import('../src/drafts.ts')
+    await until(async () => (await listDrafts(home))[0]?.text.includes('then x it') ?? false)
+    expect((await listDrafts(home))[0]?.text).toBe('Notes:\nfix the box\n    then x it')
+    await press(stdin, 'r')
+    expect(lastFrame()).toContain('name this routine')
+    await press(stdin, '\u001b[200~-weekly\n\u001b[201~')
+    expect(lastFrame()).toContain('notes-fix-the-weekly')
+    expect(lastFrame()).toContain('name this routine') // the line break didn't submit it
+    done()
+    unmount()
+  })
+
   it('r turns a draft into a routine and saves it', async () => {
     const { home, cfg, live } = await setup()
     const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
@@ -1183,6 +1218,40 @@ describe('conversations', () => {
     expect(lastFrame()).toContain('T trusts it and starts')
     const { listDrafts } = await import('../src/drafts.ts')
     expect((await listDrafts(home)).map((d) => d.text)).toEqual(['hello'])
+    done()
+    unmount()
+  })
+
+  it('a paste goes to Claude whole, as one paste, its line breaks not sending it', async () => {
+    const { cfg, projects } = await setup()
+    const inbox = projects.find((p) => p.key === 'meta/inbox')!
+    const snap: Snapshot = {
+      ...snapshot,
+      projects,
+      items: toItems(
+        [session({ name: 'Paste chat', id: 'aaa11111', cwd: inbox.path, state: 'done' })],
+        projects,
+      ),
+    }
+    const { lastFrame, stdin, unmount } = render(
+      <App onFocus={onFocus} config={cfg} load={async () => snap} />,
+    )
+    await tick()
+    await press(stdin, 'n')
+    await press(stdin, '\r')
+    await until(() => (lastFrame() ?? '').includes('fake claude screen'))
+    // Claude asks for bracketed paste; the paste reaches it inside the markers, in one piece.
+    await press(stdin, 'bracketed')
+    await press(stdin, '\r')
+    await until(() => (lastFrame() ?? '').includes('pastes on'))
+    await press(stdin, '\u001b[200~one\ntwo\u001b[201~')
+    await until(() => (lastFrame() ?? '').includes('a paste: one'))
+    expect(lastFrame()).toContain('a paste: one')
+    // The fake reads line by line: the paste's break is a CR, as a terminal sends it.
+    await press(stdin, '\r')
+    await until(() => (lastFrame() ?? '').includes('you said: two'))
+    expect(lastFrame()).toContain('you said: two')
+    expect(focusOf()).toBe('session')
     done()
     unmount()
   })
