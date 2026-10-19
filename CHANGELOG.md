@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2 (2026-10-19)
+
+- Pasting into a conversation works: the paste reaches Claude whole, as one paste. Before, it
+  could arrive as several pasted blocks, or be cut short where a line break sent the message.
+- A paste into a draft, a name or Projects' find goes in as text, never as keys.
+
 ## 0.5.1 (2026-10-17)
 
 - Conversations are listed in a new order: drafts, proposed, running, waiting on you, on hold,
