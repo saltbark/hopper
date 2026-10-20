@@ -62,6 +62,14 @@ export function keyToBytes(input: string, key: Key): string {
   return input
 }
 
+// A paste as a terminal would send it: line breaks as CR, and wrapped in the bracketed-paste
+// markers when the program asked for them, so Claude takes it as one paste, not as typing.
+// ESC never goes through: the end marker inside a paste would end it early.
+export function pasteBytes(text: string, bracketed: boolean): string {
+  const body = text.replace(/\r?\n/g, '\r').replaceAll('\x1b', '')
+  return bracketed ? `\x1b[200~${body}\x1b[201~` : body
+}
+
 // Whether the cursor sits in Claude's input box with nothing typed: a one-line box between two
 // borders, only the ❯ before the cursor, nothing after it but the dim placeholder. Then ← is
 // Claude's leave, and Hopper can step back at once rather than wait for the agents screen.
@@ -270,6 +278,12 @@ export class EmbeddedSession {
     if (this.closed || this.exited) return
     this.lastSent = Date.now()
     this.pty?.write(data)
+  }
+
+  // Sent in one write: a paste split up arrives as several pastes, or as keys whose line breaks
+  // are Enter.
+  paste(text: string): void {
+    if (text) this.send(pasteBytes(text, this.term.modes.bracketedPasteMode))
   }
 
   // Whether ← now would be Claude's leave, judged from the screen without asking Claude.

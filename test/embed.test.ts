@@ -3,7 +3,15 @@ import { readFileSync } from 'node:fs'
 import xterm from '@xterm/headless'
 import { describe, expect, it } from 'vitest'
 
-import { admit, atEmptyPrompt, EmbeddedSession, keyToBytes, paletteHex } from '../src/tui/embed.ts'
+import {
+  admit,
+  atEmptyPrompt,
+  EmbeddedSession,
+  keyToBytes,
+  paletteHex,
+  pasteBytes,
+} from '../src/tui/embed.ts'
+import { pastedText } from '../src/tui/state.ts'
 import { T } from '../src/tui/theme.ts'
 import { fakeClaude } from './helpers.ts'
 
@@ -44,6 +52,21 @@ describe('keyToBytes', () => {
     expect(keyToBytes('', key({ tab: true, shift: true }))).toBe('\x1b[Z')
     expect(keyToBytes('c', key({ ctrl: true }))).toBe('\x03')
     expect(keyToBytes('b', key({ meta: true }))).toBe('\x1bb')
+  })
+})
+
+describe('pasteBytes', () => {
+  it('sends a paste as a terminal would: CR for line breaks, in the markers when asked for', () => {
+    expect(pasteBytes('one\ntwo\r\nthree', true)).toBe('\x1b[200~one\rtwo\rthree\x1b[201~')
+    expect(pasteBytes('one\ntwo', false)).toBe('one\rtwo')
+    // An end marker inside the paste can't end it early.
+    expect(pasteBytes('a\x1b[201~b', true)).toBe('\x1b[200~a[201~b\x1b[201~')
+  })
+})
+
+describe('pastedText', () => {
+  it('keeps line breaks, turns tabs into spaces, and drops other control characters', () => {
+    expect(pastedText('one\r\n\ttwo\x07\rthree')).toBe('one\n    two\nthree')
   })
 })
 

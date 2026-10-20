@@ -16,18 +16,19 @@ export type Hover = { panel: Panel; index: number } | null
 // letters on the list act on the selected row instead.
 export type Group = 'waiting' | 'held' | 'draft' | 'proposed' | 'running' | 'routines' | 'next'
 export const GROUPS: { id: Group; label: string }[] = [
-  // Running first: it and waiting on you are where I go back and forth all day.
+  // What I'm writing first, then what's under way: running and waiting on you are where I go
+  // back and forth all day.
+  { id: 'draft', label: 'drafts' },
+  // Drafts an agent wrote for me to approve (the groomer, a review, a chain past its depth).
+  { id: 'proposed', label: 'proposed' },
   { id: 'running', label: 'running' },
   { id: 'waiting', label: 'waiting on you' },
   // Waiting too, but I know about them and can't act yet (h). Not counted anywhere.
   { id: 'held', label: 'on hold' },
-  { id: 'draft', label: 'drafts' },
-  // Drafts an agent wrote for me to approve (the groomer, a review, a chain past its depth).
-  { id: 'proposed', label: 'proposed' },
-  // Prompts that run on a schedule; each run is its own conversation.
-  { id: 'routines', label: 'routines' },
   // Queued drafts: they start on their own, unattended, when ready and an account has room.
   { id: 'next', label: 'up next' },
+  // Prompts that run on a schedule; each run is its own conversation.
+  { id: 'routines', label: 'routines' },
 ]
 export const groupOf = (i: Item): Group =>
   i.kind === 'draft'
@@ -178,6 +179,10 @@ export const typed = (input: string, key: { ctrl: boolean; meta: boolean; tab: b
   !key.tab &&
   [...input].every((ch) => ch >= ' ' || ch === '\r' || ch === '\n')
 export const asText = (input: string) => input.replace(/\r\n?/g, '\n')
+// A paste as Hopper's own fields take it: line breaks as \n, tabs as spaces, and no other
+// control characters, which a field can't show.
+export const pastedText = (text: string) =>
+  [...asText(text).replace(/\t/g, '    ')].filter((ch) => ch >= ' ' || ch === '\n').join('')
 
 // Handlers stamp times through this, so render stays pure.
 export const now = () => Date.now()
