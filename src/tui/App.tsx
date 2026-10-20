@@ -1,4 +1,4 @@
-import { Box, useApp, useInput, useWindowSize } from 'ink'
+import { Box, useApp, useInput, usePaste, useWindowSize } from 'ink'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { activeRows, rollUp, type ProjectStat } from '../active.ts'
@@ -445,7 +445,10 @@ export function App({
     layout: { leftW, midW, rightW, bodyH, bandH, workH, doneH, sessionCols, sessionRows },
   }
   const actions = makeActions(ctx)
-  useInput(makeInput(ctx, actions))
+  const input = makeInput(ctx, actions)
+  useInput(input.key)
+  // Turns on bracketed paste, so a paste arrives whole rather than as keys.
+  usePaste(input.paste)
 
   // ---- the right panel ----
   const right = (() => {

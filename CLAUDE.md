@@ -44,6 +44,11 @@ where they are.
   for every movement (1003), for hover: only set state when the row under the pointer changes.
   Finding that row reuses the lists' own windowing (`workItemAt`, `itemLines`, `projectLines`,
   `accountLines`), so a change to how a list lays out its lines carries over to the mouse.
+- **Pastes come apart from keys.** `usePaste` (App.tsx) turns on bracketed paste, so a paste
+  arrives whole in `onPaste` (`keys.ts`) and never reaches the key handlers. In a conversation it
+  goes to Claude in one write, in the paste markers when Claude asked for them (`pasteBytes`):
+  sent as keys, it arrived in pieces, as several pastes or with its line breaks pressing Enter.
+  A new text field gets a line in `onPaste` too, or pasting into it does nothing.
 - **Claude does its own mouse selection** (it asks for "any" mouse tracking) and copies with OSC 52. The headless terminal has no clipboard, so `embed.ts` catches OSC 52 and Hopper copies.
   Hopper's own drag-select is only the fallback for programs that don't want the mouse.
 - **Panels without the keys are drawn darker** by `Frame`'s `dimmed`: its outer box is Ink's
