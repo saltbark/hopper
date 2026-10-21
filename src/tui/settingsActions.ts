@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -29,7 +28,7 @@ import {
   type Row,
 } from '../settings.ts'
 import type { AppCtx } from './context.ts'
-import { MOUSE_OFF, MOUSE_ON } from './mouse.ts'
+import { editorName, runEditor } from './external.ts'
 import type { Form } from './state.ts'
 
 type Commit = (edit: (c: Config) => Config, done?: string) => Promise<Config | null>
@@ -93,6 +92,12 @@ export function makeSettingsActions(ctx: AppCtx, commit: Commit) {
         setMessage(value ? 'Projects lists folders too.' : 'Projects lists only projects.')
       else if (key === 'check_updates')
         setMessage(value ? 'Hopper won’t check for updates.' : 'Hopper checks for updates.')
+      else if (key === 'draft_editor')
+        setMessage(
+          value === 'external'
+            ? `Drafts are written in ${editorName()} now.`
+            : "Drafts are written in Hopper's own editor.",
+        )
       else setMessage(`${key} saved`)
     } catch (e) {
       setMessage(`Not saved: ${(e as Error).message}`)
@@ -170,17 +175,7 @@ export function makeSettingsActions(ctx: AppCtx, commit: Commit) {
 
   // Edits the file itself in $EDITOR, then reads everything again.
   const openFile = async (file: FileKey) => {
-    const path = filePath(config, file)
-    const editor = process.env['VISUAL'] || process.env['EDITOR'] || 'vi'
-    await ctx.suspendTerminal(async () => {
-      process.stdout.write(MOUSE_OFF)
-      await new Promise<void>((resolve) => {
-        const child = spawn(editor, [path], { stdio: 'inherit', shell: true })
-        child.on('exit', () => resolve())
-        child.on('error', () => resolve())
-      })
-      process.stdout.write(MOUSE_ON)
-    })
+    await runEditor(ctx.suspendTerminal, filePath(config, file))
     try {
       const next = await loadConfig(config.path)
       if (next) ctx.setConfig(next)
