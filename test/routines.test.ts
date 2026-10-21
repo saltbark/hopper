@@ -19,6 +19,7 @@ import {
   runRoutine,
   saveRoutine,
   serializeRoutine,
+  setRoutinePrompt,
   removeLaunchd,
   type Routine,
 } from '../src/routines/index.ts'
@@ -45,6 +46,20 @@ describe('routine files', () => {
       /give a time/,
     )
     await expect(saveRoutine(home, { ...triage, name: 'Bad Name' })).rejects.toThrow(/lowercase/)
+  })
+  it('take a new prompt from an editor, keeping the rest; one that does not parse is set aside', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hopper-rt-'))
+    await saveRoutine(home, triage)
+    const saved = await setRoutinePrompt(home, triage.name, 'Triage it all.')
+    expect(saved).toEqual({ ...triage, prompt: 'Triage it all.' })
+    expect(await listRoutines(home)).toEqual([saved])
+    expect(await setRoutinePrompt(home, 'no-such', 'x')).toBeNull()
+    const dir = join(home, 'routines')
+    await writeFile(join(dir, 'broken.md'), 'no front matter here')
+    expect(await setRoutinePrompt(home, 'broken', 'x')).toBeNull()
+    const names = await readdir(dir)
+    expect(names).not.toContain('broken.md')
+    expect(names.some((n) => n.startsWith('broken.md.unreadable-'))).toBe(true)
   })
 })
 
