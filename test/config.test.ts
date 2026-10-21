@@ -101,6 +101,9 @@ describe('settings', () => {
   it('reads worktree as yes or no', () => {
     expect(parseSettings('home = "/h"\nworktree = "yes"', '/c.toml').worktree).toBe('yes')
     expect(() => parseSettings('home = "/h"\nworktree = "maybe"', '/c.toml')).toThrow(/worktree/)
+    expect(parseSettings('home = "/h"\nworktree = false', '/c.toml').worktree).toBe('no')
+    // Only a worktree is yes or no: a model can't be a boolean.
+    expect(() => parseSettings('home = "/h"\nmodel = true', '/c.toml')).toThrow(/model/)
   })
   it('sets one line and keeps the comments', () => {
     const text = '# Hopper settings.\nhome = "/h"\n\n# The sound.\n'

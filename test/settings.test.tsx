@@ -84,6 +84,12 @@ describe('rows', () => {
       warn: 'not on this machine',
     })
   })
+  it("shows a project's worktree written as a TOML boolean as set", () => {
+    const doc = parseProjectsDoc('[[project]]\nkey = "meta/inbox"\nworktree = false\n')
+    const rows = buildRows(base('/h'), doc, [], [])
+    const worktree = rows.find((r) => r.id === 'project.0.worktree')
+    expect(worktree).toMatchObject({ value: 'no', raw: 'no', isSet: true })
+  })
 })
 
 describe('the rows', () => {

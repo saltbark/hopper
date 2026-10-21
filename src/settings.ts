@@ -124,6 +124,8 @@ export type Row =
     }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
+// A project's own value as written: a TOML boolean (worktree = false) reads as yes or no.
+const own = (v: unknown) => (typeof v === 'boolean' ? (v ? 'yes' : 'no') : str(v))
 const modelOptions = MODELS.map((m) => m ?? '')
 const effortOptions = EFFORTS.map((m) => m ?? '')
 const worktreeOptions = WORKTREE_CHOICES.map((m) => m ?? '')
@@ -493,8 +495,8 @@ export function buildRows(
         id: `project.${i}.${name}`,
         label,
         value,
-        raw: str(p[name]),
-        isSet: !!str(p[name]),
+        raw: own(p[name]),
+        isSet: !!own(p[name]),
         help,
         file: 'projects',
         edit,
@@ -543,7 +545,7 @@ export function buildRows(
     field(
       'worktree',
       'worktree',
-      str(p['worktree']) || `${defaultsFor(config).worktree} (default)`,
+      own(p['worktree']) || `${defaultsFor(config).worktree} (default)`,
       'Whether conversations you start here work in their own git worktree. Not set, the worktree in General.',
       {
         type: 'choice',

@@ -216,7 +216,9 @@ export function parseSettings(
     throw new ConfigError(`${tildify(path)}: "dim" is a whole number from 0 to ${DIM_MAX}`)
   const choice: { model?: string; effort?: string; worktree?: string } = {}
   for (const key of CHOICE_KEYS) {
-    const v = typeof raw[key] === 'boolean' ? (raw[key] ? 'yes' : 'no') : raw[key]
+    // A worktree may be a TOML boolean written by hand; a model or effort may not.
+    const v =
+      key === 'worktree' && typeof raw[key] === 'boolean' ? (raw[key] ? 'yes' : 'no') : raw[key]
     if (v === undefined) continue
     if (typeof v !== 'string' || !v)
       throw new ConfigError(
