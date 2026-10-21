@@ -86,16 +86,24 @@ describe('settings', () => {
       /draft_editor/,
     )
   })
-  it('always names a model and effort: the draft, else its project, else config, else Hopper', () => {
-    expect(defaultsFor(base())).toEqual({ model: 'opus[1m]', effort: 'high' })
+  it('always names a model, effort and worktree: the draft, else its project, else config, else Hopper', () => {
+    expect(defaultsFor(base())).toEqual({ model: 'opus[1m]', effort: 'high', worktree: 'yes' })
     const cfg = { ...base(), model: 'sonnet' }
-    expect(defaultsFor(cfg)).toEqual({ model: 'sonnet', effort: 'high' })
-    const project = { model: 'haiku', effort: 'low' }
-    expect(defaultsFor(cfg, project)).toEqual({ model: 'haiku', effort: 'low' })
-    expect(chosen({ model: 'fable' }, defaultsFor(cfg, project))).toEqual({
+    expect(defaultsFor(cfg)).toEqual({ model: 'sonnet', effort: 'high', worktree: 'yes' })
+    const project = { model: 'haiku', effort: 'low', worktree: 'no' }
+    expect(defaultsFor(cfg, project)).toEqual({ model: 'haiku', effort: 'low', worktree: 'no' })
+    expect(chosen({ model: 'fable', worktree: 'yes' }, defaultsFor(cfg, project))).toEqual({
       model: 'fable',
       effort: 'low',
+      worktree: 'yes',
     })
+  })
+  it('reads worktree as yes or no', () => {
+    expect(parseSettings('home = "/h"\nworktree = "yes"', '/c.toml').worktree).toBe('yes')
+    expect(() => parseSettings('home = "/h"\nworktree = "maybe"', '/c.toml')).toThrow(/worktree/)
+    expect(parseSettings('home = "/h"\nworktree = false', '/c.toml').worktree).toBe('no')
+    // Only a worktree is yes or no: a model can't be a boolean.
+    expect(() => parseSettings('home = "/h"\nmodel = true', '/c.toml')).toThrow(/model/)
   })
   it('sets one line and keeps the comments', () => {
     const text = '# Hopper settings.\nhome = "/h"\n\n# The sound.\n'

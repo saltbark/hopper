@@ -7,6 +7,7 @@ import { parse, stringify } from 'smol-toml'
 import { DEFAULT_SOUND, SOUNDS } from './chime.ts'
 import {
   CHOICE_DEFAULTS,
+  CHOICE_KEYS,
   defaultAccount,
   defaultsFor,
   DIM_DEFAULT,
@@ -16,7 +17,7 @@ import {
   showPrefix,
   type Config,
 } from './config.ts'
-import { EFFORTS, MODELS } from './conversations.ts'
+import { EFFORTS, MODELS, WORKTREE_CHOICES } from './conversations.ts'
 import type { Project } from './home.ts'
 import { tildify } from './paths.ts'
 import { routeFor } from './routing.ts'
@@ -87,8 +88,7 @@ export type Target =
         | 'home'
         | 'sound'
         | 'dim'
-        | 'model'
-        | 'effort'
+        | (typeof CHOICE_KEYS)[number]
         | 'show_folders'
         | 'check_updates'
         | 'draft_editor'
@@ -124,8 +124,12 @@ export type Row =
     }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
+// A project's own value as written: a TOML boolean (worktree = false) reads as yes or no.
+const own = (v: unknown) => (typeof v === 'boolean' ? (v ? 'yes' : 'no') : str(v))
 const modelOptions = MODELS.map((m) => m ?? '')
 const effortOptions = EFFORTS.map((m) => m ?? '')
+const worktreeOptions = WORKTREE_CHOICES.map((m) => m ?? '')
+const choiceLists = { model: MODELS, effort: EFFORTS, worktree: WORKTREE_CHOICES }
 // config.toml's choices: '' is Hopper's own default, so it isn't listed again under its name.
 const hopperOptions = (list: readonly (string | undefined)[], def: string) => [
   '',
@@ -192,8 +196,10 @@ export function buildRows(
     model:
       'The model a conversation starts with when neither it nor its project picks one. Hopper always tells Claude which, so it is the same on every login.',
     effort: 'The effort a conversation starts with when neither it nor its project picks one.',
+    worktree:
+      'Whether a conversation you start works in its own git worktree, or edits the folder it runs in. Queued work and routines always get a worktree.',
   }
-  for (const key of ['model', 'effort'] as const) {
+  for (const key of CHOICE_KEYS) {
     rows.push({
       kind: 'setting',
       id: `general.${key}`,
@@ -205,7 +211,7 @@ export function buildRows(
       file: 'config',
       edit: {
         type: 'choice',
-        options: hopperOptions(key === 'model' ? MODELS : EFFORTS, CHOICE_DEFAULTS[key]),
+        options: hopperOptions(choiceLists[key], CHOICE_DEFAULTS[key]),
         fallback: CHOICE_DEFAULTS[key],
       },
       target: { file: 'config', field: key },
@@ -489,8 +495,8 @@ export function buildRows(
         id: `project.${i}.${name}`,
         label,
         value,
-        raw: str(p[name]),
-        isSet: !!str(p[name]),
+        raw: own(p[name]),
+        isSet: !!own(p[name]),
         help,
         file: 'projects',
         edit,
@@ -534,6 +540,17 @@ export function buildRows(
         type: 'choice',
         options: effortOptions,
         fallback: defaultsFor(config).effort,
+      },
+    )
+    field(
+      'worktree',
+      'worktree',
+      own(p['worktree']) || `${defaultsFor(config).worktree} (default)`,
+      'Whether conversations you start here work in their own git worktree. Not set, the worktree in General.',
+      {
+        type: 'choice',
+        options: worktreeOptions,
+        fallback: defaultsFor(config).worktree,
       },
     )
   })

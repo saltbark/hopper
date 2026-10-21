@@ -9,7 +9,7 @@ import {
   showPrefix,
   suggestName,
 } from '../config.ts'
-import { EFFORTS, MODELS, nextOf } from '../conversations.ts'
+import { EFFORTS, MODELS, nextOf, WORKTREE_CHOICES } from '../conversations.ts'
 import { routineSessionId, type Item } from '../model.ts'
 import type { Actions } from './actions.ts'
 import { copyToClipboard } from './clipboard.ts'
@@ -539,6 +539,10 @@ export function makeInput(
           .join('-')
           .slice(0, 30)
         setForm({ kind: 'routine-name', value: suggested, editing: e })
+      },
+      W: () => {
+        const worktree = nextOf(WORKTREE_CHOICES, e.worktree)
+        return act.saveEdit({ ...e, worktree }, `Worktree: ${choiceText(worktree, d.worktree)}.`)
       },
       e: () => setForm({ kind: 'draft-remove', id: e.id, name: it.name }),
       o: () => act.writeOutside(e),

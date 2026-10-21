@@ -731,7 +731,13 @@ describe('conversations', () => {
       )
       for (const it of items) {
         const d = drafts.find((x) => `draft:${x.id}` === it.sessionId)
-        if (d) Object.assign(it, { key: d.project, model: d.model, effort: d.effort })
+        if (d)
+          Object.assign(it, {
+            key: d.project,
+            model: d.model,
+            effort: d.effort,
+            worktree: d.worktree,
+          })
       }
       return { ...snap, drafts, items }
     }
@@ -777,6 +783,8 @@ describe('conversations', () => {
     expect(logged).toContain('|attach abc12345')
     // Picking no model or effort still tells Claude which, so the login doesn't decide.
     expect(logged).toContain('--model opus[1m] --effort high')
+    // Nor a worktree: it works in one unless told otherwise, whatever the login's settings say.
+    expect(logged).toContain('--settings {"worktree":{"bgIsolation":"worktree"}}')
     // The conversation is inside Hopper, and typing goes to it.
     expect(lastFrame()).toContain('CONVERSATION')
     expect(lastFrame()).toContain(' claude ')
@@ -949,6 +957,28 @@ describe('conversations', () => {
       model: 'haiku',
       effort: 'low',
     })
+    done()
+    unmount()
+  })
+
+  it('W chooses whether it works in a worktree, and that goes to Claude and is recorded', async () => {
+    const { home, cfg, log, live } = await setup()
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
+    await tick()
+    await press(stdin, '\t')
+    await press(stdin, 'sort the inbox')
+    await press(stdin, '\u001b')
+    await onList(lastFrame)
+    expect(lastFrame()).toContain('worktree: yes (default)')
+    await press(stdin, 'W') // no
+    await until(() => (lastFrame() ?? '').includes('worktree: no'))
+    await press(stdin, 's')
+    await until(() => (lastFrame() ?? '').includes('Started on'))
+    expect(await readFile(log, 'utf8')).toContain(
+      '--settings {"worktree":{"bgIsolation":"none"}}',
+    )
+    const { loadConversations } = await import('../src/conversations.ts')
+    expect((await loadConversations(home))['abc12345']).toMatchObject({ worktree: false })
     done()
     unmount()
   })
