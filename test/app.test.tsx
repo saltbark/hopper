@@ -974,9 +974,7 @@ describe('conversations', () => {
     await until(() => (lastFrame() ?? '').includes('worktree: no'))
     await press(stdin, 's')
     await until(() => (lastFrame() ?? '').includes('Started on'))
-    expect(await readFile(log, 'utf8')).toContain(
-      '--settings {"worktree":{"bgIsolation":"none"}}',
-    )
+    expect(await readFile(log, 'utf8')).toContain('--settings {"worktree":{"bgIsolation":"none"}}')
     const { loadConversations } = await import('../src/conversations.ts')
     expect((await loadConversations(home))['abc12345']).toMatchObject({ worktree: false })
     done()

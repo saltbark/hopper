@@ -3,5 +3,6 @@
   "semi": false,
   "singleQuote": true,
   "sortImports": true,
-  "sortTailwindcss": true
+  "sortTailwindcss": true,
+  "ignorePatterns": ["site/frames.json"]
 }
