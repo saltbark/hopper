@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0 (2026-10-21)
+
+- `o` on a draft, or on a routine's prompt, writes it in your own editor ($VISUAL or $EDITOR,
+  else vi), with Hopper put aside until you quit. While writing in Hopper, ctrl+g carries on
+  there, as it does in Claude Code. `draft_editor = "external"` in settings writes every draft
+  there.
+- A draft can say whether its conversation works in its own git worktree (`W`), and so can a
+  project or settings. Yes when not set, as before. Queued work and routines always get one.
+- Hopper starts in a fraction of the memory: it reads a long transcript a piece at a time from
+  the end instead of all at once.
+- A copy run from source (`pnpm dev`) no longer fills its memory over a long day.
+
 ## 0.5.2 (2026-10-19)
 
 - Pasting into a conversation works: the paste reaches Claude whole, as one paste. Before, it
