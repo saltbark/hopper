@@ -15,13 +15,22 @@ export function routeFor(config: Config, key: string): Route | undefined {
 // The accounts that may run work under `key` on `model`, in the order to try them. The model
 // picks the kind: "local" runs only on local accounts (the route's, else every one, since nobody
 // pays for them), anything else only on Claude logins. So Opus work never lands on the local
-// model because the logins are full, and local work never falls back to a login.
+// model because the logins are full, and local work never falls back to a login. An account
+// picked by hand is the only one, as long as it is the right kind for the model.
 export function accountsFor(
   config: Config,
   key: string,
   model: string | undefined,
+  chosen?: string,
 ): { names: string[]; route: Route | undefined; none: string } {
   const route = routeFor(config, key)
+  if (chosen) {
+    const a = config.accounts.find((x) => x.name === chosen)
+    if (!a) return { names: [], route, none: `no account ${chosen}` }
+    if (isLocal(a) !== (model === LOCAL_MODEL))
+      return { names: [], route, none: `${chosen} doesn't run ${model ?? 'that model'}` }
+    return { names: [chosen], route, none: '' }
+  }
   if (model === LOCAL_MODEL) {
     const local = config.accounts.filter(isLocal).map((a) => a.name)
     const routed = route?.accounts.filter((n) => local.includes(n)) ?? []
@@ -57,16 +66,19 @@ export function pickAccount(
   key: string,
   states: AccountState[],
   model?: string,
+  chosen?: string,
 ): Pick {
-  const { names, route, none } = accountsFor(config, key, model)
+  const { names, route, none } = accountsFor(config, key, model, chosen)
   const local = model === LOCAL_MODEL
   if (!names.length)
     return {
       account: undefined,
       route,
-      reason: local
-        ? `${none}; add one with provider = "ollama" in accounts.toml`
-        : `${none}; make an account the default or give one the prefix (s for settings)`,
+      reason: chosen
+        ? none
+        : local
+          ? `${none}; add one with provider = "ollama" in accounts.toml`
+          : `${none}; make an account the default or give one the prefix (s for settings)`,
     }
   const where = local ? 'the local model' : route ? route.prefix || '*' : key
   const candidates = names
@@ -75,11 +87,13 @@ export function pickAccount(
       state: states.find((s) => s.account.name === n),
     }))
     .filter((c): c is { account: Account; state: AccountState | undefined } => !!c.account)
-  if (!route && !local && candidates.length === 1) {
+  // Picked by hand, or the only login with no routes yet: that one, full or not, if it can run.
+  if (chosen || (!route && !local && candidates.length === 1)) {
     const only = candidates[0]!
+    const why = only.state?.auth?.local?.reason ?? `${only.account.name} is not signed in`
     return only.state?.auth?.loggedIn
-      ? { account: only.account, route, reason: 'the only account' }
-      : { account: undefined, route, reason: `${only.account.name} is not signed in` }
+      ? { account: only.account, route, reason: chosen ? 'picked' : 'the only account' }
+      : { account: undefined, route, reason: why }
   }
   const roomy = candidates.find((c) => hasRoom(c.state))
   if (roomy) return { account: roomy.account, route, reason: `first with room on ${where}` }

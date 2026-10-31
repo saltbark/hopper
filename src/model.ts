@@ -77,6 +77,8 @@ export type Item = Session & {
   // 'yes' to work in a git worktree, 'no' to edit its folder in place: what a conversation started
   // with, or what a draft picked, like model and effort.
   worktree?: string
+  // A draft whose account was picked by hand rather than by its project's route.
+  picked?: boolean
   // The full id of the model its newest reply came from, read from its transcript, and when.
   ranOn?: string
   repliedAt?: number
@@ -249,7 +251,8 @@ export async function gather(
     counts: { queue: 0, needs: 0, done: 0, live: 0 },
   }))
   // Which account a draft or routine would run on depends on its model as well as its project.
-  const runsOn = (key: string, own: { model?: string | undefined }) => {
+  // A draft's own account shows even while it can't run, so the row says what was picked.
+  const runsOn = (key: string, own: { model?: string | undefined; account?: string }) => {
     const { model } = chosen(
       own,
       defaultsFor(
@@ -257,7 +260,7 @@ export async function gather(
         projects.find((p) => p.key === key),
       ),
     )
-    return pickAccount(config, key, states, model).account?.name ?? '–'
+    return pickAccount(config, key, states, model, own.account).account?.name ?? own.account ?? '–'
   }
   const draftSessions = drafts.map((d) => draftSession(d, projects, runsOn(d.project, d)))
   const now = new Date()
@@ -372,6 +375,7 @@ export async function gather(
     if (d.model) it.model = d.model
     if (d.effort) it.effort = d.effort
     if (d.worktree) it.worktree = d.worktree
+    if (d.account) it.picked = true
     if (d.queue) {
       it.queue = d.queue
       it.state = d.queue === 'night' ? 'tonight' : 'queued'

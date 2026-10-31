@@ -276,6 +276,25 @@ describe('hopper draft new', () => {
     expect(c.note).toMatch(/past chain_depth 1/)
     expect((await listDrafts(config.home)).length).toBe(3)
   })
+  it('takes an account, and a local one brings the local model', async () => {
+    const { config: base } = await setup()
+    const lo = {
+      name: 'lo',
+      label: 'lo',
+      configDir: '/d/lo',
+      provider: 'ollama' as const,
+      local: { baseUrl: 'http://x', model: 'tern', context: 131072, concurrency: 1 },
+    }
+    const config = { ...base, accounts: [bh, lo] }
+    const stdin = async () => ''
+    const at = (...flags: string[]) =>
+      draftNew(config, ['--project', 'meta/inbox', ...flags, 'Go'], stdin)
+    expect((await at('--account', 'bh')).draft).toMatchObject({ account: 'bh' })
+    expect((await at('--account', 'lo')).draft).toMatchObject({ account: 'lo', model: 'local' })
+    await expect(at('--account', 'lo', '--model', 'opus')).rejects.toThrow(/is local/)
+    await expect(at('--account', 'bh', '--model', 'local')).rejects.toThrow(/isn't local/)
+    await expect(at('--account', 'zz')).rejects.toThrow(/one of bh, lo/)
+  })
   it('proposals never queue, and bad input says what is wrong', async () => {
     const { config } = await setup()
     const stdin = async () => 'From stdin\n'

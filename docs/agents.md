@@ -29,10 +29,14 @@ Make a draft with:
 ```
 hopper draft new --project <key> [--model haiku|sonnet|opus|opus[1m]|fable|local] [--effort low|medium|high] \
   [--done "<what finished looks like>"] [--after <draft id>[,<id>…]] [--queue now|night] \
-  [--proposed <who>] "<the first message>"
+  [--account <name>] [--proposed <who>] "<the first message>"
 ```
 
 It prints the new draft's id. Pass `-` as the message to read it from stdin.
+
+- `--account` runs it on that account rather than the one its project's route picks; leave it
+  off unless asked. A local account runs `--model local`, and a Claude login can't.
+- `--model local` runs it on the machine's local model (a local account), never on a Claude login.
 
 - `--proposed <who>` marks it as proposed for the person to approve (`who` is your routine's
   name). Proposed drafts never start on their own. This is what routines that plan work use.

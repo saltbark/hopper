@@ -52,7 +52,7 @@ const HELP = `hopper: toss work in the hopper, hop from item to item.
   hopper routines        list routines and when they next run (routines and up next run
                          only while the app is open)
   hopper list [--json]   every project, draft, conversation, routine and run
-  hopper draft new --project <key> [--model m] [--effort e] [--queue now|night]
+  hopper draft new --project <key> [--model m] [--effort e] [--account a] [--queue now|night]
                    [--after <id>,…] [--done "…"] [--proposed <who>] "<message>" | -
                          make a draft (agents use this; - reads the message from stdin)
   hopper routine check <name> [--json]   is a routine file valid, and scheduled

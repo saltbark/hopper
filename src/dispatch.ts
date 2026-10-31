@@ -183,7 +183,7 @@ export async function dispatch(opts: {
         continue
       }
       const { model } = chosen(d, defaultsFor(config, project))
-      const { names, none } = accountsFor(config, d.project, model)
+      const { names, none } = accountsFor(config, d.project, model, d.account)
       if (!names.length) {
         wait(none)
         continue

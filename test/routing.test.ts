@@ -135,6 +135,21 @@ describe('a local account', () => {
   })
 })
 
+describe('an account picked by hand', () => {
+  it('wins over the route, full or not, while it is signed in', () => {
+    const states = [state('bh', true), state('pm', true, 99)]
+    const p = pickAccount(config, 'bh/atlas', states, 'opus', 'pm')
+    expect(p.account?.name).toBe('pm')
+    expect(pickAccount(config, 'bh/atlas', [state('pm', false)], 'opus', 'pm').reason).toMatch(
+      /pm is not signed in/,
+    )
+  })
+  it('must be the right kind for the model', () => {
+    expect(accountsFor(config, 'bh/atlas', 'local', 'pm').none).toMatch(/doesn't run local/)
+    expect(accountsFor(config, 'bh/atlas', 'opus', 'zz').none).toMatch(/no account zz/)
+  })
+})
+
 describe('a single account', () => {
   it('runs everything while there are no routes, once it is signed in', () => {
     let one: Config = {

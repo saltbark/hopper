@@ -3,6 +3,8 @@ import type { Key } from 'ink'
 import {
   choiceText,
   defaultsFor,
+  isLocal,
+  LOCAL_MODEL,
   preferFirst,
   prefixesOf,
   setDefaultAccount,
@@ -543,6 +545,29 @@ export function makeInput(
       W: () => {
         const worktree = nextOf(WORKTREE_CHOICES, e.worktree)
         return act.saveEdit({ ...e, worktree }, `Worktree: ${choiceText(worktree, d.worktree)}.`)
+      },
+      // The account: by its project's route, then each account in turn. The model follows the
+      // kind: a local account runs the local model, and a login can't.
+      A: () => {
+        const account = nextOf(['', ...ctx.config.accounts.map((a) => a.name)], e.account ?? '')
+        const a = ctx.config.accounts.find((x) => x.name === account)
+        const model = !a
+          ? e.model
+          : isLocal(a)
+            ? LOCAL_MODEL
+            : e.model === LOCAL_MODEL
+              ? undefined
+              : e.model
+        const said = a ? `Account: ${a.name}.` : "Account: by its project's route."
+        return act.saveEdit({ ...e, account: a?.name, model }, said)
+      },
+      // As for a routine, and a picked account that can't run the new model goes back to the route.
+      m: () => {
+        const model = nextOf(MODELS, e.model)
+        const a = ctx.config.accounts.find((x) => x.name === e.account)
+        const keep = a && isLocal(a) === (model === LOCAL_MODEL)
+        const said = `Model: ${choiceText(model, d.model)}.${a && !keep ? ` Account: by its project's route.` : ''}`
+        return act.saveEdit({ ...e, model, account: keep ? e.account : undefined }, said)
       },
       e: () => setForm({ kind: 'draft-remove', id: e.id, name: it.name }),
       o: () => act.writeOutside(e),

@@ -164,8 +164,14 @@ const QUEUE_HINT = {
   night: 'up next: off',
 }
 
+// A draft's row also carries the account it would run on, and whether that was picked by hand.
 export function draftKeys(
-  e: Choices & { queue?: string | undefined; proposed?: string | undefined },
+  e: Choices & {
+    queue?: string | undefined
+    proposed?: string | undefined
+    account?: string | undefined
+    picked?: boolean | undefined
+  },
 ): Hint[] {
   const q = (e.queue ?? 'none') as keyof typeof QUEUE_HINT
   return [
@@ -178,6 +184,10 @@ export function draftKeys(
     ['E', `effort: ${choiceText(e.effort, e.defaults.effort)}`],
     // Queued work always runs in a worktree, so the choice only counts when I start it.
     ['W', `worktree: ${e.queue ? 'yes (up next)' : choiceText(e.worktree, e.defaults.worktree)}`],
+    [
+      'A',
+      `account: ${e.picked ? e.account : e.account && e.account !== '–' ? `${e.account} (by route)` : 'by route'}`,
+    ],
     ['w', 'move to a project'],
     ['r', 'make it a routine'],
     ['o', 'write it in $EDITOR'],

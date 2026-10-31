@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { defaultsFor, type Config } from './config.ts'
+import { defaultsFor, isLocal, LOCAL_MODEL, type Config } from './config.ts'
 import { EFFORTS, loadConversations, MODELS } from './conversations.ts'
 import { dispatch, lastDispatch, readiness, recordDispatch } from './dispatch.ts'
 import { listDrafts, newDraftId, QUEUES, saveDraft, type Draft, type Queue } from './drafts.ts'
@@ -183,7 +183,7 @@ export async function draftNew(
   stdin: () => Promise<string>,
 ): Promise<{ draft: Draft; note?: string }> {
   const { flags, rest } = parseArgs(argv)
-  const known = ['project', 'model', 'effort', 'queue', 'after', 'done', 'proposed']
+  const known = ['project', 'model', 'effort', 'account', 'queue', 'after', 'done', 'proposed']
   for (const f of Object.keys(flags)) if (!known.includes(f)) throw new UsageError(`No --${f}.`)
   let text = rest.join(' ')
   if (text === '-') text = await stdin()
@@ -194,6 +194,19 @@ export async function draftNew(
     throw new UsageError(`--effort is one of ${EFFORTS.filter(Boolean).join(', ')}.`)
   if (flags['queue'] && !QUEUES.includes(flags['queue'] as Queue))
     throw new UsageError(`--queue is now or night.`)
+  // An account picked by hand; a local one runs the local model, and a login can't.
+  const account = flags['account']
+    ? config.accounts.find((a) => a.name === flags['account'])
+    : undefined
+  if (flags['account'] && !account)
+    throw new UsageError(`--account is one of ${config.accounts.map((a) => a.name).join(', ')}.`)
+  let model = flags['model']
+  if (account && isLocal(account)) {
+    if (model && model !== LOCAL_MODEL)
+      throw new UsageError(`${account.name} is local; it runs --model ${LOCAL_MODEL}.`)
+    model = LOCAL_MODEL
+  } else if (account && model === LOCAL_MODEL)
+    throw new UsageError(`${account.name} isn't local; --model ${LOCAL_MODEL} runs on a local one.`)
 
   // What it follows: drafts not started yet, or conversations Hopper started from one.
   const after = (flags['after'] ?? '').split(/[,\s]+/).filter(Boolean)
@@ -233,8 +246,9 @@ export async function draftNew(
     text: text.replace(/\s*$/, '\n'),
     created: now,
     updated: now,
-    ...(flags['model'] ? { model: flags['model'] } : {}),
+    ...(model ? { model } : {}),
     ...(flags['effort'] ? { effort: flags['effort'] } : {}),
+    ...(account ? { account: account.name } : {}),
     ...(queue ? { queue } : {}),
     ...(after.length ? { after } : {}),
     ...(flags['done'] ? { done: flags['done'] } : {}),

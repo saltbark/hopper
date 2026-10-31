@@ -36,6 +36,8 @@ describe('drafts', () => {
   })
   it('round-trip, blank lines and all', () => {
     expect(parseDraft('abc-1', serializeDraft(d))).toEqual(d)
+    const picked = { ...d, account: 'pm' }
+    expect(parseDraft('abc-1', serializeDraft(picked))).toEqual(picked)
   })
   it('a file with no front matter is an inbox draft dated by the file', () => {
     expect(parseDraft('x', 'from the phone\n', 42)).toEqual({

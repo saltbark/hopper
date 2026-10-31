@@ -128,6 +128,7 @@ export function makeActions(ctx: AppCtx) {
       model: d.model,
       effort: d.effort,
       worktree: d.worktree,
+      account: d.account,
       extra: {
         ...(d.queue ? { queue: d.queue } : {}),
         ...(d.after ? { after: d.after } : {}),
@@ -324,7 +325,7 @@ export function makeActions(ctx: AppCtx) {
     const project = snap?.projects.find((p) => p.key === e.project)
     if (!project) return setMessage(`No project ${e.project}.`)
     const { model } = chosen(e, defaultsFor(config, project))
-    const pick = pickAccount(config, project.key, snap?.accounts ?? [], model)
+    const pick = pickAccount(config, project.key, snap?.accounts ?? [], model, e.account)
     if (!pick.account) return setMessage(`Can't start: ${pick.reason}.`)
     const account = pick.account
     const draft = toDraft(e, now())
@@ -351,7 +352,7 @@ export function makeActions(ctx: AppCtx) {
     if (!u) return
     const project = snap?.projects.find((p) => p.key === u.draft.project)
     const { model } = chosen(u.draft, defaultsFor(config, project))
-    const pick = pickAccount(config, u.draft.project, snap?.accounts ?? [], model)
+    const pick = pickAccount(config, u.draft.project, snap?.accounts ?? [], model, u.draft.account)
     if (!pick.account) return setMessage(`Can't start: ${pick.reason}.`)
     const account = pick.account
     await ctx.suspendTerminal(async () => {

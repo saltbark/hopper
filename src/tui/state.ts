@@ -69,6 +69,8 @@ export type Editing = {
   effort?: string | undefined
   // A draft's 'yes' or 'no' to a worktree; undefined is the project's or Hopper's default.
   worktree?: string | undefined
+  // A draft's account, picked by hand; undefined is its project's route.
+  account?: string | undefined
   // Set when this is a routine's prompt rather than a draft.
   routine?: { name: string; schedule: string; enabled: boolean; check?: string } | undefined
   // A draft's overnight fields, carried through the editor unchanged.
@@ -161,6 +163,7 @@ export const toDraft = (e: Editing, updated: number): Draft => ({
   ...(e.model ? { model: e.model } : {}),
   ...(e.effort ? { effort: e.effort } : {}),
   ...(e.worktree ? { worktree: e.worktree } : {}),
+  ...(e.account ? { account: e.account } : {}),
   ...e.extra,
 })
 

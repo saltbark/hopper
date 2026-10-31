@@ -103,6 +103,10 @@ effort to use, so a conversation runs the same whichever login starts it, and a 
 shown by name: `opus[1m] (default)`. The list shows what each conversation started with, and a
 conversation's details the full id of the model its newest reply came from (`ran on`).
 
+Accounts: a draft runs on the account its project's route picks. `A` on it picks one by hand
+instead, cycling through your accounts and back to the route. Picking a local account sets the
+model to `local`; picking a Claude login takes `local` off.
+
 ## Keys and mouse
 
 `p` `c` `v` `a` jump to projects, conversations, archived and accounts. `n` jumps to the first thing
