@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0 (2026-10-31)
+
+- An account can be a model on your own machine, served by Ollama and driven by Claude Code:
+  `provider = "ollama"` in `accounts.toml`. Only work whose model is `local` runs there, and
+  nothing else ever does. Its row shows how much memory the model holds and when it unloads;
+  local accounts list after your Claude logins.
+- `A` on a draft picks the account it runs on, instead of its project's route. Agents can pass
+  `hopper draft new --account`.
+- Any account can name its colour in `accounts.toml` (`color = "green"`).
+
 ## 0.6.0 (2026-10-21)
 
 - `o` on a draft, or on a routine's prompt, writes it in your own editor ($VISUAL or $EDITOR,
