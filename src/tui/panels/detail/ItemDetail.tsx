@@ -56,7 +56,10 @@ export function DraftDetail({
       {draft?.proposed ? row('from', draft.proposed) : null}
       {draft ? row('id', draft.id) : null}
       <Text> </Text>
-      <Keys keys={draftKeys({ ...draft, defaults })} width={width} />
+      <Keys
+        keys={draftKeys({ ...draft, account: item.account, picked: !!draft?.account, defaults })}
+        width={width}
+      />
       <Text> </Text>
       <Heading label="text · ⏎ to keep writing" width={width} />
       {lines.map((l, i) => (

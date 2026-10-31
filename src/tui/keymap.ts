@@ -164,7 +164,14 @@ const QUEUE_HINT = {
   night: 'up next: off',
 }
 
+// The account a draft runs on: its name when picked by hand, else what its route picks, so said.
+export function accountText(account: string | undefined, picked: boolean | undefined): string {
+  if (picked && account) return account
+  return account && account !== '–' ? `${account} (by route)` : 'by route'
+}
+
 // A draft's row also carries the account it would run on, and whether that was picked by hand.
+// Pass both: the saved draft knows only the pick, the list's row only where it runs.
 export function draftKeys(
   e: Choices & {
     queue?: string | undefined
@@ -184,10 +191,7 @@ export function draftKeys(
     ['E', `effort: ${choiceText(e.effort, e.defaults.effort)}`],
     // Queued work always runs in a worktree, so the choice only counts when I start it.
     ['W', `worktree: ${e.queue ? 'yes (up next)' : choiceText(e.worktree, e.defaults.worktree)}`],
-    [
-      'A',
-      `account: ${e.picked ? e.account : e.account && e.account !== '–' ? `${e.account} (by route)` : 'by route'}`,
-    ],
+    ['A', `account: ${accountText(e.account, e.picked)}`],
     ['w', 'move to a project'],
     ['r', 'make it a routine'],
     ['o', 'write it in $EDITOR'],
