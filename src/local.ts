@@ -15,6 +15,9 @@ export type LocalStatus = {
   model: string
   // Why it can't run work, when it can't.
   reason?: string
+  // The server isn't running: the usual state, since it's only started when wanted, so shown
+  // quietly rather than as a problem.
+  offline?: boolean
   // While the model is in memory: the window it was loaded with, how much memory it holds, and
   // when the server lets it go if nothing uses it.
   loaded?: { context: number; bytes: number; expiresAt: string | null }
@@ -80,7 +83,7 @@ export async function localStatus(local: Local, fetcher: Fetch = fetch): Promise
   try {
     tags = await getJson(fetcher, `${local.baseUrl}/api/tags`)
   } catch {
-    return { ...status, reason: `Ollama isn't answering at ${local.baseUrl}` }
+    return { ...status, reason: `Ollama isn't running at ${local.baseUrl}`, offline: true }
   }
   const names = (Array.isArray(tags['models']) ? tags['models'] : []).map((m) =>
     String((m as Record<string, unknown>)['name'] ?? ''),

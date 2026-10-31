@@ -43,8 +43,10 @@ function LocalDetail({ account, local }: { account: AccountView; local: Local })
       <Text> </Text>
       {row(
         'model',
-        status?.reason ?? `${local.model} · ready`,
-        status && !status.reason ? T.text : T.waiting,
+        status?.offline
+          ? `${local.model} · disconnected: start Ollama to use it`
+          : (status?.reason ?? `${local.model} · ready`),
+        status?.offline ? T.dim : status && !status.reason ? T.text : T.waiting,
       )}
       {row('server', local.baseUrl)}
       {row('config', a.configDir ? tildify(a.configDir) : '')}

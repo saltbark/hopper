@@ -74,7 +74,7 @@ describe('a local account’s status', () => {
     expect(s.reason).toBeUndefined()
   })
   it('says why not when the server is down or lacks the model, and is then signed out', async () => {
-    expect((await localStatus(local, down)).reason).toMatch(/isn't answering/)
+    expect(await localStatus(local, down)).toMatchObject({ offline: true, reason: /isn't running/ })
     const none = server({ '/api/tags': { models: [{ name: 'other' }] } })
     expect((await localStatus(local, none)).reason).toMatch(/no tern:27b/)
     const account = { name: 'lo', label: 'lo', configDir: null, local }

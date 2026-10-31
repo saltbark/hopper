@@ -130,8 +130,15 @@ export const AccountRow = memo(function AccountRow(props: {
   }
   const u = a.usage
   const local = a.auth?.local
+  // A server that isn't running is how a local account usually is: an empty bar, quietly. Only
+  // a server that answers but can't run the model is worth yellow.
   const rest = local ? (
-    local.reason ? (
+    local.offline ? (
+      <>
+        {memory(undefined)}
+        <Text color={T.faint}> disconnected</Text>
+      </>
+    ) : local.reason ? (
       <Text color={T.waiting}>{local.reason}</Text>
     ) : (
       <>

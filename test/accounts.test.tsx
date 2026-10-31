@@ -113,6 +113,30 @@ describe('AccountRow', () => {
     expect(under).toContain('unloads in 4m')
     expect(local(false)).toMatch(/–\s+local\n.*loads on first use/)
   })
+
+  it('shows a local server that is off quietly, as disconnected', () => {
+    const frame = render(
+      <AccountRow
+        a={account('lo', {
+          usage: null,
+          auth: {
+            loggedIn: false,
+            local: { model: 'tern', reason: "Ollama isn't running", offline: true },
+          },
+        })}
+        width={60}
+        nameW={4}
+        color="white"
+        selected={false}
+        hovered={false}
+        focused={false}
+        now={now}
+        resets
+      />,
+    ).lastFrame()!
+    expect(frame).toMatch(/─+\s+–\s+disconnected/)
+    expect(frame).not.toContain('Ollama')
+  })
 })
 
 describe('unloadText', () => {
