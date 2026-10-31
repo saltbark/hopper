@@ -26,6 +26,7 @@ import {
   suggestName,
   writeDefaultConfig,
   isLocal,
+  LOCAL_MODEL,
   type Config,
 } from './config.ts'
 import { ago, resetShort, when } from './format.ts'
@@ -160,8 +161,12 @@ async function status(json: boolean) {
       `${a.account.name}  ${a.account.label} · ${a.account.configDir ? tildify(a.account.configDir) : 'default login'}`,
     )
     console.log(`    ${a.authError ? 'auth error: ' + a.authError : who}`)
-    console.log(`    runs: ${runs || 'no prefixes yet'}`)
-    if (a.usage) {
+    if (isLocal(a.account)) {
+      console.log(`    runs: work whose model is ${LOCAL_MODEL}${runs ? ', under ' + runs : ''}`)
+    } else console.log(`    runs: ${runs || 'no prefixes yet'}`)
+    if (isLocal(a.account)) {
+      // No limits to show.
+    } else if (a.usage) {
       const w = (label: string, x: typeof a.usage.fiveHour) =>
         x ? `${label} ${x.pct}% (${resetShort(x.resetsAt) || 'no reset time'})` : `${label} –`
       console.log(
