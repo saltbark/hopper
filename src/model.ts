@@ -6,7 +6,7 @@ import {
   type Session,
   type Usage,
 } from './claude.ts'
-import { chosen, defaultsFor, type Account, type Config } from './config.ts'
+import { chosen, defaultsFor, isLocal, type Account, type Config } from './config.ts'
 import { loadConversations } from './conversations.ts'
 import { inWindow, readiness } from './dispatch.ts'
 import { loadDone } from './done.ts'
@@ -217,7 +217,9 @@ export async function gather(
       const prev = previous?.accounts.find((a) => a.account.name === account.name)
       let auth = prev?.auth ?? null
       let authError = prev?.authError ?? null
-      if (withAuth || !prev) {
+      // A local account's "auth" is its server answering: one HTTP call, asked every poll so
+      // work stops going to it as soon as it's down.
+      if (withAuth || !prev || isLocal(account)) {
         try {
           auth = await fetchAuth(account)
           authError = null
@@ -246,12 +248,21 @@ export async function gather(
     ...a,
     counts: { queue: 0, needs: 0, done: 0, live: 0 },
   }))
-  const draftSessions = drafts.map((d) =>
-    draftSession(d, projects, pickAccount(config, d.project, states).account?.name ?? '–'),
-  )
+  // Which account a draft or routine would run on depends on its model as well as its project.
+  const runsOn = (key: string, own: { model?: string | undefined }) => {
+    const { model } = chosen(
+      own,
+      defaultsFor(
+        config,
+        projects.find((p) => p.key === key),
+      ),
+    )
+    return pickAccount(config, key, states, model).account?.name ?? '–'
+  }
+  const draftSessions = drafts.map((d) => draftSession(d, projects, runsOn(d.project, d)))
   const now = new Date()
   const routineSessions: Session[] = routines.map((r) => ({
-    account: pickAccount(config, r.project, states).account?.name ?? '–',
+    account: runsOn(r.project, r),
     id: null,
     sessionId: routineSessionId(r.name),
     kind: 'routine',

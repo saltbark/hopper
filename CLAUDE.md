@@ -13,6 +13,13 @@ where they are.
 - **Never set `CLAUDE_CONFIG_DIR` for the default login.** With it set to `~/.claude`, the
   existing login reads as logged out. The default login (`config_dir = "default"`) runs with the
   variable unset; every other login gets it set to its own directory. See `src/claude.ts`.
+- **A local account is Claude Code pointed at Ollama** (`provider = "ollama"`, `src/local.ts`).
+  Hopper writes the server, model and context window into the env block of that account's own
+  `settings.json`, so anything run with its config dir uses them, `claude` by hand included.
+  Its "signed in" is the server answering with the model, asked every poll, never
+  `claude auth status`; it has no usage. Routing goes by model: only `model = "local"` runs on
+  it, and nothing else ever does, so Opus work can't fall back to it. It gets `--model` with
+  its own model, no `--effort`, no `--remote-control` (no login), and dontAsk when unattended.
 - **`claude agents --json` has two shapes.** Background sessions carry `id` and `state`;
   interactive ones carry `pid` and `status`. Parse both.
 - **Usage is a cache.** `cachedUsageUtilization` in the login's `.claude.json` can be days old.

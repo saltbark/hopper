@@ -5,7 +5,10 @@ import { runInteractive, UntrustedError } from '../claude.ts'
 import { dispatchOnce } from '../commands.ts'
 import {
   addAccount,
+  chosen,
   ConfigError,
+  defaultsFor,
+  isLocal,
   parsePrefixList,
   relabel,
   removeAccount,
@@ -320,7 +323,8 @@ export function makeActions(ctx: AppCtx) {
     if (!text) return setMessage('Draft is empty.')
     const project = snap?.projects.find((p) => p.key === e.project)
     if (!project) return setMessage(`No project ${e.project}.`)
-    const pick = pickAccount(config, project.key, snap?.accounts ?? [])
+    const { model } = chosen(e, defaultsFor(config, project))
+    const pick = pickAccount(config, project.key, snap?.accounts ?? [], model)
     if (!pick.account) return setMessage(`Can't start: ${pick.reason}.`)
     const account = pick.account
     const draft = toDraft(e, now())
@@ -345,7 +349,9 @@ export function makeActions(ctx: AppCtx) {
   const trust = async () => {
     const u = ctx.untrusted
     if (!u) return
-    const pick = pickAccount(config, u.draft.project, snap?.accounts ?? [])
+    const project = snap?.projects.find((p) => p.key === u.draft.project)
+    const { model } = chosen(u.draft, defaultsFor(config, project))
+    const pick = pickAccount(config, u.draft.project, snap?.accounts ?? [], model)
     if (!pick.account) return setMessage(`Can't start: ${pick.reason}.`)
     const account = pick.account
     await ctx.suspendTerminal(async () => {
@@ -544,6 +550,16 @@ export function makeActions(ctx: AppCtx) {
   }
 
   const signIn = async (account: Account) => {
+    // A local account has nothing to sign in to: ask its server again and say what it said.
+    if (isLocal(account)) {
+      await refresh(true)
+      const auth = ctx.snapRef.current?.accounts.find((s) => s.account.name === account.name)?.auth
+      return setMessage(
+        auth?.loggedIn
+          ? `${account.name} is ready: ${account.local.model}`
+          : (auth?.local?.reason ?? `${account.name} isn't ready`),
+      )
+    }
     await ctx.suspendTerminal(async () => {
       process.stdout.write(MOUSE_OFF)
       if (account.configDir) await mkdir(account.configDir, { recursive: true })

@@ -8,7 +8,7 @@ import { loadAwake, saveAwake, type KeepAwake } from '../awake.ts'
 import { DEFAULT_SOUND, newlyWaiting, type Chime } from '../chime.ts'
 import { refreshUsage, usageLines } from '../claude.ts'
 import { dispatchOnce } from '../commands.ts'
-import type { Account, Config } from '../config.ts'
+import { isLocal, type Account, type Config } from '../config.ts'
 import { saveDraft } from '../drafts.ts'
 import { readItems, type OpenItem } from '../items.ts'
 import { waitsOnMe, type gather, type Item, type Snapshot } from '../model.ts'
@@ -138,6 +138,8 @@ export function useUsage(
     const check = () => {
       for (const st of snapRef.current?.accounts ?? []) {
         const old = !st.usage || now() - st.usage.fetchedAt > USAGE_MAX_AGE_MS
+        // A local account has no usage to ask for.
+        if (isLocal(st.account)) continue
         if (st.auth?.loggedIn && (old || !answered.current[st.account.name]))
           void askUsage(st.account)
       }

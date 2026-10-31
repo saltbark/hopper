@@ -25,6 +25,7 @@ import {
   describePrefix,
   suggestName,
   writeDefaultConfig,
+  isLocal,
   type Config,
 } from './config.ts'
 import { ago, resetShort, when } from './format.ts'
@@ -120,6 +121,15 @@ async function login(name: string | undefined) {
     console.error(`Name an account: ${config.accounts.map((a) => a.name).join(', ')}`)
     process.exit(1)
   }
+  // A local account has no login: set its folder up, ask its server, say what it said.
+  if (isLocal(account)) {
+    const auth = await fetchAuth(account)
+    console.log(
+      `${account.name} (${account.label}) · ${tildify(account.configDir ?? '')} · ${account.local.baseUrl}`,
+    )
+    console.log(auth.loggedIn ? `ready: ${account.local.model}` : auth.local?.reason)
+    process.exit(auth.loggedIn ? 0 : 1)
+  }
   if (account.configDir) await mkdir(account.configDir, { recursive: true })
   console.log(
     `Signing in ${account.name} (${account.label}) · ${account.configDir ? tildify(account.configDir) : 'default login'}\n`,
@@ -138,9 +148,11 @@ async function status(json: boolean) {
   }
   console.log(`config  ${tildify(config.path)}\nhome    ${tildify(config.home)}\n`)
   for (const a of snap.accounts) {
-    const who = a.auth?.loggedIn
-      ? [a.auth.email, a.auth.orgName, a.auth.subscriptionType].filter(Boolean).join(' · ')
-      : 'not signed in'
+    const who = a.auth?.local
+      ? (a.auth.local.reason ?? `local · ${a.auth.local.model}`)
+      : a.auth?.loggedIn
+        ? [a.auth.email, a.auth.orgName, a.auth.subscriptionType].filter(Boolean).join(' · ')
+        : 'not signed in'
     const runs = prefixesOf(config, a.account.name)
       .map((r) => describePrefix(r.prefix) + (r.rank ? ` (choice ${r.rank + 1})` : ''))
       .join(', ')

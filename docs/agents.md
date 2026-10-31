@@ -27,7 +27,7 @@ app; queued drafts start on their own (below).
 Make a draft with:
 
 ```
-hopper draft new --project <key> [--model haiku|sonnet|opus|opus[1m]|fable] [--effort low|medium|high] \
+hopper draft new --project <key> [--model haiku|sonnet|opus|opus[1m]|fable|local] [--effort low|medium|high] \
   [--done "<what finished looks like>"] [--after <draft id>[,<id>…]] [--queue now|night] \
   [--proposed <who>] "<the first message>"
 ```

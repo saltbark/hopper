@@ -146,6 +146,26 @@ name, its config directory, then Claude's own sign-in. `e` sets the key prefixes
 one that is signed in and has room. `1` makes an account first choice. The default account (`*`)
 runs anything no prefix names.
 
+An account can also be a model on your own machine, served by Ollama and driven by Claude Code.
+Add it to `accounts.toml` by hand:
+
+```toml
+[[account]]
+name = "lo"
+provider = "ollama"
+label = "Local"
+config_dir = "~/.claude-lo"
+color = "green"
+model = "tern:27b"          # as `ollama list` names it
+# base_url = "http://localhost:11434"
+# context = 131072          # the window the server loads the model with
+# concurrency = 1           # unattended runs at once
+```
+
+Hopper writes the folder's Claude Code settings. Only work whose model is `local` (`m` on a
+draft, or `model = "local"` on a routine or project) runs there, and nothing else ever does. Start
+Ollama yourself; Hopper only asks it whether the model is there. `color` works on any account.
+
 Each usage bar has a tick at how far through its window you are. A fill short of the tick means
 you're using less than an even pace. When there's room, a second line says when each limit resets.
 

@@ -2,14 +2,14 @@ import { appendFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { readUsage, refreshUsage, UntrustedError, type Usage } from './claude.ts'
-import { parseWindow, type Account, type Config } from './config.ts'
+import { chosen, defaultsFor, isLocal, parseWindow, type Account, type Config } from './config.ts'
 import { loadConversations, type ConversationMeta } from './conversations.ts'
 import type { Draft } from './drafts.ts'
 import { readIfThere, tryLock, writeJson } from './fsutil.ts'
 import type { Project } from './home.ts'
 import type { AccountState, Item } from './model.ts'
 import { readResult } from './routines/index.ts'
-import { hasRoom, routeFor } from './routing.ts'
+import { accountsFor, hasRoom } from './routing.ts'
 import { startDraft } from './start.ts'
 
 // Up next: drafts queued to start on their own. The open app (autopilot.ts), `g`, and
@@ -182,20 +182,24 @@ export async function dispatch(opts: {
         wait(`no project ${d.project}`)
         continue
       }
-      const route = routeFor(config, d.project)
-      const only = !route && config.accounts.length === 1 ? config.accounts[0] : undefined
-      const names = route?.accounts ?? (only ? [only.name] : [])
+      const { model } = chosen(d, defaultsFor(config, project))
+      const { names, none } = accountsFor(config, d.project, model)
       if (!names.length) {
-        wait(`no account runs ${d.project}`)
+        wait(none)
         continue
       }
       // The first account on the route that is signed in, has room, isn't already running its
-      // share, and is inside the reserve (and, at night, the night's budget).
+      // share, and is inside the reserve (and, at night, the night's budget). A local account
+      // has no usage, so only its own concurrency holds it back.
       const refusal = (a: Account): string | null => {
         const pct = week(a.name)
         const from = tonight?.start[a.name]
-        if (!hasRoom(states.get(a.name))) return `${a.name} full or signed out`
-        if ((running.get(a.name) ?? 0) >= maxRunning) return `${a.name} already runs ${maxRunning}`
+        const most = a.local?.concurrency ?? maxRunning
+        if (!hasRoom(states.get(a.name)))
+          return isLocal(a)
+            ? (states.get(a.name)?.auth?.local?.reason ?? `${a.name}'s model isn't running`)
+            : `${a.name} full or signed out`
+        if ((running.get(a.name) ?? 0) >= most) return `${a.name} already runs ${most}`
         if (pct !== undefined && pct >= 100 - reserve)
           return `${a.name} is into the reserve (${pct}% of the week)`
         if (night && pct !== undefined && from !== undefined && pct - from >= budget)

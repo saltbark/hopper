@@ -323,6 +323,16 @@ describe('unattended permissions', () => {
     expect(haiku.allowedTools).toContain('Bash(git log:*)')
     expect(haiku.allowedTools).not.toContain('Bash')
   })
+  it('are dontAsk on a local account, whatever the model: auto mode is Claude judging', () => {
+    const lo = {
+      name: 'lo',
+      label: 'lo',
+      configDir: '/d/lo',
+      provider: 'ollama' as const,
+      local: { baseUrl: 'http://x', model: 'tern', context: 131072, concurrency: 1 },
+    }
+    expect(unattendedPermissions('tern', ['/h/r'], lo).permissionMode).toBe('dontAsk')
+  })
 })
 
 describe('routine checks', () => {

@@ -3,13 +3,19 @@ import { createHash } from 'node:crypto'
 import { appendFile, mkdir, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { limitedNote, startBackground, unattendedPermissions, type Session } from '../claude.ts'
-import { chosen, defaultsFor, type Config } from '../config.ts'
+import {
+  limitedNote,
+  runModel,
+  startBackground,
+  unattendedPermissions,
+  type Session,
+} from '../claude.ts'
+import { chosen, defaultsFor, isLocal, LOCAL_MODEL, type Config } from '../config.ts'
 import { recordConversation } from '../conversations.ts'
 import { readIfThere } from '../fsutil.ts'
 import { extraDirs, type Project } from '../home.ts'
 import type { AccountState } from '../model.ts'
-import { hasRoom, routeFor } from '../routing.ts'
+import { accountsFor, hasRoom } from '../routing.ts'
 import { guidePath } from '../start.ts'
 import { routinesDir, type Routine } from './files.ts'
 
@@ -230,26 +236,28 @@ export async function runRoutine(opts: {
   }
 
   // Skip rather than start on an account that is near its limit.
-  const route = routeFor(config, r.project)
-  const only = !route && config.accounts.length === 1 ? config.accounts[0] : undefined
-  const names = route?.accounts ?? (only ? [only.name] : [])
+  const { model: picked, effort: pickedEffort } = chosen(r, defaultsFor(config, project))
+  const { names, none } = accountsFor(config, r.project, picked)
   const account = names
     .map((n) => config.accounts.find((a) => a.name === n))
     .find((a) => a && hasRoom(accounts.find((s) => s.account.name === a.name)))
   if (!account)
     return skip(
-      names.length
-        ? `every account for ${r.project} is full or signed out`
-        : `no account runs ${r.project}`,
+      !names.length
+        ? none
+        : picked === LOCAL_MODEL
+          ? 'the local model is not running'
+          : `every account for ${r.project} is full or signed out`,
     )
 
   const result = resultPath(home, r.name, at)
   await mkdir(join(routinesDir(home), r.name, 'runs'), { recursive: true })
-  const { model, effort } = chosen(r, defaultsFor(config, project))
+  const model = runModel(account, picked)
+  const effort = isLocal(account) ? undefined : pickedEffort
   const when = at.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   const name = `↻ ${r.name} · ${when} ${at.toTimeString().slice(0, 5)}`
   const folder = join(routinesDir(home), r.name)
-  const perms = unattendedPermissions(model, [folder])
+  const perms = unattendedPermissions(model, [folder], account)
   const id = await startBackground(account, {
     cwd: project.runIn,
     name,

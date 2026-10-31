@@ -1,8 +1,8 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { limitedNote, startBackground, unattendedPermissions } from './claude.ts'
-import { chosen, defaultsFor, type Account, type Config } from './config.ts'
+import { limitedNote, runModel, startBackground, unattendedPermissions } from './claude.ts'
+import { chosen, defaultsFor, isLocal, type Account, type Config } from './config.ts'
 import { recordConversation } from './conversations.ts'
 import { deleteDraft, type Draft } from './drafts.ts'
 import { extraDirs, type Project } from './home.ts'
@@ -39,7 +39,7 @@ export async function startDraft(opts: {
   if (result) await mkdir(resultsDir(home), { recursive: true })
   const { model, effort, ...picked } = chosen(d, defaultsFor(config, project))
   const worktree = unattended || picked.worktree === 'yes'
-  const perms = result ? unattendedPermissions(model, [resultsDir(home)]) : undefined
+  const perms = result ? unattendedPermissions(model, [resultsDir(home)], account) : undefined
   const systemPrompt = [
     hopperPrompt(project, { unattended, guide: guidePath(home) }),
     result
@@ -70,8 +70,8 @@ export async function startDraft(opts: {
     project: project.key,
     startedAt: opts.now ?? Date.now(),
     draft: d.id,
-    model,
-    effort,
+    model: runModel(account, model),
+    ...(isLocal(account) ? {} : { effort }),
     worktree,
     ...(result ? { unattended: true, result } : {}),
     ...(d.depth ? { depth: d.depth } : {}),

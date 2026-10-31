@@ -3,7 +3,8 @@ import { access, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-import type { Account } from './config.ts'
+import { isLocal, type Account } from './config.ts'
+import { localAuth, writeLocalSettings, type LocalStatus } from './local.ts'
 
 export type Session = {
   account: string
@@ -26,6 +27,8 @@ export type Auth = {
   orgName?: string
   subscriptionType?: string
   configDirectory?: string
+  // A local account's server, in place of a login (see local.ts).
+  local?: LocalStatus
 }
 
 export type Window = { pct: number; resetsAt: string | null }
@@ -146,6 +149,7 @@ export function parseUsage(claudeJson: unknown): Usage | null {
 }
 
 export async function fetchAuth(account: Account): Promise<Auth> {
+  if (isLocal(account)) return localAuth(account)
   if (!(await isSetUp(account))) return { loggedIn: false }
   return parseAuth(JSON.parse(await run(account, ['auth', 'status'], { acceptFailure: true })))
 }
@@ -156,6 +160,8 @@ export async function fetchSessions(account: Account): Promise<Session[]> {
 }
 
 export async function readUsage(account: Account): Promise<Usage | null> {
+  // A local model has no limits.
+  if (isLocal(account)) return null
   try {
     return parseUsage(JSON.parse(await readFile(claudeJsonPath(account), 'utf8')))
   } catch {
@@ -198,15 +204,18 @@ export function parseBackgroundId(stdout: string): string | null {
 // rather than ask. Some models have no auto mode (Claude Code 2.1.284 says "auto mode
 // unavailable for this model" for Haiku and falls back to asking), so those get 'dontAsk':
 // anything not allowed here is denied, never asked. They may read, search, look at git history
-// and use Hopper's own commands, and write only in `writable`.
+// and use Hopper's own commands, and write only in `writable`. A local model gets the same: auto
+// mode's safety checks are Claude's, and a local model isn't Claude.
 export type UnattendedMode = 'auto' | 'dontAsk'
 const NO_AUTO = new Set(['haiku'])
 
 export function unattendedPermissions(
   model: string | undefined,
   writable: string[],
+  account?: Account,
 ): { permissionMode: UnattendedMode; allowedTools?: string[] } {
-  if (!model || !NO_AUTO.has(model)) return { permissionMode: 'auto' }
+  const auto = !(account && isLocal(account)) && !(model && NO_AUTO.has(model))
+  if (auto) return { permissionMode: 'auto' }
   const read = ['log', 'diff', 'show', 'status', 'branch', 'for-each-ref'].map(
     (c) => `Bash(git ${c}:*)`,
   )
@@ -230,8 +239,13 @@ export function unattendedPermissions(
 export const limitedNote = (writable: string[]) =>
   `This run's model has no auto mode, so its permissions are limited: it may read and search files, run git log, diff, show, status and branch, ls, and hopper list and hopper draft new, and write only under ${writable.join(', ')}. Anything else is denied without asking; don't retry it, say in the result what you couldn't do.`
 
+// The model a conversation on `account` actually runs: a local account runs its own, whatever
+// was picked (only "local" is routed to it), and a login runs what was picked.
+export const runModel = (account: Account, model: string | undefined) =>
+  isLocal(account) ? account.local.model : model
+
 // Starts a conversation as a Claude Code background session and returns its short id.
-export function startBackground(
+export async function startBackground(
   account: Account,
   opts: {
     cwd: string
@@ -249,14 +263,21 @@ export function startBackground(
     allowedTools?: string[] | undefined
   },
 ): Promise<string> {
+  const local = isLocal(account) ? account.local : null
+  // Its folder's settings are what point it at the server; make sure they're there.
+  if (local && account.configDir) await writeLocalSettings(account.configDir, local)
+  const args = ['--bg', '--name', opts.name]
   // Remote Control puts the session in the Claude app too, so it can be answered from the phone.
-  const args = ['--bg', '--name', opts.name, '--remote-control', opts.name]
+  // It needs a Claude login, which a local account hasn't got.
+  if (!local) args.push('--remote-control', opts.name)
   // --allowedTools takes every value up to the next flag, so one always follows it.
   if (opts.allowedTools?.length) args.push('--allowedTools', ...opts.allowedTools)
   if (opts.permissionMode) args.push('--permission-mode', opts.permissionMode)
   for (const d of opts.addDirs ?? []) args.push('--add-dir', d)
-  if (opts.model) args.push('--model', opts.model)
-  if (opts.effort) args.push('--effort', opts.effort)
+  const model = runModel(account, opts.model)
+  if (model) args.push('--model', model)
+  // Effort is a Claude setting; a local model has none.
+  if (opts.effort && !local) args.push('--effort', opts.effort)
   // Left off, a background session must enter a worktree before Claude lets it edit.
   if (opts.worktree !== undefined) {
     const bgIsolation = opts.worktree ? 'worktree' : 'none'
@@ -288,6 +309,7 @@ export function startBackground(
 // and refreshes the cached numbers readUsage() reads, so Hopper never touches the login token.
 // Resolves with Claude's own summary text.
 export function refreshUsage(account: Account, cwd: string): Promise<string> {
+  if (isLocal(account)) return Promise.resolve('')
   const args = ['-p', '/usage', '--output-format', 'json', '--no-session-persistence']
   return new Promise((resolve, reject) => {
     execFile(

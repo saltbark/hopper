@@ -16,6 +16,9 @@ import { Rail, windowed } from './primitives.tsx'
 const barWidth = (width: number, nameW: number) =>
   Math.max(3, Math.min(16, Math.floor((width - 4 - nameW - 11) / 2)))
 
+// A local model's memory, in GB to one place.
+export const sizeText = (bytes: number) => `${(bytes / 1e9).toFixed(1)} GB`
+
 // How long each limit's window is, to place the pace tick.
 const WINDOW_MS = { session: 5 * 3600_000, week: 7 * 24 * 3600_000 }
 
@@ -101,7 +104,17 @@ export const AccountRow = memo(function AccountRow(props: {
     )
   }
   const u = a.usage
-  const rest = a.authError ? (
+  // A local account has no limits: its model, or why it can't run, in their place.
+  const local = a.auth?.local
+  const rest = local ? (
+    local.reason ? (
+      <Text color={T.waiting}>{local.reason}</Text>
+    ) : (
+      <Text color={T.dim}>
+        local · <Text color={T.text}>{local.model}</Text>
+      </Text>
+    )
+  ) : a.authError ? (
     <Text color={T.blocked}>{a.authError}</Text>
   ) : !a.auth ? (
     <Text color={T.faint}>…</Text>
@@ -124,8 +137,15 @@ export const AccountRow = memo(function AccountRow(props: {
     const r = x ? resetShort(x.resetsAt, now) : ''
     return r ? `↻ ${r.replace(/^in /, '')}` : ''
   }
-  const second =
-    a.auth?.loggedIn && u ? cell(resetOf(u.fiveHour), barW + 5) + resetOf(u.sevenDay) : ''
+  const second = local
+    ? local.reason
+      ? ''
+      : local.loaded
+        ? `in memory · ${sizeText(local.loaded.bytes)}`
+        : 'loads on first use'
+    : a.auth?.loggedIn && u
+      ? cell(resetOf(u.fiveHour), barW + 5) + resetOf(u.sevenDay)
+      : ''
   return (
     <>
       <Text wrap="truncate-end">

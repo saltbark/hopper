@@ -188,8 +188,40 @@ describe('providers', () => {
     const c = parseAccounts('[[account]]\nname = "bh"\n', '/a.toml')
     expect(serializeAccounts({ ...c })).toContain('provider = "claude-code"')
     expect(() =>
-      parseAccounts('[[account]]\nname = "local"\nprovider = "ollama"\n', '/a.toml'),
-    ).toThrow(/knows claude-code/)
+      parseAccounts('[[account]]\nname = "x"\nprovider = "gemini"\n', '/a.toml'),
+    ).toThrow(/knows claude-code, ollama/)
+  })
+  it('reads a local account with its defaults, and writes it back the same', () => {
+    const text = [
+      '[[account]]',
+      'name = "lo"',
+      'provider = "ollama"',
+      'config_dir = "/d/lo"',
+      'color = "green"',
+      'model = "tern:27b"',
+    ].join('\n')
+    const c = parseAccounts(text, '/a.toml')
+    expect(c.accounts[0]).toEqual({
+      name: 'lo',
+      label: 'lo',
+      configDir: '/d/lo',
+      provider: 'ollama',
+      color: 'green',
+      local: {
+        baseUrl: 'http://localhost:11434',
+        model: 'tern:27b',
+        context: 131072,
+        concurrency: 1,
+      },
+    })
+    expect(parseAccounts(serializeAccounts({ ...c }), '/a.toml')).toEqual(c)
+  })
+  it('refuses a local account without its own folder or a model, and an unknown colour', () => {
+    const bad = (lines: string[]) => () =>
+      parseAccounts(['[[account]]', 'name = "lo"', ...lines].join('\n'), '/a.toml')
+    expect(bad(['provider = "ollama"', 'model = "m"'])).toThrow(/config_dir of its own/)
+    expect(bad(['provider = "ollama"', 'config_dir = "/d"'])).toThrow(/model's name/)
+    expect(bad(['color = "mauve"'])).toThrow(/color is one of/)
   })
 })
 

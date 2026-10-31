@@ -1,9 +1,11 @@
 import { Text } from 'ink'
 
+import { LOCAL_MODEL, type Local } from '../../../config.ts'
 import { ago, resetShort } from '../../../format.ts'
 import type { AccountState } from '../../../model.ts'
 import { tildify } from '../../../paths.ts'
 import { T } from '../../theme.ts'
+import { sizeText } from '../Accounts.tsx'
 import { Heading, Keys } from '../primitives.tsx'
 import { row, title } from './parts.tsx'
 
@@ -28,9 +30,58 @@ const routeWords = (routes: AccountView['routes']) =>
         .join(', ')
     : 'nothing yet: e to add prefixes'
 
+// A local account: its server and model where a login shows its plan and limits.
+function LocalDetail({ account, local }: { account: AccountView; local: Local }) {
+  const { state } = account
+  const a = state.account
+  const status = state.auth?.local
+  const c = state.counts
+  const loaded = status?.loaded
+  return (
+    <>
+      {title(`${a.name} · ${a.label}`)}
+      <Text> </Text>
+      {row(
+        'model',
+        status?.reason ?? `${local.model} · ready`,
+        status && !status.reason ? T.text : T.waiting,
+      )}
+      {row('server', local.baseUrl)}
+      {row('config', a.configDir ? tildify(a.configDir) : '')}
+      {row('runs', `work whose model is ${LOCAL_MODEL}, ${local.concurrency} at a time unattended`)}
+      {row(
+        'memory',
+        loaded
+          ? `${sizeText(loaded.bytes)} · loaded with a ${loaded.context.toLocaleString()}-token window`
+          : 'not loaded; the server loads it on first use',
+      )}
+      {loaded && loaded.context && loaded.context < local.context
+        ? row(
+            'window',
+            `the server has ${loaded.context.toLocaleString()} tokens, but Claude Code is told ${local.context.toLocaleString()}: raise the server's or lower context in accounts.toml`,
+            T.waiting,
+          )
+        : null}
+      {row(
+        'activity',
+        `${c.queue} running · ${c.needs} waiting on you · ${c.done} archived · ${c.live} open terminals`,
+      )}
+      <Text> </Text>
+      <Keys
+        keys={[
+          ['⏎', 'ask the server again'],
+          ['r', 'rename'],
+          ['d', 'remove'],
+        ]}
+      />
+    </>
+  )
+}
+
 export function AccountDetail({ account, width }: { account: AccountView; width: number }) {
   const { state, routes, now } = account
   const a = state.account
+  if (a.local) return <LocalDetail account={account} local={a.local} />
   const u = state.usage
   const resets = [
     u?.fiveHour?.resetsAt ? `session ${resetShort(u.fiveHour.resetsAt, now)}` : null,

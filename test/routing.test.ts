@@ -8,7 +8,7 @@ import {
   type Config,
 } from '../src/config.ts'
 import type { AccountState } from '../src/model.ts'
-import { hasRoom, pickAccount, routeFor } from '../src/routing.ts'
+import { accountsFor, hasRoom, pickAccount, routeFor } from '../src/routing.ts'
 
 let config: Config = {
   path: '',
@@ -91,6 +91,47 @@ describe('pickAccount', () => {
     const none = { ...config, routes: [] }
     expect(pickAccount(none, 'bh/atlas', []).account).toBeUndefined()
     expect(pickAccount(config, 'pm/ledger', [state('pm', false)]).reason).toMatch(/signed in/)
+  })
+})
+
+describe('a local account', () => {
+  const lo = {
+    name: 'lo',
+    label: 'lo',
+    configDir: '/d/lo',
+    provider: 'ollama' as const,
+    local: { baseUrl: 'http://x', model: 'tern', context: 131072, concurrency: 1 },
+  }
+  const withLocal = addAccount(config, lo)
+  const st = (name: string, loggedIn: boolean, reason?: string): AccountState => ({
+    ...state(name === 'lo' ? 'bh' : name, loggedIn),
+    account: withLocal.accounts.find((a) => a.name === name)!,
+    auth: {
+      loggedIn,
+      ...(name === 'lo' ? { local: { model: 'tern', ...(reason ? { reason } : {}) } } : {}),
+    },
+  })
+  it('runs only work whose model is local, and never takes a login’s overflow', () => {
+    const states = [st('bh', true), st('bh2', true), st('lo', true)]
+    expect(pickAccount(withLocal, 'bh/atlas', states, 'local').account?.name).toBe('lo')
+    expect(pickAccount(withLocal, 'bh/atlas', states, 'opus').account?.name).toBe('bh')
+    const full = [{ ...st('bh', false) }, st('bh2', false), st('lo', true)]
+    expect(pickAccount(withLocal, 'bh/atlas', full, 'opus').account).toBeUndefined()
+  })
+  it('says why when its server is down, and when there is none', () => {
+    const p = pickAccount(
+      withLocal,
+      'bh/atlas',
+      [st('lo', false, 'Ollama isn’t answering')],
+      'local',
+    )
+    expect(p.account).toBeUndefined()
+    expect(p.reason).toMatch(/isn’t answering/)
+    expect(pickAccount(config, 'bh/atlas', [], 'local').reason).toMatch(/no local account/)
+  })
+  it('lists only local accounts for local work, and only logins for the rest', () => {
+    expect(accountsFor(withLocal, 'pm/ledger', 'local').names).toEqual(['lo'])
+    expect(accountsFor(withLocal, 'pm/ledger', 'sonnet').names).toEqual(['pm'])
   })
 })
 

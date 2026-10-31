@@ -45,8 +45,9 @@ export const recordConversation = (home: string, id: string, meta: ConversationM
     await writeJson(file(home), all)
   })
 
-// The models and efforts a draft cycles through; undefined means Claude's own default.
-export const MODELS = [undefined, 'haiku', 'sonnet', 'opus', 'opus[1m]', 'fable'] as const
+// The models and efforts a draft cycles through; undefined means the default. "local" runs it
+// on a local account, on whichever model that account serves (see routing.ts).
+export const MODELS = [undefined, 'haiku', 'sonnet', 'opus', 'opus[1m]', 'fable', 'local'] as const
 export const EFFORTS = [undefined, 'low', 'medium', 'high'] as const
 export const WORKTREE_CHOICES = [undefined, 'no', 'yes'] as const
 

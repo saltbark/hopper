@@ -35,8 +35,9 @@ export const T = {
   link: '#7eaaea',
 } as const
 
-// Accounts are told apart by colour; soft enough to sit next to the state colours.
-export const ACCOUNT_COLORS = ['#7eaaea', '#c69ce8', '#6fcac3', '#e5c06a'] as const
+// Accounts are told apart by colour; soft enough to sit next to the state colours. In the order
+// of ACCOUNT_COLOR_NAMES (config.ts): blue, purple, teal, yellow, green.
+export const ACCOUNT_COLORS = ['#7eaaea', '#c69ce8', '#6fcac3', '#e5c06a', '#a5d37b'] as const
 
 // The 16 basic terminal colours, for the conversation drawn in the right panel. Claude sends
 // some of its colours as these rather than as hex, and xterm's stock values (#00cd00 and the

@@ -30,7 +30,8 @@ describe('conversation records', () => {
   })
   it('cycle models and efforts through Claude’s default', () => {
     expect(nextOf(MODELS, undefined)).toBe('haiku')
-    expect(nextOf(MODELS, 'fable')).toBeUndefined()
+    expect(nextOf(MODELS, 'fable')).toBe('local')
+    expect(nextOf(MODELS, 'local')).toBeUndefined()
     expect(nextOf(EFFORTS, 'high')).toBeUndefined()
   })
   it('projects can set the model new conversations start with', () => {

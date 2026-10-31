@@ -6,14 +6,45 @@ import { parse, stringify } from 'smol-toml'
 import { readIfThere, writeAtomic } from './fsutil.ts'
 import { configPath, expandHome, tildify } from './paths.ts'
 
-// Which tool an account drives. Only Claude Code exists today; the field is here so other agent
-// CLIs, other clouds and local models can join without rewriting accounts.toml.
-export const PROVIDERS = ['claude-code'] as const
+// Which tool an account drives. 'claude-code' is a Claude login. 'ollama' is Claude Code too, with
+// its own config folder pointed at a model served on this machine (see local.ts): no login, no
+// limits, and only work that asks for the local model runs on it (see routing.ts).
+export const PROVIDERS = ['claude-code', 'ollama'] as const
 export type Provider = (typeof PROVIDERS)[number]
 
+// How an account is told apart in the app. Unset, it takes the next of these that no account has
+// asked for, in account order.
+export const ACCOUNT_COLOR_NAMES = ['blue', 'purple', 'teal', 'yellow', 'green'] as const
+export type AccountColor = (typeof ACCOUNT_COLOR_NAMES)[number]
+
+// A model served locally: where, which, and how much of it Claude Code may use.
+export type Local = {
+  baseUrl: string
+  // The name the server knows the model by, passed as --model.
+  model: string
+  // The context window the server was set up with, in tokens; Claude Code compacts inside it.
+  context: number
+  // How many of Hopper's unattended conversations it runs at once: one model, one GPU.
+  concurrency: number
+}
+
+export const LOCAL_DEFAULTS = { baseUrl: 'http://localhost:11434', context: 131072, concurrency: 1 }
+
+// What a draft or routine picks to run on a local account rather than a Claude login.
+export const LOCAL_MODEL = 'local'
+
 // An account. For Claude Code, `configDir` null means the default login, which must run with
-// CLAUDE_CONFIG_DIR unset (see claude.ts).
-export type Account = { name: string; label: string; configDir: string | null; provider?: Provider }
+// CLAUDE_CONFIG_DIR unset (see claude.ts). A local account always has a folder of its own.
+export type Account = {
+  name: string
+  label: string
+  configDir: string | null
+  provider?: Provider
+  color?: AccountColor
+  local?: Local
+}
+
+export const isLocal = (a: Account): a is Account & { local: Local } => !!a.local
 
 // Work under `prefix` runs on the first of `accounts` that is signed in and has room.
 // The empty prefix matches every key.
@@ -124,6 +155,7 @@ home = "~/hopper"
 
 const ACCOUNTS_HEADER = `# Written by Hopper. Manage from the app (a, for Accounts), or edit by hand.
 # config_dir = "default" is the login Claude Code uses with CLAUDE_CONFIG_DIR unset.
+# provider = "ollama" is a model on this machine; only work whose model is "local" runs on it.
 # A route sends work under a prefix to the first of its accounts that is signed in and has room.
 
 `
@@ -294,6 +326,32 @@ export function setSetting(text: string, key: string, value: string | null): str
   return value === null ? text : text.replace(/\n*$/, '\n') + next
 }
 
+// A local account's server and model. Its own folder, never the default login's: the folder's
+// settings are what point Claude Code at the server.
+function parseLocal(a: Record<string, unknown>, where: string, dir: string): Local {
+  if (dir === 'default') throw new ConfigError(`${where} needs a config_dir of its own`)
+  const model = a['model']
+  if (typeof model !== 'string' || !model)
+    throw new ConfigError(`${where} needs the model's name, as the server knows it`)
+  const baseUrl = a['base_url'] ?? LOCAL_DEFAULTS.baseUrl
+  if (typeof baseUrl !== 'string' || !/^https?:\/\//.test(baseUrl))
+    throw new ConfigError(
+      `${where}: base_url is the server's address, like "${LOCAL_DEFAULTS.baseUrl}"`,
+    )
+  const count = (key: string, fallback: number, min: number) => {
+    const v = a[key] ?? fallback
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < min)
+      throw new ConfigError(`${where}: ${key} is a whole number, at least ${min}`)
+    return v
+  }
+  return {
+    baseUrl: baseUrl.replace(/\/+$/, ''),
+    model,
+    context: count('context', LOCAL_DEFAULTS.context, 8192),
+    concurrency: count('concurrency', LOCAL_DEFAULTS.concurrency, 1),
+  }
+}
+
 export function parseAccounts(
   text: string,
   path: string,
@@ -321,11 +379,19 @@ export function parseAccounts(
         `${where}: ${name} uses provider "${String(provider)}"; this Hopper knows ${PROVIDERS.join(', ')}`,
       )
     }
-    accounts.push({
+    const color = a['color']
+    if (color !== undefined && !ACCOUNT_COLOR_NAMES.includes(color as AccountColor)) {
+      throw new ConfigError(`${where}: ${name}'s color is one of ${ACCOUNT_COLOR_NAMES.join(', ')}`)
+    }
+    const account: Account = {
       name,
       label: typeof a['label'] === 'string' && a['label'] ? a['label'] : name,
       configDir: dir === 'default' ? null : expandHome(dir),
-    })
+      ...(provider !== 'claude-code' ? { provider: provider as Provider } : {}),
+      ...(color ? { color: color as AccountColor } : {}),
+    }
+    if (provider === 'ollama') account.local = parseLocal(a, `${where}: ${name}`, dir)
+    accounts.push(account)
   }
   accounts.sort(byName)
   if (accounts.filter((a) => a.configDir === null).length > 1) {
@@ -358,6 +424,15 @@ export function serializeAccounts(config: Pick<Config, 'accounts' | 'routes'>): 
       provider: a.provider ?? 'claude-code',
       label: a.label,
       config_dir: a.configDir === null ? 'default' : tildify(a.configDir),
+      ...(a.color ? { color: a.color } : {}),
+      ...(a.local
+        ? {
+            base_url: a.local.baseUrl,
+            model: a.local.model,
+            context: a.local.context,
+            concurrency: a.local.concurrency,
+          }
+        : {}),
     }))
   }
   if (config.routes.length) {
