@@ -2,7 +2,7 @@ import { render } from 'ink-testing-library'
 import { describe, expect, it } from 'vitest'
 
 import type { AccountState } from '../src/model.ts'
-import { AccountRow, accountLines, paceAt } from '../src/tui/panels/Accounts.tsx'
+import { AccountRow, accountLines, paceAt, unloadText } from '../src/tui/panels/Accounts.tsx'
 
 const now = Date.parse('2026-09-28T12:00:00Z')
 const HOUR = 3_600_000
@@ -74,5 +74,50 @@ describe('AccountRow', () => {
     expect(lines).toHaveLength(2)
     expect(lines[1]).toContain('↻ 3h 00m')
     expect(lines[1]).toMatch(/↻ \w{3} \d\d:\d\d/)
+  })
+
+  it('gives a local account a memory bar and when the model unloads, in the same columns', () => {
+    const local = (loaded?: boolean) =>
+      render(
+        <AccountRow
+          a={account('lo', {
+            usage: null,
+            auth: {
+              loggedIn: true,
+              local: {
+                model: 'tern',
+                ...(loaded
+                  ? {
+                      loaded: {
+                        context: 131072,
+                        bytes: 19e9,
+                        expiresAt: new Date(now + 4 * 60_000).toISOString(),
+                      },
+                    }
+                  : {}),
+              },
+            },
+          })}
+          width={60}
+          nameW={4}
+          color="white"
+          selected={false}
+          hovered={false}
+          focused={false}
+          now={now}
+          resets
+        />,
+      ).lastFrame()!
+    const [bar, under] = local(true).split('\n')
+    expect(bar).toMatch(/━+─*\s+19G\s+local/)
+    expect(under).toContain('unloads in 4m')
+    expect(local(false)).toMatch(/–\s+local\n.*loads on first use/)
+  })
+})
+
+describe('unloadText', () => {
+  it('says when the model goes, or that it stays', () => {
+    expect(unloadText(new Date(now + 60_000).toISOString(), now)).toBe('unloads in 1m')
+    expect(unloadText('2318-01-01T00:00:00Z', now)).toBe('stays loaded')
   })
 })

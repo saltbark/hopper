@@ -164,8 +164,10 @@ const NAME = /^[a-z0-9][a-z0-9-]{0,11}$/
 
 export class ConfigError extends Error {}
 
-// Accounts are kept in alphabetical order, so every list of them reads the same.
-const byName = (a: Account, b: Account) => a.name.localeCompare(b.name)
+// Accounts are kept in alphabetical order, so every list of them reads the same, with local ones
+// after the Claude logins.
+const byName = (a: Account, b: Account) =>
+  Number(!!a.local) - Number(!!b.local) || a.name.localeCompare(b.name)
 
 function tomlError(path: string, e: unknown): ConfigError {
   return new ConfigError(`${tildify(path)}: ${(e as Error).message}`)

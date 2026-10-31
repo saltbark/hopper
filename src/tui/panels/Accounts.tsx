@@ -1,3 +1,5 @@
+import { totalmem } from 'node:os'
+
 import { Text } from 'ink'
 import { memo } from 'react'
 
@@ -8,7 +10,7 @@ import { T, tone } from '../theme.ts'
 import { Rail, windowed } from './primitives.tsx'
 
 // Each account: its name, then the session and weekly limits side by side, with when each one
-// resets on a second line when there's room. A tick on each bar marks how far through its window
+// resets on a second line when there's room. A local account has a memory bar instead. A tick on each bar marks how far through its window
 // we are, so a fill short of it has room to spare. Plan and routes are in the detail panel.
 
 // Bar width for each limit, from the space left after the rail, the name column, two
@@ -18,6 +20,14 @@ const barWidth = (width: number, nameW: number) =>
 
 // A local model's memory, in GB to one place.
 export const sizeText = (bytes: number) => `${(bytes / 1e9).toFixed(1)} GB`
+
+// Under a loaded local model, where a limit says when it resets: when the server lets it go.
+// A model kept loaded for good (keep-alive -1) expires centuries out.
+export function unloadText(expiresAt: string | null, now: number): string {
+  const t = expiresAt ? Date.parse(expiresAt) : NaN
+  if (Number.isNaN(t) || t - now > 24 * 3600_000) return 'stays loaded'
+  return t <= now ? 'unloading' : `unloads ${resetShort(expiresAt, now)}`
+}
 
 // How long each limit's window is, to place the pace tick.
 const WINDOW_MS = { session: 5 * 3600_000, week: 7 * 24 * 3600_000 }
@@ -103,16 +113,31 @@ export const AccountRow = memo(function AccountRow(props: {
       </>
     )
   }
+  // A local account has no limits. In the session column, how much of the Mac's memory its
+  // model holds, in GB where a login's percentage goes; in the week column, the word local.
+  const memory = (bytes: number | undefined) => {
+    const pct = bytes ? Math.min(100, Math.round((bytes / totalmem()) * 100)) : 0
+    const n = Math.max(0, Math.min(barW, Math.round((pct / 100) * barW)))
+    return (
+      <>
+        <Text color={tone(pct)}>{'━'.repeat(n)}</Text>
+        <Text color={T.line}>{'─'.repeat(barW - n)}</Text>
+        <Text color={bytes ? T.text : T.faint}>
+          {cell(bytes ? `${Math.round(bytes / 1e9)}G` : '–', 5, 'right')}
+        </Text>
+      </>
+    )
+  }
   const u = a.usage
-  // A local account has no limits: its model, or why it can't run, in their place.
   const local = a.auth?.local
   const rest = local ? (
     local.reason ? (
       <Text color={T.waiting}>{local.reason}</Text>
     ) : (
-      <Text color={T.dim}>
-        local · <Text color={T.text}>{local.model}</Text>
-      </Text>
+      <>
+        {memory(local.loaded?.bytes)}
+        <Text color={T.dim}> local</Text>
+      </>
     )
   ) : a.authError ? (
     <Text color={T.blocked}>{a.authError}</Text>
@@ -141,7 +166,7 @@ export const AccountRow = memo(function AccountRow(props: {
     ? local.reason
       ? ''
       : local.loaded
-        ? `in memory · ${sizeText(local.loaded.bytes)}`
+        ? unloadText(local.loaded.expiresAt, now)
         : 'loads on first use'
     : a.auth?.loggedIn && u
       ? cell(resetOf(u.fiveHour), barW + 5) + resetOf(u.sevenDay)

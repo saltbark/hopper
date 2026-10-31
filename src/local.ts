@@ -15,8 +15,9 @@ export type LocalStatus = {
   model: string
   // Why it can't run work, when it can't.
   reason?: string
-  // While the model is in memory: the window it was loaded with and how much memory it holds.
-  loaded?: { context: number; bytes: number }
+  // While the model is in memory: the window it was loaded with, how much memory it holds, and
+  // when the server lets it go if nothing uses it.
+  loaded?: { context: number; bytes: number; expiresAt: string | null }
 }
 
 // Every model alias maps to the local model, so Claude Code's own side calls (titles, subagents)
@@ -95,6 +96,7 @@ export async function localStatus(local: Local, fetcher: Fetch = fetch): Promise
       status.loaded = {
         context: typeof m['context_length'] === 'number' ? m['context_length'] : 0,
         bytes: typeof m['size_vram'] === 'number' ? m['size_vram'] : 0,
+        expiresAt: typeof m['expires_at'] === 'string' ? m['expires_at'] : null,
       }
   } catch {
     // What's loaded is only shown; the model being there is what matters.

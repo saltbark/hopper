@@ -216,6 +216,14 @@ describe('providers', () => {
     })
     expect(parseAccounts(serializeAccounts({ ...c }), '/a.toml')).toEqual(c)
   })
+  it('lists local accounts after the Claude logins', () => {
+    const text = [
+      '[[account]]\nname = "aa"\nprovider = "ollama"\nconfig_dir = "/d/aa"\nmodel = "m"',
+      '[[account]]\nname = "pm"\nconfig_dir = "/d/pm"',
+      '[[account]]\nname = "bh"',
+    ].join('\n')
+    expect(parseAccounts(text, '/a.toml').accounts.map((a) => a.name)).toEqual(['bh', 'pm', 'aa'])
+  })
   it('refuses a local account without its own folder or a model, and an unknown colour', () => {
     const bad = (lines: string[]) => () =>
       parseAccounts(['[[account]]', 'name = "lo"', ...lines].join('\n'), '/a.toml')

@@ -61,7 +61,10 @@ describe('a local account’s status', () => {
         '/api/ps': { models: [{ name: 'tern:27b', size_vram: 18e9, context_length: 65536 }] },
       }),
     )
-    expect(s).toEqual({ model: 'tern:27b', loaded: { context: 65536, bytes: 18e9 } })
+    expect(s).toEqual({
+      model: 'tern:27b',
+      loaded: { context: 65536, bytes: 18e9, expiresAt: null },
+    })
   })
   it('reads a bare name as :latest', async () => {
     const s = await localStatus(
