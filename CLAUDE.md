@@ -169,16 +169,23 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   (`HOPPER_NO_REMOTE`). The crypto has a Swift twin (`ios/Hopper/Remote/Crypto.swift`, `Wire.swift`):
   a change to keys, framing or messages changes both, and `test/fixtures/remote-vectors.json` is
   checked by `test/remote.test.ts` and by `ios/scripts/check-vectors.swift` (how to run it is at
-  its top). The phone's snapshot types (`Snapshot.swift`) follow `src/remote/view.ts`.
+  its top). The phone's snapshot types (`Snapshot.swift`) follow `src/remote/view.ts`, and its
+  screen frames (`Screen.swift`) follow `src/remote/screen.ts`.
+- **A conversation on the phone is a second attach on the Mac.** `PhoneScreen` (`screen.ts`) runs
+  its own `EmbeddedSession` at the phone's size and sends the changed rows of `screen()` as runs;
+  keys, pastes and the wheel come back. **Two attach clients share one width, the last to
+  resize**: opening on the phone redraws the conversation at the phone's width, and `enter`
+  (`actions.ts`) calls `reclaim()` so Hopper's panel takes it back when it gets the keyboard.
 - **The relay** (`relay/`, a Worker with one Durable Object per pairing) forwards binary frames
-  between a room's `mac` and `phone` sockets and says only `{"peer":"up"|"down"}` itself.
+  between a room's `mac` and `phone` sockets and says only `{"peer":"up"|"down"}` itself. It lives
+  at `hopper-relay.saltbark.com` (Cloudflare's free certificates don't cover a sub-subdomain).
   `pnpm relay:dev` runs it on :8787 (`hopper pair --relay ws://<this mac>:8787`, or
-  `HOPPER_RELAY`); `pnpm relay:deploy` ships it, only when asked.
+  `HOPPER_RELAY`); `pnpm relay:deploy` ships it, only when asked, from the main checkout (its `.env`
+  holds the token, as for the site).
 - **The iOS app** is SwiftUI for iOS 27 with no packages; the project uses synchronized folders, so
   a file added under `ios/Hopper/` is in the target. Build it with `DEVELOPER_DIR` set to Xcode
   (`xcodebuild -project ios/Hopper.xcodeproj -scheme Hopper -destination 'generic/platform=iOS
-  Simulator' CODE_SIGNING_ALLOWED=NO build`). Two `claude attach` clients on one session share one
-  width, the last to resize (the plan for the conversation pane depends on it).
+Simulator' CODE_SIGNING_ALLOWED=NO build`).
 
 ## Where things are
 

@@ -10,6 +10,8 @@ export type LinkEvents = {
   // A session started: the phone wants the current state.
   ready(): void
   message(m: Record<string, unknown>): void
+  // The phone went (it left the relay, or the connection dropped): let go of what it had open.
+  gone(): void
 }
 
 const MAX_WAIT = 30_000
@@ -45,6 +47,7 @@ export class Link {
     ws.onclose = () => {
       this.ws = null
       this.session.end()
+      this.on.gone()
       if (this.stopped) return
       this.timer = setTimeout(() => this.start(), this.wait)
       this.wait = Math.min(MAX_WAIT, this.wait * 2)
@@ -56,7 +59,10 @@ export class Link {
   private receive(data: string | ArrayBuffer) {
     if (typeof data === 'string') {
       // The relay's own news. The phone says hello when it sees the Mac; nothing to do on up.
-      if (data.includes('"down"')) this.session.end()
+      if (data.includes('"down"')) {
+        this.session.end()
+        this.on.gone()
+      }
       return
     }
     const buf = Buffer.from(data)
@@ -69,6 +75,8 @@ export class Link {
     }
     const m = this.session.open(buf)
     if (m) this.on.message(m)
+    // A frame that doesn't open ends the session; the phone says hello again.
+    else if (!this.session.ready) this.on.gone()
   }
 
   send(message: unknown): boolean {

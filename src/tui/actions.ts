@@ -263,6 +263,8 @@ export function makeActions(ctx: AppCtx) {
 
   // Goes into an open conversation: it moves to the front of the open ones and gets the keyboard.
   const enter = (session: EmbeddedSession, from: Panel) => {
+    // The phone may have drawn this conversation at its width since; take ours back.
+    session.reclaim()
     ctx.setEmbeds((cur) => admit(cur, session).open)
     ctx.setEmbedShown(true)
     ctx.setReturnTo(from)

@@ -301,6 +301,18 @@ export class EmbeddedSession {
     this.pty?.resize(cols, rows)
   }
 
+  // Two attach clients on one conversation share one width, the last to resize (the phone's
+  // bridge runs its own attach). Sending our size again takes it back; an unchanged size sends
+  // nothing, so it goes one column narrower first.
+  reclaim(): void {
+    if (this.closed || this.exited || !this.pty) return
+    const pty = this.pty
+    pty.resize(Math.max(10, this.cols - 1), this.rows)
+    setTimeout(() => {
+      if (!this.closed && !this.exited) pty.resize(this.cols, this.rows)
+    }, 60)
+  }
+
   // Where the cursor is on the visible screen (0-based), or null while the program hides it.
   cursor(): { col: number; row: number } | null {
     if (this.closed || !this.cursorShown) return null

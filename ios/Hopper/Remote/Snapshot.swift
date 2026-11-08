@@ -11,7 +11,7 @@ struct PhoneSnapshot: Decodable, Equatable {
     let projects: [PhoneProject]
 }
 
-struct PhoneItem: Decodable, Equatable, Identifiable {
+struct PhoneItem: Decodable, Hashable, Identifiable {
     let id: String
     let kind: String
     let title: String
@@ -26,6 +26,8 @@ struct PhoneItem: Decodable, Equatable, Identifiable {
     let unread: Int?
     let waiting: String?
     let queue: String?
+    /// A background conversation the phone can open.
+    let attach: Bool?
 }
 
 struct UsageWindow: Decodable, Equatable {

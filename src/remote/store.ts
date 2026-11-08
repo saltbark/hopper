@@ -14,7 +14,7 @@ import { b64u, fromB64u, newKeyPair, publicOf, type KeyPair } from './crypto.ts'
 export const remoteDir = () =>
   process.env['HOPPER_REMOTE_DIR'] || join(homedir(), '.hopper', 'remote')
 
-export const RELAY = 'wss://relay.hopper.saltbark.com'
+export const RELAY = 'wss://hopper-relay.saltbark.com'
 export const relayUrl = () => process.env['HOPPER_RELAY'] || RELAY
 
 export type Phone = {

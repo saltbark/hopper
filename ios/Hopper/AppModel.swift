@@ -27,6 +27,9 @@ final class AppModel {
     private(set) var snapshot: PhoneSnapshot?
     private(set) var heardAt: Date?
     var pairStep: PairStep = .idle
+    /// The conversation open on the phone, if any, and the size it was asked for.
+    private(set) var screen: Screen?
+    private var screenSize = (cols: 0, rows: 0)
 
     private let relay = RelayClient()
     private var session: PhoneSession?
@@ -123,7 +126,11 @@ final class AppModel {
             link = .macAway
         case .frame(let data):
             if data.first == FrameKind.hello.rawValue {
-                if session.onHello(data) { link = .live }
+                if session.onHello(data) {
+                    link = .live
+                    // A new session: the Mac's attach for the phone went with the old one.
+                    if let screen { send(["t": "open", "id": screen.id, "cols": screenSize.cols, "rows": screenSize.rows]) }
+                }
                 return
             }
             guard let json = session.open(data) else {
@@ -153,10 +160,62 @@ final class AppModel {
         switch head.t {
         case "snapshot":
             if let s = try? JSONDecoder().decode(PhoneSnapshot.self, from: json), s != snapshot { snapshot = s }
+        case "screen":
+            if let f = try? JSONDecoder().decode(ScreenFrame.self, from: json), let screen, f.id == screen.id {
+                screen.closed = nil
+                screen.apply(f)
+            }
+        case "closed":
+            if let c = try? JSONDecoder().decode(Closed.self, from: json), let screen, c.id == screen.id {
+                screen.closed = c.why ?? "The conversation closed on the Mac."
+            }
         default:
             break
         }
     }
 
     private struct Head: Decodable { let t: String }
+    private struct Closed: Decodable { let id: String; let why: String? }
+
+    // MARK: The open conversation
+
+    private func send(_ message: [String: Any]) {
+        guard let session, session.ready, let frame = try? session.seal(message) else { return }
+        relay.send(frame)
+    }
+
+    func open(_ id: String, cols: Int, rows: Int) {
+        if screen?.id != id { screen = Screen(id: id) }
+        screenSize = (cols, rows)
+        send(["t": "open", "id": id, "cols": cols, "rows": rows])
+    }
+
+    func closeScreen() {
+        guard let screen else { return }
+        send(["t": "close", "id": screen.id])
+        self.screen = nil
+    }
+
+    func resizeScreen(cols: Int, rows: Int) {
+        guard let screen, (cols, rows) != screenSize else { return }
+        screenSize = (cols, rows)
+        send(["t": "resize", "id": screen.id, "cols": cols, "rows": rows])
+    }
+
+    /// Bytes for Claude, as a terminal would send them.
+    func keys(_ data: String) {
+        guard let screen else { return }
+        send(["t": "keys", "id": screen.id, "data": data])
+    }
+
+    /// Text in one go: Claude takes it as a paste, not as typing.
+    func paste(_ text: String) {
+        guard let screen else { return }
+        send(["t": "paste", "id": screen.id, "text": text])
+    }
+
+    func wheel(up: Bool) {
+        guard let screen else { return }
+        send(["t": "wheel", "id": screen.id, "up": up])
+    }
 }

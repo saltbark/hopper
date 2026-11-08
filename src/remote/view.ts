@@ -21,6 +21,8 @@ export type PhoneItem = {
   unread?: number
   waiting?: string
   queue?: string
+  // A background conversation the phone can open (attach takes its id).
+  attach?: boolean
 }
 
 export type PhoneAccount = {
@@ -83,6 +85,7 @@ export function phoneView(
       unread: i.unread,
       waiting: i.waiting,
       queue: i.queue,
+      attach: i.kind === 'background' && !!i.id ? true : undefined,
     }),
   )
   const count = (pred: (i: Item) => boolean) => listed.filter(pred).length

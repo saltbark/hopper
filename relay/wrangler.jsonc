@@ -1,4 +1,4 @@
-// relay.hopper.saltbark.com: pipes sealed messages between Hopper on the Mac and on the phone.
+// hopper-relay.saltbark.com: pipes sealed messages between Hopper on the Mac and on the phone.
 // `pnpm relay:dev` runs it on localhost:8787; `pnpm relay:deploy` ships it (by hand, for now).
 {
   "name": "hopper-relay",
@@ -8,6 +8,6 @@
     "bindings": [{ "name": "ROOM", "class_name": "Room" }],
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
-  "routes": [{ "pattern": "relay.hopper.saltbark.com", "custom_domain": true }],
+  "routes": [{ "pattern": "hopper-relay.saltbark.com", "custom_domain": true }],
   "workers_dev": false,
 }

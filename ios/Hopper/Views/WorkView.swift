@@ -6,6 +6,14 @@ struct WorkView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        NavigationStack {
+            list
+                .navigationDestination(for: PhoneItem.self) { ConversationView(item: $0) }
+                .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    private var list: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 ScreenTitle(title: "hopper", frog: true)
@@ -24,7 +32,12 @@ struct WorkView: View {
                             Card {
                                 ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
                                     if i > 0 { RowDivider() }
-                                    WorkRow(item: item, accounts: snap.accounts)
+                                    if item.attach == true {
+                                        NavigationLink(value: item) { WorkRow(item: item, accounts: snap.accounts) }
+                                            .buttonStyle(RowPress())
+                                    } else {
+                                        WorkRow(item: item, accounts: snap.accounts)
+                                    }
                                 }
                             }
                         }
@@ -74,5 +87,12 @@ struct WorkRow: View {
         var tail = model.isEmpty ? "" : " · \(model)"
         if item.group == WorkGroup.next.rawValue { tail += item.queue == "night" ? " · tonight" : " · when there's room" }
         return Text("\(item.project)\(account)\(tail)").foregroundStyle(T.dim)
+    }
+}
+
+/// A row that lights while pressed, as the Mac lights the row under the pointer.
+struct RowPress: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.background(configuration.isPressed ? T.sel : .clear)
     }
 }

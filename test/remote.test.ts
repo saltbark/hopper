@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import type { Item, Snapshot } from '../src/model.ts'
+import { Bridge, targetsOf } from '../src/remote/bridge.ts'
 import {
   Channel,
   counterNonce,
@@ -17,6 +18,7 @@ import {
   sealBox,
   sessionKeys,
 } from '../src/remote/crypto.ts'
+import type { ScreenFrame, Spawn } from '../src/remote/screen.ts'
 import { addPhone, loadIdentity, loadPhones, removePhone } from '../src/remote/store.ts'
 import { phoneView } from '../src/remote/view.ts'
 import {
@@ -31,6 +33,7 @@ import {
   readPairRequest,
   type Offer,
 } from '../src/remote/wire.ts'
+import type { Seg } from '../src/tui/embed.ts'
 
 const vectors = JSON.parse(
   readFileSync(join(import.meta.dirname, 'fixtures/remote-vectors.json'), 'utf8'),
@@ -245,5 +248,162 @@ describe('the phone view and the key store', () => {
     expect((await loadPhones(dir)).map((p) => p.name)).toEqual(['renamed'])
     expect(await removePhone('renamed', dir)).toBe(true)
     expect(await loadPhones(dir)).toEqual([])
+  })
+})
+
+describe('a conversation open on the phone', () => {
+  // A stand-in for `claude attach`: a screen the test writes, and what was sent to it.
+  function fakeAttach() {
+    const state = {
+      rows: [
+        [{ text: 'hello', fg: '#c7cfca' }],
+        [{ text: '❯ ', fg: '#6fcac3', bold: true }],
+      ] as Seg[][],
+      sent: [] as string[],
+      pasted: [] as string[],
+      size: [0, 0],
+      reclaimed: 0,
+      closed: false,
+      redraw: () => {},
+      leave: () => {},
+      cwd: '',
+    }
+    const spawn: Spawn = (_a, _id, _n, cols, rows, events) => {
+      state.size = [cols, rows]
+      state.leave = events.onLeave
+      return {
+        start: (cwd?: string) => void (state.cwd = cwd ?? ''),
+        subscribe: (fn: () => void) => {
+          state.redraw = fn
+          return () => true
+        },
+        screen: () => state.rows,
+        cursor: () => ({ col: 2, row: 1 }),
+        send: (d: string) => void state.sent.push(d),
+        paste: (t: string) => void state.pasted.push(t),
+        resize: (c: number, r: number) => void (state.size = [c, r]),
+        wheel: (up: boolean) => void state.sent.push(up ? 'PgUp' : 'PgDn'),
+        close: () => void (state.closed = true),
+        reclaim: () => void state.reclaimed++,
+      }
+    }
+    return { state, spawn }
+  }
+
+  const account = { name: 'bh', label: 'Blue Heron', configDir: null }
+  const snap = {
+    at: 1,
+    drafts: [],
+    routines: [],
+    runs: [],
+    reports: {},
+    projects: [],
+    projectsError: null,
+    openCounts: new Map(),
+    accounts: [
+      {
+        account,
+        auth: null,
+        authError: null,
+        usage: null,
+        sessionError: null,
+        sessions: [],
+        sessionsAt: null,
+        counts: { queue: 0, needs: 0, done: 0, live: 0 },
+      },
+    ],
+    items: [
+      {
+        account: 'bh',
+        id: 'a1f3c0de',
+        sessionId: 'sess-1',
+        kind: 'background',
+        cwd: '/work/atlas',
+        name: 'Fix the tiles',
+        startedAt: 1,
+        state: 'blocked',
+        where: 'needs',
+        key: 'bh/atlas',
+        activeAt: 1,
+      },
+      {
+        account: 'bh',
+        id: null,
+        sessionId: 'draft:x',
+        kind: 'draft',
+        cwd: '',
+        name: 'A draft',
+        startedAt: 1,
+        state: 'draft',
+        where: 'needs',
+        key: 'bh/atlas',
+        activeAt: 1,
+      },
+    ],
+  } as Snapshot
+
+  function open() {
+    const { state, spawn } = fakeAttach()
+    const bridge = new Bridge(newKeyPair(), '/nonexistent', spawn)
+    bridge.update(
+      phoneView(snap, 'mac', () => '#7eaaea'),
+      snap,
+    )
+    const out: Record<string, unknown>[] = []
+    const link = { send: (m: unknown) => (out.push(m as Record<string, unknown>), true) }
+    bridge.receive('p1', link, { t: 'open', id: 'sess-1', cols: 48, rows: 30 })
+    return { bridge, state, out, link }
+  }
+
+  it('only offers background conversations', () => {
+    const v = phoneView(snap, 'mac', () => '#7eaaea')
+    expect(v.items.map((i) => [i.id, i.attach ?? false])).toEqual([
+      ['draft:x', false],
+      ['sess-1', true],
+    ])
+    expect([...targetsOf(snap).keys()]).toEqual(['sess-1'])
+  })
+
+  it('attaches at the phone size in its folder, and sends only what changed', () => {
+    const { state, out } = open()
+    expect(state.size).toEqual([48, 30])
+    expect(state.cwd).toBe('/work/atlas')
+    state.redraw()
+    const first = out.at(-1) as unknown as ScreenFrame
+    expect(first.set).toEqual([
+      [0, [['hello']]],
+      [1, [['❯ ', '#6fcac3', '', 1]]],
+    ])
+    expect(first.cursor).toEqual([2, 1])
+    state.rows = [state.rows[0]!, [{ text: '❯ hi', fg: '#c7cfca' }]]
+    state.redraw()
+    expect((out.at(-1) as unknown as ScreenFrame).set).toEqual([[1, [['❯ hi']]]])
+  })
+
+  it('passes keys, pastes, scrolling and size on to the conversation', () => {
+    const { bridge, state, link } = open()
+    bridge.receive('p1', link, { t: 'keys', id: 'sess-1', data: '1' })
+    bridge.receive('p1', link, { t: 'paste', id: 'sess-1', text: 'two\nlines' })
+    bridge.receive('p1', link, { t: 'wheel', id: 'sess-1', up: true })
+    bridge.receive('p1', link, { t: 'resize', id: 'sess-1', cols: 60, rows: 40 })
+    bridge.receive('p1', link, { t: 'reclaim', id: 'sess-1' })
+    // Keys for some other conversation go nowhere.
+    bridge.receive('p1', link, { t: 'keys', id: 'other', data: 'x' })
+    expect(state.sent).toEqual(['1', 'PgUp'])
+    expect(state.pasted).toEqual(['two\nlines'])
+    expect(state.size).toEqual([60, 40])
+    expect(state.reclaimed).toBe(1)
+  })
+
+  it('says when it closes, refuses what it cannot open, and lets go when the phone does', () => {
+    const { bridge, state, out, link } = open()
+    state.leave()
+    expect(out.at(-1)).toEqual({ t: 'closed', id: 'sess-1' })
+    bridge.receive('p1', link, { t: 'open', id: 'draft:x', cols: 48, rows: 30 })
+    expect(out.at(-1)).toMatchObject({ t: 'closed', id: 'draft:x' })
+
+    const again = open()
+    again.bridge.receive('p1', again.link, { t: 'close', id: 'sess-1' })
+    expect(again.state.closed).toBe(true)
   })
 })

@@ -440,7 +440,7 @@ export function useRemote(snap: Snapshot | null, color: (account: string) => str
     const b = bridge.current
     if (!b || !snap) return
     void b.sync().then(
-      () => b.update(phoneView(snap, name.current, color)),
+      () => b.update(phoneView(snap, name.current, color), snap),
       () => {},
     )
   }, [snap, color])
