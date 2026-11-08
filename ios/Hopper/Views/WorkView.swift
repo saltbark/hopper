@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Everything not done, in the Mac's groups and order: what you're writing, what's running, what
-/// waits on you, what's on hold, what's up next. Routines have their own tab.
+/// waits on you, what's on hold, what's up next. Routines have their own tab. Swipe a
+/// conversation for Done, or Hold one that waits on you; tap one to open it.
 struct WorkView: View {
     @Environment(AppModel.self) private var model
 
@@ -13,44 +14,74 @@ struct WorkView: View {
         }
     }
 
-    private var list: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                ScreenTitle(title: "hopper", frog: true)
-                if let snap = model.snapshot {
-                    let groups = WorkGroup.allCases.filter { $0 != .routines }.compactMap { g -> (WorkGroup, [PhoneItem])? in
-                        let items = snap.items.filter { $0.group == g.rawValue }
-                        return items.isEmpty ? nil : (g, items)
-                    }
-                    if groups.isEmpty {
-                        Text("Nothing running or waiting.").font(.system(size: 15)).foregroundStyle(T.soft)
-                            .frame(maxWidth: .infinity).padding(.top, 60)
-                    }
-                    ForEach(groups, id: \.0) { g, items in
-                        VStack(spacing: 6) {
-                            GroupHeading(label: g.label, count: items.count, color: T.groupColor(g))
-                            Card {
-                                ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                                    if i > 0 { RowDivider() }
-                                    if item.attach == true {
-                                        NavigationLink(value: item) { WorkRow(item: item, accounts: snap.accounts) }
-                                            .buttonStyle(RowPress())
-                                    } else {
-                                        WorkRow(item: item, accounts: snap.accounts)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    Waiting()
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24)
+    private var groups: [(WorkGroup, [PhoneItem])] {
+        guard let snap = model.snapshot else { return [] }
+        return WorkGroup.allCases.filter { $0 != .routines }.compactMap { g in
+            let items = snap.items.filter { $0.group == g.rawValue }
+            return items.isEmpty ? nil : (g, items)
         }
-        .scrollIndicators(.hidden)
+    }
+
+    private var list: some View {
+        List {
+            ScreenTitle(title: "hopper", frog: true)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
+                .listRowSeparator(.hidden)
+            if let snap = model.snapshot {
+                if groups.isEmpty {
+                    Text("Nothing running or waiting.").font(.system(size: 15)).foregroundStyle(T.soft)
+                        .frame(maxWidth: .infinity).padding(.top, 60)
+                        .listRowBackground(Color.clear)
+                }
+                ForEach(groups, id: \.0) { g, items in
+                    Section {
+                        ForEach(items) { item in
+                            row(item, snap.accounts)
+                                .listRowBackground(T.surface)
+                                .listRowInsets(EdgeInsets())
+                                .listRowSeparatorTint(T.rowLine)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) { swipes(item, g) }
+                        }
+                    } header: {
+                        GroupHeading(label: g.label, count: items.count, color: T.groupColor(g))
+                            .textCase(nil)
+                            .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 6, trailing: 0))
+                    }
+                }
+            } else {
+                Waiting().listRowBackground(Color.clear)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .listSectionSpacing(14)
+        .scrollContentBackground(.hidden)
         .background(T.bg)
+        .contentMargins(.horizontal, 16, for: .scrollContent)
+    }
+
+    @ViewBuilder
+    private func row(_ item: PhoneItem, _ accounts: [PhoneAccount]) -> some View {
+        if item.attach == true {
+            NavigationLink(value: item) { WorkRow(item: item, accounts: accounts) }
+        } else {
+            WorkRow(item: item, accounts: accounts)
+        }
+    }
+
+    // What the Mac lets you do from its list: archive a conversation, hold one that waits.
+    @ViewBuilder
+    private func swipes(_ item: PhoneItem, _ g: WorkGroup) -> some View {
+        if item.kind == "background" || item.kind == "interactive" {
+            Button { Task { await model.archive(item.id) } } label: { Label("Done", systemImage: "checkmark") }
+                .tint(T.focus)
+        }
+        if g == .waiting || g == .held {
+            Button { Task { await model.hold(item.id) } } label: {
+                Label(g == .held ? "Unhold" : "Hold", systemImage: "clock")
+            }
+            .tint(Color(hex: 0x6B5A2E))
+        }
     }
 }
 
@@ -87,12 +118,5 @@ struct WorkRow: View {
         var tail = model.isEmpty ? "" : " · \(model)"
         if item.group == WorkGroup.next.rawValue { tail += item.queue == "night" ? " · tonight" : " · when there's room" }
         return Text("\(item.project)\(account)\(tail)").foregroundStyle(T.dim)
-    }
-}
-
-/// A row that lights while pressed, as the Mac lights the row under the pointer.
-struct RowPress: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.background(configuration.isPressed ? T.sel : .clear)
     }
 }

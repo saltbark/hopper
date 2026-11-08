@@ -42,7 +42,27 @@ struct ConversationView: View {
                 Text(meta).font(T.mono(11.5)).foregroundStyle(T.dim).lineLimit(1)
             }
             Spacer(minLength: 4)
-            MacDot()
+            if live.group == WorkGroup.waiting.rawValue || live.group == WorkGroup.held.rawValue {
+                Button { Task { await model.hold(item.id) } } label: {
+                    Text("◷").font(T.mono(16)).frame(width: 38, height: 38)
+                        .background(T.surface, in: .circle)
+                        .overlay(Circle().stroke(Color(hex: 0x1F2A2F), lineWidth: 1))
+                }
+                .foregroundStyle(T.held)
+                .accessibilityLabel(live.group == WorkGroup.held.rawValue ? "Take off hold" : "Put on hold")
+            }
+            Button {
+                Task {
+                    if await model.perform(["t": "done", "id": item.id]) { dismiss() }
+                }
+            } label: {
+                Text("✓").font(T.mono(16)).frame(width: 38, height: 38)
+                    .background(T.surface, in: .circle)
+                    .overlay(Circle().stroke(Color(hex: 0x1F2A2F), lineWidth: 1))
+            }
+            .foregroundStyle(T.focus)
+            .accessibilityLabel("Mark done")
+            MacDot().padding(.leading, 4)
         }
         .padding(.leading, 4)
         .padding(.trailing, 14)

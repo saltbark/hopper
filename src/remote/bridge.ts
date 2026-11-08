@@ -1,4 +1,5 @@
 import type { Snapshot } from '../model.ts'
+import { ACTIONS, type Answer } from './actions.ts'
 import type { KeyPair } from './crypto.ts'
 import { Link } from './link.ts'
 import { PhoneScreen, type Spawn, type Target } from './screen.ts'
@@ -12,6 +13,7 @@ import type { PhoneView } from './view.ts'
 //
 // From the phone: open {id, cols, rows}, close {id}, keys {id, data}, paste {id, text},
 // resize {id, cols, rows}, wheel {id, up}, reclaim {id}. To it: snapshot, screen, closed.
+// Actions (new, start, hold, done, routine) go to `onAction` (actions.ts), and its answer back.
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const num = (v: unknown) => (typeof v === 'number' ? v : NaN)
@@ -22,6 +24,8 @@ export class Bridge {
   private targets = new Map<string, Target>()
   private view: PhoneView | null = null
   private sent = ''
+  // Set by the app: does what the phone asked and says how it went.
+  onAction: ((m: Record<string, unknown>) => Promise<Answer>) | null = null
 
   constructor(
     private readonly identity: KeyPair,
@@ -104,6 +108,12 @@ export class Bridge {
         return mine?.wheel(m['up'] === true)
       case 'reclaim':
         return mine?.reclaim()
+    }
+    if (typeof m['t'] === 'string' && ACTIONS.has(m['t']) && this.onAction) {
+      void this.onAction(m).then(
+        (a) => link.send(a),
+        (e: Error) => link.send({ t: 'result', ref: m['ref'] ?? null, ok: false, text: e.message }),
+      )
     }
   }
 

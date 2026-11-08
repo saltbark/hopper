@@ -169,6 +169,10 @@ final class AppModel {
             if let c = try? JSONDecoder().decode(Closed.self, from: json), let screen, c.id == screen.id {
                 screen.closed = c.why ?? "The conversation closed on the Mac."
             }
+        case "result", "newinfo":
+            if let r = try? JSONDecoder().decode(Ref.self, from: json), let ref = r.ref, let waiting = answers.removeValue(forKey: ref) {
+                waiting.resume(returning: json)
+            }
         default:
             break
         }
@@ -176,6 +180,72 @@ final class AppModel {
 
     private struct Head: Decodable { let t: String }
     private struct Closed: Decodable { let id: String; let why: String? }
+    private struct Ref: Decodable { let ref: Int? }
+
+    // MARK: Asking the Mac to do things
+
+    /// What the Mac said about the last thing asked of it, for a moment on screen.
+    struct Toast: Equatable, Identifiable {
+        let id = UUID()
+        let text: String
+        let ok: Bool
+    }
+
+    private(set) var toast: Toast?
+    private var answers: [Int: CheckedContinuation<Data?, Never>] = [:]
+    private var nextRef = 1
+
+    /// Sends an action with a fresh `ref` and waits for the Mac's answer to it (nil when it
+    /// doesn't come: no Mac, or no answer in 20 seconds).
+    private func ask(_ message: [String: Any]) async -> Data? {
+        guard link == .live else { return nil }
+        let ref = nextRef
+        nextRef += 1
+        var m = message
+        m["ref"] = ref
+        return await withCheckedContinuation { c in
+            answers[ref] = c
+            send(m)
+            Task {
+                try? await Task.sleep(for: .seconds(20))
+                if let c = self.answers.removeValue(forKey: ref) { c.resume(returning: nil) }
+            }
+        }
+    }
+
+    struct Result: Decodable {
+        let ok: Bool
+        let text: String
+    }
+
+    /// Does an action and shows how it went; true when it worked.
+    @discardableResult
+    func perform(_ message: [String: Any]) async -> Bool {
+        guard let data = await ask(message), let r = try? JSONDecoder().decode(Result.self, from: data) else {
+            show(Toast(text: link == .live ? "The Mac didn't answer." : "The Mac isn't connected.", ok: false))
+            return false
+        }
+        show(Toast(text: r.text, ok: r.ok))
+        return r.ok
+    }
+
+    private func show(_ t: Toast) {
+        toast = t
+        Task {
+            try? await Task.sleep(for: .seconds(t.ok ? 2.5 : 4.5))
+            if self.toast?.id == t.id { self.toast = nil }
+        }
+    }
+
+    func hold(_ id: String) async { await perform(["t": "hold", "id": id]) }
+    func archive(_ id: String) async { await perform(["t": "done", "id": id]) }
+    func routine(_ id: String, _ action: String) async { await perform(["t": "routine", "id": id, "do": action]) }
+
+    /// What a new conversation in this project would start with.
+    func newInfo(_ project: String) async -> NewInfo? {
+        guard let data = await ask(["t": "new", "project": project]) else { return nil }
+        return try? JSONDecoder().decode(NewInfo.self, from: data)
+    }
 
     // MARK: The open conversation
 

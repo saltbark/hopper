@@ -176,6 +176,11 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   keys, pastes and the wheel come back. **Two attach clients share one width, the last to
   resize**: opening on the phone redraws the conversation at the phone's width, and `enter`
   (`actions.ts`) calls `reclaim()` so Hopper's panel takes it back when it gets the keyboard.
+- **What the phone does goes through the Mac's own code.** `src/remote/actions.ts` (`act`) answers
+  `new`, `start` (now, or queued for when there's room or tonight), `hold`, `done` and `routine`
+  (resume, pause, run) with `startDraft`, `saveDraft` and dispatch, `setHeld`, `setDone`,
+  `saveRoutine` and `runRoutine`, as the keys in `src/tui/actions.ts` do; a change to what a key
+  does on the Mac changes it here too. Each answer echoes the action's `ref`.
 - **The relay** (`relay/`, a Worker with one Durable Object per pairing) forwards binary frames
   between a room's `mac` and `phone` sockets and says only `{"peer":"up"|"down"}` itself. It lives
   at `hopper-relay.saltbark.com` (Cloudflare's free certificates don't cover a sub-subdomain).

@@ -395,6 +395,21 @@ describe('a conversation open on the phone', () => {
     expect(state.reclaimed).toBe(1)
   })
 
+  it("hands the phone's actions to the app and sends back the answer", async () => {
+    const { bridge, out, link } = open()
+    const asked: unknown[] = []
+    bridge.onAction = async (m) => {
+      asked.push(m)
+      return { t: 'result', ref: m['ref'], ok: true, text: 'On hold: Fix the tiles' }
+    }
+    bridge.receive('p1', link, { t: 'hold', id: 'sess-1', ref: 7 })
+    // Not an action: the bridge leaves it alone.
+    bridge.receive('p1', link, { t: 'format-disk', ref: 8 })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(asked).toEqual([{ t: 'hold', id: 'sess-1', ref: 7 }])
+    expect(out.at(-1)).toEqual({ t: 'result', ref: 7, ok: true, text: 'On hold: Fix the tiles' })
+  })
+
   it('says when it closes, refuses what it cannot open, and lets go when the phone does', () => {
     const { bridge, state, out, link } = open()
     state.leave()

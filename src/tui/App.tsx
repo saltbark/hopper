@@ -167,7 +167,7 @@ export function App({
 
   // ---- derived ----
   const color = useCallback((name: string) => accountColor(config, name), [config])
-  useRemote(snap, color, remote)
+  useRemote(config, snap, color, refresh, remote)
   const { work, archived } = useMemo(() => {
     const scoped = (snap?.items ?? []).filter((i) => inScope(i.key, scope))
     return {
