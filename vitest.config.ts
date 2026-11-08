@@ -9,6 +9,6 @@ export default defineConfig({
     // default 5s times some out.
     testTimeout: 20_000,
     // The app runs routines and dispatch on its own; tests that want it turn it on.
-    env: { HOPPER_NO_AUTOPILOT: '1' },
+    env: { HOPPER_NO_AUTOPILOT: '1', HOPPER_NO_REMOTE: '1' },
   },
 })

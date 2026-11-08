@@ -28,6 +28,7 @@ import {
   useProjectItems,
   useAutopilot,
   useAwake,
+  useRemote,
   useUpdate,
   useSnapshot,
   useTabTitle,
@@ -92,6 +93,8 @@ export function App({
   // How V and the bottom right learn of a newer Hopper (update.ts); none on a copy built from git.
   // Tests pass their own.
   updater = RELEASE_UPDATER,
+  // Paired phones (src/remote/), sent each snapshot. Tests turn it off (HOPPER_NO_REMOTE).
+  remote = !process.env['HOPPER_NO_REMOTE'],
 }: {
   config: Config
   load?: Loader
@@ -105,6 +108,7 @@ export function App({
   autopilot?: boolean
   keepAwake?: KeepAwake | null
   updater?: Updater | null
+  remote?: boolean
 }) {
   const { exit, suspendTerminal: suspendInk } = useApp()
   const { columns, rows } = useWindowSize()
@@ -163,6 +167,7 @@ export function App({
 
   // ---- derived ----
   const color = useCallback((name: string) => accountColor(config, name), [config])
+  useRemote(snap, color, remote)
   const { work, archived } = useMemo(() => {
     const scoped = (snap?.items ?? []).filter((i) => inScope(i.key, scope))
     return {

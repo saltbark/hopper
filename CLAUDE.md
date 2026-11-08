@@ -161,6 +161,25 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   the wrong Cloudflare account. When the app's look changes, `pnpm site:capture` recaptures
   the frames (`site/frames.json`, committed) from the made-up world in `src/demo.ts`.
 
+- **The iPhone app talks to the open app through a relay that can't read it** (`src/remote/`,
+  `relay/`, `ios/`). `hopper pair` shows a QR code; the phone proves it saw it, you say yes, and
+  the phone's key goes in `~/.hopper/remote/phones.json` beside the Mac's own key (both 0600, never
+  in Hopper's home folder, which may sync). `useRemote` (`hooks.ts`) runs a `Bridge` while the app
+  is open and sends each phone `phoneView(snap)` when it changes; tests turn it off
+  (`HOPPER_NO_REMOTE`). The crypto has a Swift twin (`ios/Hopper/Remote/Crypto.swift`, `Wire.swift`):
+  a change to keys, framing or messages changes both, and `test/fixtures/remote-vectors.json` is
+  checked by `test/remote.test.ts` and by `ios/scripts/check-vectors.swift` (how to run it is at
+  its top). The phone's snapshot types (`Snapshot.swift`) follow `src/remote/view.ts`.
+- **The relay** (`relay/`, a Worker with one Durable Object per pairing) forwards binary frames
+  between a room's `mac` and `phone` sockets and says only `{"peer":"up"|"down"}` itself.
+  `pnpm relay:dev` runs it on :8787 (`hopper pair --relay ws://<this mac>:8787`, or
+  `HOPPER_RELAY`); `pnpm relay:deploy` ships it, only when asked.
+- **The iOS app** is SwiftUI for iOS 27 with no packages; the project uses synchronized folders, so
+  a file added under `ios/Hopper/` is in the target. Build it with `DEVELOPER_DIR` set to Xcode
+  (`xcodebuild -project ios/Hopper.xcodeproj -scheme Hopper -destination 'generic/platform=iOS
+  Simulator' CODE_SIGNING_ALLOWED=NO build`). Two `claude attach` clients on one session share one
+  width, the last to resize (the plan for the conversation pane depends on it).
+
 ## Where things are
 
 - `src/cli.tsx`: the `hopper` command (`init`, `status`, `login`, `run`, `routines`, and the TUI).

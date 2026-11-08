@@ -14,6 +14,9 @@ import { readItems, type OpenItem } from '../items.ts'
 import { waitsOnMe, type gather, type Item, type Snapshot } from '../model.ts'
 import { expandHome } from '../paths.ts'
 import { hopperPrompt } from '../prompts.ts'
+import { Bridge } from '../remote/bridge.ts'
+import { macName } from '../remote/store.ts'
+import { phoneView } from '../remote/view.ts'
 import { runRoutine } from '../routines/index.ts'
 import { parseProjectsDoc, type ProjectsDoc } from '../settings.ts'
 import type { Update, Updater } from '../update.ts'
@@ -409,3 +412,36 @@ export function useUpdate(home: string, updater: Updater | null, say: (text: str
 
 export const installedText = (v: string) =>
   `Hopper ${v} is installed: quit (x x) and open it again to use it. Conversations keep running.`
+
+// The paired phones (src/remote/), while Hopper is open: each snapshot goes to them when what they
+// see changed, and a phone paired meanwhile (hopper pair) is picked up on the next one. Off in
+// tests (HOPPER_NO_REMOTE); does nothing until a phone is paired.
+export function useRemote(snap: Snapshot | null, color: (account: string) => string, on: boolean) {
+  const bridge = useRef<Bridge | null>(null)
+  const name = useRef('')
+  useEffect(() => {
+    if (!on) return
+    let alive = true
+    void Promise.all([Bridge.open(), macName()]).then(
+      ([b, n]) => {
+        if (!alive) return b.stop()
+        bridge.current = b
+        name.current = n
+      },
+      () => {},
+    )
+    return () => {
+      alive = false
+      bridge.current?.stop()
+      bridge.current = null
+    }
+  }, [on])
+  useEffect(() => {
+    const b = bridge.current
+    if (!b || !snap) return
+    void b.sync().then(
+      () => b.update(phoneView(snap, name.current, color)),
+      () => {},
+    )
+  }, [snap, color])
+}

@@ -35,6 +35,8 @@ import { initHome, loadProjects } from './home.ts'
 import { gather, OTHER } from './model.ts'
 import { configPath, tildify } from './paths.ts'
 import { hopperPrompt } from './prompts.ts'
+import { pairPhone } from './remote/pair.ts'
+import { loadPhones, removePhone } from './remote/store.ts'
 import { listRoutines, loadRoutine, nextRun, runRoutine, removeLaunchd } from './routines/index.ts'
 import { App } from './tui/App.tsx'
 import { MOUSE_OFF, MOUSE_ON } from './tui/mouse.ts'
@@ -60,6 +62,9 @@ const HELP = `hopper: toss work in the hopper, hop from item to item.
   hopper routine install <template> [--name n] [--project key] [--schedule "…"]
                    [--check "cmd"] [--enable]   add one (paused unless --enable)
   hopper dispatch [--json]               start queued drafts that are ready now
+  hopper pair [--relay <url>]            pair an iPhone: shows a code to scan with Hopper on it
+  hopper phones                          the paired phones (they connect while the app is open)
+  hopper unpair <id|name>                forget a paired phone
   hopper version         which Hopper this is (also --version)
   hopper update          install the latest release (a copy built from source updates with git)
   hopper help            this
@@ -334,6 +339,39 @@ async function dispatchCmd(rest: string[]) {
   for (const w of report.waiting) console.log(`${at} waiting ${w.draft}: ${w.reason}`)
 }
 
+async function pair(rest: string[]) {
+  const at = rest.indexOf('--relay')
+  const relay = at >= 0 ? rest[at + 1] : undefined
+  if (at >= 0 && !relay) throw new UsageError('hopper pair [--relay <url>]')
+  const { createInterface } = await import('node:readline/promises')
+  const phone = await pairPhone({
+    print: (t) => console.log(t),
+    confirm: async (q) => {
+      const rl = createInterface({ input: process.stdin, output: process.stdout })
+      try {
+        return /^y(es)?$/i.test((await rl.question(`${q} [y/N] `)).trim())
+      } finally {
+        rl.close()
+      }
+    },
+    ...(relay ? { relay } : {}),
+  })
+  process.exit(phone ? 0 : 1)
+}
+
+async function phones() {
+  const all = await loadPhones()
+  if (!all.length) return console.log('No phones paired. Run: hopper pair')
+  for (const p of all)
+    console.log(`${p.id}  ${p.name.padEnd(24)} paired ${when(p.pairedAt)}  ${p.relay}`)
+}
+
+async function unpair(id: string | undefined) {
+  if (!id) throw new UsageError('hopper unpair <id|name>')
+  if (!(await removePhone(id))) throw new UsageError(`No paired phone "${id}". See: hopper phones`)
+  console.log(`Unpaired ${id}.`)
+}
+
 async function routines() {
   const config = await requireConfig()
   const all = await listRoutines(config.home)
@@ -385,6 +423,9 @@ try {
   else if (cmd === 'draft') await draft(rest[0], rest.slice(1))
   else if (cmd === 'routine') await routine(rest[0], rest.slice(1))
   else if (cmd === 'dispatch') await dispatchCmd(rest)
+  else if (cmd === 'pair') await pair(rest)
+  else if (cmd === 'phones') await phones()
+  else if (cmd === 'unpair') await unpair(rest[0])
   else if (cmd === 'version' || cmd === '--version' || cmd === '-v') console.log(version())
   else if (cmd === 'update') await update()
   else if (cmd === 'help' || cmd === '--help' || cmd === '-h') console.log(HELP)

@@ -1,0 +1,249 @@
+import { readFileSync } from 'node:fs'
+import { mkdtemp, stat } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { describe, expect, it } from 'vitest'
+
+import type { Item, Snapshot } from '../src/model.ts'
+import {
+  Channel,
+  counterNonce,
+  newKeyPair,
+  openBox,
+  pairingKey,
+  pairProof,
+  publicOf,
+  sealBox,
+  sessionKeys,
+} from '../src/remote/crypto.ts'
+import { addPhone, loadIdentity, loadPhones, removePhone } from '../src/remote/store.ts'
+import { phoneView } from '../src/remote/view.ts'
+import {
+  Kind,
+  MacSession,
+  offerLink,
+  pairedReply,
+  pairRequest,
+  parseOffer,
+  PhoneSession,
+  readPairedReply,
+  readPairRequest,
+  type Offer,
+} from '../src/remote/wire.ts'
+
+const vectors = JSON.parse(
+  readFileSync(join(import.meta.dirname, 'fixtures/remote-vectors.json'), 'utf8'),
+) as { inputs: Record<string, string>; expect: Record<string, string> }
+const h = (s: string) => Buffer.from(s, 'hex')
+const hex = (b: Buffer) => b.toString('hex')
+
+describe('remote crypto', () => {
+  // The same vectors are checked against the app's CryptoKit code by ios/scripts/check-vectors.swift.
+  it('matches the shared vectors', () => {
+    const i = vectors.inputs as Record<string, string>
+    const e = vectors.expect
+    const macPublic = publicOf(h(i.macPrivate!))
+    const phonePublic = publicOf(h(i.phonePrivate!))
+    const macEph = publicOf(h(i.macEphPrivate!))
+    const phoneEph = publicOf(h(i.phoneEphPrivate!))
+    expect(hex(macPublic)).toBe(e.macPublic)
+    expect(hex(phonePublic)).toBe(e.phonePublic)
+    const pk = pairingKey(h(i.macPrivate!), phonePublic, h(i.room!))
+    expect(hex(pk)).toBe(e.pairingKey)
+    expect(hex(pairingKey(h(i.phonePrivate!), macPublic, h(i.room!)))).toBe(e.pairingKey)
+    expect(hex(pairProof(h(i.secret!), h(i.room!), phonePublic))).toBe(e.proof)
+    const sk = sessionKeys(h(i.macEphPrivate!), phoneEph, pk, macEph, phoneEph)
+    expect(hex(sk.macToPhone)).toBe(e.macToPhone)
+    expect(hex(sk.phoneToMac)).toBe(e.phoneToMac)
+    expect(hex(sealBox(pk, h(i.plaintext!), h(i.aad!), h(i.nonce!)))).toBe(e.box)
+    const ch = new Channel(sk.macToPhone, sk.phoneToMac)
+    expect(hex(ch.seal(h(i.plaintext!)))).toBe(e.frame0)
+    expect(hex(ch.seal(h(i.plaintext!)))).toBe(e.frame1)
+    expect(hex(counterNonce(1n))).toBe(e.nonce1)
+  })
+
+  it('opens what it sealed, and nothing changed or under another label', () => {
+    const key = newKeyPair().publicKey
+    const box = sealBox(key, Buffer.from('hi'), Buffer.from('a'))
+    expect(openBox(key, box, Buffer.from('a'))?.toString()).toBe('hi')
+    expect(openBox(key, box, Buffer.from('b'))).toBeNull()
+    const bent = Buffer.from(box)
+    bent[14]! ^= 1
+    expect(openBox(key, bent, Buffer.from('a'))).toBeNull()
+  })
+
+  it('refuses a frame out of order', () => {
+    const a = newKeyPair().publicKey
+    const b = newKeyPair().publicKey
+    const tx = new Channel(a, b)
+    const rx = new Channel(b, a)
+    const f0 = tx.seal(Buffer.from('one'))
+    const f1 = tx.seal(Buffer.from('two'))
+    expect(rx.open(f1)).toBeNull()
+    expect(rx.open(f0)?.toString()).toBe('one')
+    expect(rx.open(f0)).toBeNull()
+    expect(rx.open(f1)?.toString()).toBe('two')
+  })
+})
+
+describe('pairing and sessions', () => {
+  const mac = newKeyPair()
+  const offer: Offer = {
+    relay: 'wss://relay.example',
+    room: Buffer.alloc(16, 9),
+    macPublic: mac.publicKey,
+    secret: Buffer.alloc(32, 7),
+    name: "sam's MacBook Pro",
+  }
+
+  it('carries an offer through its link', () => {
+    const back = parseOffer(offerLink(offer))
+    expect(back.relay).toBe(offer.relay)
+    expect(back.name).toBe(offer.name)
+    expect(back.room.equals(offer.room)).toBe(true)
+    expect(back.macPublic.equals(offer.macPublic)).toBe(true)
+    expect(back.secret.equals(offer.secret)).toBe(true)
+    expect(() => parseOffer('https://example.com/?v=1')).toThrow()
+  })
+
+  it('pairs a phone that saw the code, and no one else', () => {
+    const phone = newKeyPair()
+    const ask = readPairRequest(pairRequest(offer, phone, "Sam's iPhone"), offer, mac.privateKey)
+    expect(ask?.name).toBe("Sam's iPhone")
+    expect(ask?.phonePublic.equals(phone.publicKey)).toBe(true)
+
+    // Someone who only knows the room (the relay) can't make the secret's proof.
+    const guess = pairRequest({ ...offer, secret: Buffer.alloc(32, 1) }, newKeyPair(), 'x')
+    expect(readPairRequest(guess, offer, mac.privateKey)).toBeNull()
+
+    // Nor swap its own key into a real request.
+    const real = pairRequest(offer, phone, "Sam's iPhone")
+    const swapped = Buffer.from(real)
+    newKeyPair().publicKey.copy(swapped, 1)
+    expect(readPairRequest(swapped, offer, mac.privateKey)).toBeNull()
+
+    const phoneKey = pairingKey(phone.privateKey, mac.publicKey, offer.room)
+    expect(readPairedReply(pairedReply(ask!.pairKey, offer.name), phoneKey)?.name).toBe(offer.name)
+  })
+
+  it('starts a session from a hello and talks both ways', () => {
+    const phone = newKeyPair()
+    const key = pairingKey(mac.privateKey, phone.publicKey, offer.room)
+    const m = new MacSession(key)
+    const p = new PhoneSession(key)
+    const reply = m.onHello(p.hello())
+    expect(reply?.[0]).toBe(Kind.hello)
+    expect(p.onHello(reply!)).toBe(true)
+    expect(p.open(m.seal({ t: 'snapshot', n: 1 }))).toEqual({ t: 'snapshot', n: 1 })
+    expect(m.open(p.seal({ t: 'open', id: 'a' }))).toEqual({ t: 'open', id: 'a' })
+  })
+
+  it('takes no hello from a stranger, and starts over on a new one', () => {
+    const phone = newKeyPair()
+    const key = pairingKey(mac.privateKey, phone.publicKey, offer.room)
+    const m = new MacSession(key)
+    const stranger = new PhoneSession(newKeyPair().publicKey)
+    expect(m.onHello(stranger.hello())).toBeNull()
+    expect(m.ready).toBe(false)
+
+    const p = new PhoneSession(key)
+    p.onHello(m.onHello(p.hello())!)
+    const old = m.seal({ t: 'x' })
+    // The phone reconnects: a new hello, a new session; frames from the old one don't open.
+    p.onHello(m.onHello(p.hello())!)
+    expect(p.open(old)).toBeNull()
+    expect(p.open(m.seal({ t: 'y' }))).toEqual({ t: 'y' })
+  })
+
+  it("doesn't take its own hello reflected back", () => {
+    const phone = newKeyPair()
+    const key = pairingKey(mac.privateKey, phone.publicKey, offer.room)
+    const m = new MacSession(key)
+    const p = new PhoneSession(key)
+    const reply = m.onHello(p.hello())!
+    expect(m.onHello(reply)).toBeNull()
+  })
+})
+
+describe('the phone view and the key store', () => {
+  const item = (fields: Partial<Item>): Item => ({
+    account: 'bh',
+    id: 'a1',
+    sessionId: 's1',
+    kind: 'background',
+    cwd: '/work/atlas',
+    name: 'Fix the blurry tiles',
+    startedAt: 1,
+    state: 'working',
+    where: 'queue',
+    key: 'bh/atlas',
+    activeAt: 1,
+    ...fields,
+  })
+  const snapshot = (fields: Partial<Snapshot>): Snapshot => ({
+    at: 5,
+    drafts: [],
+    routines: [],
+    runs: [],
+    reports: {},
+    projects: [],
+    projectsError: null,
+    openCounts: new Map(),
+    accounts: [],
+    items: [],
+    ...fields,
+  })
+
+  it('lists what the Mac lists, in its groups and order, and leaves out the rest', () => {
+    const v = phoneView(
+      snapshot({
+        items: [
+          item({ sessionId: 'run', name: 'Running one', activeAt: 3 }),
+          item({ sessionId: 'ask', name: 'Asks', where: 'needs', state: 'blocked', activeAt: 2 }),
+          item({ sessionId: 'old', name: 'Archived', where: 'done' }),
+          item({ sessionId: 'held', name: 'Later', where: 'needs', held: true }),
+        ],
+        projects: [
+          {
+            key: 'bh/atlas',
+            path: '/work/atlas',
+            runIn: '/work/atlas',
+            openFile: '/work/atlas/_open.md',
+          },
+        ],
+        openCounts: new Map([['bh/atlas', 3]]),
+      }),
+      'test mac',
+      () => '#7eaaea',
+    )
+    expect(v.items.map((i) => [i.id, i.group])).toEqual([
+      ['run', 'running'],
+      ['ask', 'waiting'],
+      ['held', 'held'],
+    ])
+    expect(v.projects).toEqual([{ key: 'bh/atlas', open: 3, running: 1, waiting: 1 }])
+    expect(v.mac).toBe('test mac')
+  })
+
+  it('keeps the Mac key private and remembers phones', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'hopper-remote-'))
+    const a = await loadIdentity(dir)
+    const b = await loadIdentity(dir)
+    expect(a.publicKey.equals(b.publicKey)).toBe(true)
+    expect((await stat(join(dir, 'identity.json'))).mode & 0o777).toBe(0o600)
+    const phone = {
+      id: 'p1',
+      name: "Sam's iPhone",
+      publicKey: 'k',
+      room: 'r',
+      relay: 'ws://x',
+      pairedAt: 1,
+    }
+    await addPhone(phone, dir)
+    await addPhone({ ...phone, name: 'renamed' }, dir)
+    expect((await loadPhones(dir)).map((p) => p.name)).toEqual(['renamed'])
+    expect(await removePhone('renamed', dir)).toBe(true)
+    expect(await loadPhones(dir)).toEqual([])
+  })
+})
