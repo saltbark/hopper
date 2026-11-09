@@ -223,6 +223,14 @@ Simulator' CODE_SIGNING_ALLOWED=NO build`).
   simulator app can't write the Keychain, so the pairing doesn't stick. An iPhone 13 mini
   simulator shows the smallest screen the app is used on. The demo's conversations open on a
   made-up Claude (`ios/scripts/demo-screen.ts`), so `conversation` shows the pane too.
+- **TestFlight**: `ios/scripts/testflight.sh` archives a Release build, its build number the UTC
+  time (`YYYYMMDDHHMM`, so each is higher than the last), and uploads it to App Store Connect;
+  `--dry` exports a local `.ipa` instead. It signs and uploads with the Apple ID signed in to
+  Xcode, or an App Store Connect API key when `ASC_KEY_ID`, `ASC_ISSUER_ID` and `ASC_KEY_PATH` are
+  set. Upload only when asked, like a release. The version is `MARKETING_VERSION` in the project.
+  `ITSAppUsesNonExemptEncryption` is NO: the app's encryption is CryptoKit's, Apple's own, which
+  is exempt; that changes if it ever ships its own crypto. The app icon is drawn from the frog's
+  pixel runs (`Frog` in `Parts.swift`), 40 points a pixel on Hopper's dark ground.
 
 ## Where things are
 

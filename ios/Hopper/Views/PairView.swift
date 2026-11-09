@@ -11,7 +11,7 @@ struct PairView: View {
     var body: some View {
         ZStack {
             T.bg.ignoresSafeArea()
-            if DataScannerViewController.isSupported, DataScannerViewController.isAvailable, model.pairStep == .idle || isFailed {
+            if scanning {
                 QRScanner { link in
                     guard !scanned else { return }
                     scanned = true
@@ -19,21 +19,44 @@ struct PairView: View {
                 }
                 .ignoresSafeArea()
                 .overlay(Color.black.opacity(0.35).ignoresSafeArea())
-                Brackets()
             }
-            VStack(spacing: 8) {
-                Text("Pair with your Mac").font(.system(size: 26, weight: .bold)).foregroundStyle(T.hi)
-                Text(subtitle).font(.system(size: 15)).foregroundStyle(T.text).multilineTextAlignment(.center)
+            // The frame sits in the space the camera shows between the title and the card, as
+            // large as fits there up to 240 points: centred on the whole screen, the card covered
+            // its lower half on a small phone.
+            VStack(spacing: 0) {
+                VStack(spacing: 8) {
+                    Text("Pair with your Mac").font(.system(size: 26, weight: .bold)).foregroundStyle(T.hi)
+                    Text(subtitle).font(.system(size: 15)).foregroundStyle(T.text).multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 40)
+                Group {
+                    if scanning || showFrame {
+                        Brackets().frame(maxWidth: 240, maxHeight: 240).aspectRatio(1, contentMode: .fit)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.vertical, 20)
+                Steps(scanned: $scanned, name: $name)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
             }
-            .padding(.horizontal, 24)
-            .frame(maxHeight: .infinity, alignment: .top)
-            .padding(.top, 60)
-
-            VStack { Spacer(); Steps(scanned: $scanned, name: $name) }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
         }
         .onChange(of: model.pairStep) { _, step in if case .failed = step { scanned = false } }
+    }
+
+    private var scanning: Bool {
+        DataScannerViewController.isSupported && DataScannerViewController.isAvailable && (model.pairStep == .idle || isFailed)
+    }
+
+    // The simulator has no camera: HOPPER_BRACKETS shows the frame to check it.
+    private var showFrame: Bool {
+        #if DEBUG
+            ProcessInfo.processInfo.environment["HOPPER_BRACKETS"] != nil
+        #else
+            false
+        #endif
     }
 
     private var isFailed: Bool { if case .failed = model.pairStep { true } else { false } }
@@ -47,12 +70,36 @@ struct PairView: View {
     }
 }
 
+/// Where to put the code: four rounded corners, drawn as corners. (A dashed rounded rectangle
+/// can't do this: its outline is longer than four straight sides, so the dashes drift out of the
+/// corners.)
 private struct Brackets: View {
     var body: some View {
-        RoundedRectangle(cornerRadius: 22)
-            .stroke(T.focus, style: StrokeStyle(lineWidth: 4, dash: [44, 152], dashPhase: 22))
-            .frame(width: 240, height: 240)
+        CornerBrackets()
+            .stroke(T.focus, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
             .accessibilityHidden(true)
+    }
+}
+
+private nonisolated struct CornerBrackets: Shape {
+    var length: CGFloat = 46
+    var radius: CGFloat = 22
+
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        // Each corner: along one edge into the curve, round it, out along the other.
+        let corners: [(CGPoint, CGPoint, CGPoint)] = [
+            (CGPoint(x: r.minX, y: r.minY + length), CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.minX + length, y: r.minY)),
+            (CGPoint(x: r.maxX - length, y: r.minY), CGPoint(x: r.maxX, y: r.minY), CGPoint(x: r.maxX, y: r.minY + length)),
+            (CGPoint(x: r.maxX, y: r.maxY - length), CGPoint(x: r.maxX, y: r.maxY), CGPoint(x: r.maxX - length, y: r.maxY)),
+            (CGPoint(x: r.minX + length, y: r.maxY), CGPoint(x: r.minX, y: r.maxY), CGPoint(x: r.minX, y: r.maxY - length)),
+        ]
+        for (start, corner, end) in corners {
+            p.move(to: start)
+            p.addArc(tangent1End: corner, tangent2End: end, radius: radius)
+            p.addLine(to: end)
+        }
+        return p
     }
 }
 
