@@ -40,7 +40,6 @@ struct HopperTabBar: View {
         } label: {
             VStack(spacing: 2) {
                 Image(systemName: icon).font(.system(size: 19, weight: on ? .semibold : .regular))
-                    .symbolEffect(.bounce.down, value: on)
                     .overlay(alignment: .topTrailing) {
                         if badge > 0 {
                             Text("\(badge)").font(.system(size: 10, weight: .bold)).foregroundStyle(T.ink)
@@ -62,7 +61,7 @@ struct HopperTabBar: View {
             }
             .contentShape(.capsule)
         }
-        .buttonStyle(.press(0.95))
+        .buttonStyle(.plain)
         .foregroundStyle(on ? T.focus : T.soft)
         .accessibilityLabel(badge > 0 ? "\(title), \(badge) waiting" : title)
         .accessibilityAddTraits(on ? .isSelected : [])
