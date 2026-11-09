@@ -27,21 +27,29 @@ struct Frog: View {
         (4, 13, 2, 0x14463d), (7, 13, 2, 0x14463d), (10, 13, 2, 0x14463d), (13, 13, 1, 0x14463d),
     ]
 
+    // One path per colour, in pixels, made once: drawing is a handful of fills.
+    private static let layers: [(Path, Color)] = {
+        var paths: [UInt32: Path] = [:]
+        var order: [UInt32] = []
+        for (x, y, w, c) in runs {
+            if paths[c] == nil { order.append(c) }
+            paths[c, default: Path()].addRect(CGRect(x: Double(x), y: Double(y), width: Double(w) + 0.03, height: 1.03))
+        }
+        return order.map { (paths[$0]!, Color(hex: $0)) }
+    }()
+
     var body: some View {
         Canvas { ctx, sz in
-            let px = sz.width / 16
-            for (x, y, w, c) in Self.runs {
-                ctx.fill(
-                    Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px, width: CGFloat(w) * px + 0.5, height: px + 0.5)),
-                    with: .color(Color(hex: c)))
-            }
+            ctx.scaleBy(x: sz.width / 16, y: sz.height / 16)
+            for (path, color) in Self.layers { ctx.fill(path, with: .color(color)) }
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
     }
 }
 
-/// The glyph that leads a row; running work spins, as on the Mac.
+/// The glyph that leads a row; running work spins, as on the Mac. The spinner follows the
+/// display's clock and stops while it's off screen.
 struct Mark: View {
     let mark: StateMark
     var size: CGFloat = 15
@@ -52,16 +60,31 @@ struct Mark: View {
         Group {
             if let m = mark.mark {
                 Text(m).font(T.mono(size, mark.bold ? .bold : .regular))
+                    .transition(.scale(scale: 0.5).combined(with: .opacity))
             } else {
-                TimelineView(.periodic(from: .now, by: 0.12)) { ctx in
-                    let i = Int(ctx.date.timeIntervalSinceReferenceDate / 0.12) % Self.frames.count
+                TimelineView(.animation(minimumInterval: 0.1)) { ctx in
+                    let i = Int(ctx.date.timeIntervalSinceReferenceDate * 10) % Self.frames.count
                     // Braille dots are small in any font: a size up so they read as a spinner.
                     Text(Self.frames[i]).font(T.mono(size + 5, .bold))
                 }
+                .transition(.scale(scale: 0.5).combined(with: .opacity))
             }
         }
         .foregroundStyle(mark.color)
         .frame(width: 18)
+        .id(mark.mark ?? "spin")
+    }
+}
+
+/// "18m", kept current: it moves on by the minute without anything else redrawing.
+struct AgoText: View {
+    let ms: Double
+
+    var body: some View {
+        TimelineView(.everyMinute) { ctx in
+            Text(Ago.short(ms, now: ctx.date)).monospacedDigit()
+                .contentTransition(.numericText())
+        }
     }
 }
 
@@ -102,7 +125,6 @@ struct RowDivider: View {
 /// Top of a tab: its name in Hopper's mono; the Mac's state only when it isn't connected (a phone
 /// this size has no room to say "connected" all day); and a + where a new conversation fits.
 struct ScreenTitle: View {
-    @Environment(AppModel.self) private var model
     let title: String
     var frog = false
     var newIn: String?? = nil
@@ -128,12 +150,7 @@ struct PageHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Button { dismiss() } label: {
-                Image(systemName: "chevron.left").font(.system(size: 19, weight: .semibold)).frame(width: 36, height: 44)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(T.focus)
-            .accessibilityLabel("Back")
+            BackButton()
             Text(title)
                 .font(mono ? T.mono(22, .bold) : .system(size: 20, weight: .bold))
                 .foregroundStyle(T.hi).tracking(mono ? -0.4 : 0).lineLimit(1).truncationMode(.head)
@@ -141,12 +158,30 @@ struct PageHeader<Trailing: View>: View {
             LinkChip()
             trailing
         }
+        .frame(minHeight: 44)
     }
 }
 
 extension PageHeader where Trailing == EmptyView {
     init(title: String, mono: Bool = true) {
         self.init(title: title, mono: mono) { EmptyView() }
+    }
+}
+
+/// The chevron that pops a page, sized for a thumb.
+struct BackButton: View {
+    @Environment(\.dismiss) private var dismiss
+    var action: (() -> Void)?
+
+    var body: some View {
+        Button { (action ?? { dismiss() })() } label: {
+            Image(systemName: "chevron.left").font(.system(size: 19, weight: .semibold))
+                .frame(width: 36, height: 44)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.press)
+        .foregroundStyle(T.focus)
+        .accessibilityLabel("Back")
     }
 }
 
@@ -161,32 +196,42 @@ struct NewButton: View {
                 .frame(width: 36, height: 36)
                 .background(T.focus, in: .circle)
         }
-        .foregroundStyle(Color(hex: 0x0A0C0D))
+        .buttonStyle(.press)
+        .foregroundStyle(T.ink)
         .accessibilityLabel(project.map { "New conversation in \($0)" } ?? "New conversation")
     }
 }
 
-/// Says the Mac isn't there, and nothing when it is.
+/// Says the Mac isn't there, and nothing when it is. Tapping it tries again now.
 struct LinkChip: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if let (color, text) = state {
-            HStack(spacing: 6) {
-                Circle().fill(color).frame(width: 6, height: 6)
-                Text(text).lineLimit(1)
+        ZStack {
+            if let (color, text) = state {
+                Button { model.reconnectNow() } label: {
+                    HStack(spacing: 6) {
+                        Circle().fill(color).frame(width: 6, height: 6)
+                            .symbolEffect(.pulse, isActive: model.shownLink == .connecting)
+                        Text(text).lineLimit(1).contentTransition(.interpolate)
+                    }
+                    .font(T.mono(11))
+                    .foregroundStyle(T.soft)
+                    .padding(.horizontal, 9)
+                    .frame(height: 26)
+                    .background(T.surface, in: .capsule)
+                    .overlay(Capsule().stroke(T.surfaceLine, lineWidth: 1))
+                }
+                .buttonStyle(.press)
+                .accessibilityElement(children: .combine)
+                .accessibilityHint("Tries again now")
+                .transition(.scale(scale: 0.85, anchor: .trailing).combined(with: .opacity))
             }
-            .font(T.mono(11))
-            .foregroundStyle(T.soft)
-            .padding(.horizontal, 9)
-            .frame(height: 26)
-            .background(T.surface, in: .capsule)
-            .accessibilityElement(children: .combine)
         }
     }
 
     private var state: (Color, String)? {
-        switch model.link {
+        switch model.shownLink {
         case .live: return nil
         case .connecting: return (T.dim, "connecting")
         case .macAway:
@@ -198,12 +243,15 @@ struct LinkChip: View {
 }
 
 extension View {
-    /// A conversation's row opens it when tapped, with no chevron, as Hopper's rows have none: on
-    /// a small phone the title needs that width. Rows that lead to another list keep theirs.
+    /// A row that opens something when tapped (a conversation to watch, a draft to edit), with no
+    /// chevron, as Hopper's rows have none: on a small phone the title needs that width. Rows that
+    /// lead to another list keep theirs.
     @ViewBuilder
     func opens(_ item: PhoneItem) -> some View {
-        if item.attach == true {
-            background { NavigationLink(value: item) { EmptyView() }.opacity(0) }
+        if item.isDraft {
+            background { NavigationLink(value: DraftRoute(id: item.id)) { EmptyView() }.opacity(0) }
+        } else if item.attach == true {
+            background { NavigationLink(value: ConversationRoute(id: item.id)) { EmptyView() }.opacity(0) }
         } else {
             self
         }
@@ -229,41 +277,92 @@ extension View {
     func titleStrip(page: Bool = false) -> some View {
         padding(.leading, page ? 8 : 16).padding(.trailing, 16).padding(.top, 2).padding(.bottom, 2)
     }
+
+    /// A heading over a list section, as the Mac heads its groups.
+    func sectionHeading() -> some View {
+        textCase(nil).listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 6, trailing: 0))
+    }
 }
 
-/// A bar for a usage limit, with a tick at how far through its window we are.
+/// A button that gives under the finger: it shrinks a little and springs back.
+struct PressStyle: ButtonStyle {
+    var scale: CGFloat = 0.94
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .animation(configuration.isPressed ? .easeOut(duration: 0.08) : .spring(duration: 0.3, bounce: 0.35), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PressStyle {
+    static var press: PressStyle { PressStyle() }
+    static func press(_ scale: CGFloat) -> PressStyle { PressStyle(scale: scale) }
+}
+
+/// A row that lights while pressed.
+struct RowPress: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? T.sel : .clear)
+            .animation(configuration.isPressed ? nil : .easeOut(duration: 0.25), value: configuration.isPressed)
+            .contentShape(.rect)
+    }
+}
+
+/// A bar for a usage limit, with a tick at how far through its window we are. It grows to a new
+/// value rather than jumping.
 struct Meter: View {
     let pct: Double
     var pace: Double?
     var color: Color?
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color(hex: 0x1D262A))
-                Capsule().fill(color ?? T.tone(pct)).frame(width: geo.size.width * min(1, max(0, pct / 100)))
+        let fill = min(1, max(0, pct / 100))
+        Capsule().fill(Color(hex: 0x1D262A))
+            .overlay(alignment: .leading) {
+                Capsule().fill(color ?? T.tone(pct))
+                    .scaleEffect(x: fill, anchor: .leading)
+            }
+            .overlay(alignment: .leading) {
                 if let pace {
-                    RoundedRectangle(cornerRadius: 1).fill(T.soft)
-                        .frame(width: 2, height: 14)
-                        .offset(x: geo.size.width * min(1, max(0, pace)) - 1)
+                    GeometryReader { geo in
+                        RoundedRectangle(cornerRadius: 1).fill(T.soft)
+                            .frame(width: 2, height: 14)
+                            .offset(x: geo.size.width * min(1, max(0, pace)) - 1, y: -3)
+                    }
                 }
             }
-        }
-        .frame(height: 8)
+            .frame(height: 8)
+            .animation(.smooth(duration: 0.6), value: pct)
     }
 }
 
 /// What every tab shows before the first snapshot, or with no Mac.
 struct Waiting: View {
     @Environment(AppModel.self) private var model
+    @State private var breathe = false
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 14) {
             Frog(size: 56)
+                .scaleEffect(breathe ? 1.04 : 0.98)
+                .opacity(breathe ? 1 : 0.75)
             Text(message).font(.system(size: 15)).foregroundStyle(T.soft).multilineTextAlignment(.center)
+                .contentTransition(.opacity)
+            if model.link == .offline {
+                Button("Try now") { model.reconnectNow() }
+                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(T.focus)
+                    .buttonStyle(.press)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 80)
+        .animation(.smooth, value: model.link)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { breathe = true }
+        }
     }
 
     private var message: String {

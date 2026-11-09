@@ -1,14 +1,17 @@
 import CryptoKit
 import Foundation
+import Synchronization
 
 // The phone's half of src/remote/wire.ts. Binary frames, the first byte saying which kind; the
 // relay's own messages are text. A change to either side's framing changes both.
+//
+// Nothing here belongs to the main thread: frames are opened where they arrive, off it.
 
-enum FrameKind: UInt8 {
+nonisolated enum FrameKind: UInt8 {
     case pair = 1, paired = 2, hello = 3, data = 4
 }
 
-enum WireError: LocalizedError {
+nonisolated enum WireError: LocalizedError {
     case notAPairingLink, otherVersion, badField(String)
 
     var errorDescription: String? {
@@ -20,9 +23,9 @@ enum WireError: LocalizedError {
     }
 }
 
-let protocolVersion = 1
+nonisolated let protocolVersion = 1
 
-private enum AAD {
+private nonisolated enum AAD {
     static let pair = Data("hopper pair request v1".utf8)
     static let paired = Data("hopper paired v1".utf8)
     static let helloPhone = Data("hopper hello v1 phone".utf8)
@@ -30,7 +33,7 @@ private enum AAD {
 }
 
 /// What the Mac's QR code carries.
-struct Offer {
+nonisolated struct Offer: Sendable {
     let relay: String
     let room: Data
     let macPublic: Data
@@ -57,16 +60,16 @@ struct Offer {
     }
 }
 
-private func frame(_ kind: FrameKind, _ body: Data) -> Data { Data([kind.rawValue]) + body }
+private nonisolated func frame(_ kind: FrameKind, _ body: Data) -> Data { Data([kind.rawValue]) + body }
 
-private func json(_ v: [String: Any]) -> Data { (try? JSONSerialization.data(withJSONObject: v)) ?? Data() }
+private nonisolated func json(_ v: [String: Any]) -> Data { (try? JSONSerialization.data(withJSONObject: v)) ?? Data() }
 
-private func object(_ d: Data?) -> [String: Any]? {
+private nonisolated func object(_ d: Data?) -> [String: Any]? {
     guard let d else { return nil }
     return (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
 }
 
-enum Wire {
+nonisolated enum Wire {
     /// The request to pair: this phone's key, proof it saw the code, its name sealed.
     static func pairRequest(offer: Offer, phone: Curve25519.KeyAgreement.PrivateKey, name: String) throws -> (frame: Data, pairKey: SymmetricKey) {
         let key = try RemoteCrypto.pairingKey(own: phone, other: offer.macPublic, room: offer.room)
@@ -83,57 +86,75 @@ enum Wire {
     }
 }
 
-/// The phone's end of one connection: say hello, take the Mac's answer, then talk.
-final class PhoneSession {
+/// The phone's end of one connection: say hello, take the Mac's answer, then talk. Frames are
+/// opened on the socket's own thread and sealed on the main one, so its state is behind a lock.
+nonisolated final class PhoneSession: Sendable {
+    private struct State {
+        var pending: (id: String, eph: Curve25519.KeyAgreement.PrivateKey)?
+        var channel: RemoteChannel?
+    }
+
     private let pairKey: SymmetricKey
-    private var pending: (id: String, eph: Curve25519.KeyAgreement.PrivateKey)?
-    private var channel: RemoteChannel?
+    private let state = Mutex(State())
 
     init(pairKey: SymmetricKey) { self.pairKey = pairKey }
 
-    var ready: Bool { channel != nil }
+    var ready: Bool { state.withLock { $0.channel != nil } }
 
     func hello() throws -> Data {
         let eph = Curve25519.KeyAgreement.PrivateKey()
         let id = Data((0..<8).map { _ in UInt8.random(in: 0...255) }).base64url
-        pending = (id, eph)
-        channel = nil
+        state.withLock {
+            $0.pending = (id, eph)
+            $0.channel = nil
+        }
         let body = json(["v": protocolVersion, "id": id, "eph": eph.publicKey.rawRepresentation.base64url])
         return frame(.hello, try RemoteCrypto.sealBox(pairKey, body, aad: AAD.helloPhone))
     }
 
     /// True when this was the Mac's answer to our latest hello and the session is up.
     func onHello(_ data: Data) -> Bool {
-        guard data.first == FrameKind.hello.rawValue, let pending,
+        guard data.first == FrameKind.hello.rawValue,
             let body = object(RemoteCrypto.openBox(pairKey, Data(data.dropFirst()), aad: AAD.helloMac)),
-            body["id"] as? String == pending.id,
-            let macEph = Data(base64url: body["eph"] as? String ?? ""), macEph.count == 32,
-            let keys = try? RemoteCrypto.sessionKeys(
-                ownEph: pending.eph, otherEph: macEph, pairKey: pairKey, macEph: macEph,
-                phoneEph: pending.eph.publicKey.rawRepresentation)
+            let macEph = Data(base64url: body["eph"] as? String ?? ""), macEph.count == 32
         else { return false }
-        channel = RemoteChannel(send: keys.phoneToMac, receive: keys.macToPhone)
-        self.pending = nil
-        return true
+        return state.withLock { s in
+            guard let pending = s.pending, body["id"] as? String == pending.id,
+                let keys = try? RemoteCrypto.sessionKeys(
+                    ownEph: pending.eph, otherEph: macEph, pairKey: pairKey, macEph: macEph,
+                    phoneEph: pending.eph.publicKey.rawRepresentation)
+            else { return false }
+            s.channel = RemoteChannel(send: keys.phoneToMac, receive: keys.macToPhone)
+            s.pending = nil
+            return true
+        }
     }
 
-    func seal(_ message: [String: Any]) throws -> Data? {
-        guard let channel else { return nil }
-        return frame(.data, try channel.seal(json(message)))
+    /// A message for the Mac, already JSON; nil until the session is up.
+    func seal(_ message: Data) -> Data? {
+        state.withLock { s in
+            guard let channel = s.channel, let box = try? channel.seal(message) else { return nil }
+            return frame(.data, box)
+        }
     }
 
     /// The JSON of a message from the Mac, or nil when it doesn't open (the session is then over).
     func open(_ data: Data) -> Data? {
-        guard data.first == FrameKind.data.rawValue, let channel else { return nil }
-        guard let out = channel.open(Data(data.dropFirst())) else {
-            self.channel = nil
-            return nil
+        guard data.first == FrameKind.data.rawValue else { return nil }
+        return state.withLock { s in
+            guard let channel = s.channel else { return nil }
+            guard let out = channel.open(Data(data.dropFirst())) else {
+                s.channel = nil
+                return nil
+            }
+            return out
         }
-        return out
     }
 
     func end() {
-        channel = nil
-        pending = nil
+        state.withLock {
+            $0.channel = nil
+            $0.pending = nil
+        }
     }
 }

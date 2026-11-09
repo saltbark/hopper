@@ -11,7 +11,7 @@ struct ArchivedView: View {
     @State private var query = ""
 
     var body: some View {
-        let all = model.snapshot?.archived ?? []
+        let all = model.archived
         let shown = query.isEmpty
             ? all : all.filter { $0.title.localizedCaseInsensitiveContains(query) || $0.project.localizedCaseInsensitiveContains(query) }
         VStack(spacing: 0) {
@@ -42,7 +42,7 @@ struct ArchivedView: View {
                         .opens(item)
                         .cardRow()
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            Button { Task { await model.unarchive(item.id) } } label: {
+                            Button { Task { await model.unarchive(item) } } label: {
                                 Label("Bring back", systemImage: "arrow.uturn.backward")
                             }
                             .tint(T.focus)
@@ -75,7 +75,7 @@ private struct ArchivedRow: View {
                 Text("\(item.project) · \(item.account)").font(T.mono(12)).foregroundStyle(T.dim).lineLimit(1)
             }
             Spacer(minLength: 8)
-            Text(Ago.short(item.activeAt)).font(T.mono(12)).foregroundStyle(T.dim)
+            AgoText(ms: item.activeAt).font(T.mono(12)).foregroundStyle(T.dim)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)

@@ -19,10 +19,10 @@ struct ProjectView: View {
 
     private var list: some View {
         List {
-            if let snap = model.snapshot {
-                let project = snap.projects.first { $0.key == key }
-                let mine = snap.items.filter { $0.project == key && $0.kind != "routine" }
-                let archived = (snap.archived ?? []).filter { $0.project == key }
+            if model.snapshot != nil {
+                let project = model.snapshot?.projects.first { $0.key == key }
+                let mine = model.items.filter { $0.project == key && $0.kind != "routine" }
+                let archived = model.archived.filter { $0.project == key }
 
                 Text(summary(project, mine))
                     .font(T.mono(12)).foregroundStyle(T.dim)
@@ -40,24 +40,23 @@ struct ProjectView: View {
                         .padding(.horizontal, 14).frame(height: 46)
                         .contentShape(.rect)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(RowPress())
                     .listRowBackground(T.surface)
                     .listRowInsets(EdgeInsets())
                 }
 
-                ForEach(WorkGroup.allCases.filter { $0 != .routines }, id: \.self) { g in
-                    let items = mine.filter { $0.group == g.rawValue }
+                ForEach(model.sections) { s in
+                    let items = s.items.filter { $0.project == key }
                     if !items.isEmpty {
                         Section {
                             ForEach(items) { item in
-                                WorkRow(item: item, accounts: snap.accounts)
+                                WorkRow(item: item, accounts: model.snapshot?.accounts ?? [])
                                     .opens(item)
                                     .cardRow()
                             }
                         } header: {
-                            GroupHeading(label: g.label, count: items.count, color: T.groupColor(g))
-                                .textCase(nil)
-                                .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 6, trailing: 0))
+                            GroupHeading(label: s.group.label, count: items.count, color: T.groupColor(s.group))
+                                .sectionHeading()
                         }
                     }
                 }
@@ -65,11 +64,11 @@ struct ProjectView: View {
                 if !archived.isEmpty {
                     Section {
                         ForEach(archived) { item in
-                            WorkRow(item: item, accounts: snap.accounts)
+                            WorkRow(item: item, accounts: model.snapshot?.accounts ?? [])
                                 .opens(item)
                                 .cardRow()
                                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                    Button { Task { await model.unarchive(item.id) } } label: {
+                                    Button { Task { await model.unarchive(item) } } label: {
                                         Label("Bring back", systemImage: "arrow.uturn.backward")
                                     }
                                     .tint(T.focus)
@@ -77,8 +76,7 @@ struct ProjectView: View {
                         }
                     } header: {
                         GroupHeading(label: "archived", count: archived.count, color: T.dim)
-                            .textCase(nil)
-                            .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 6, trailing: 0))
+                            .sectionHeading()
                     }
                 }
 

@@ -3,7 +3,7 @@ import Foundation
 import Security
 
 /// What this phone keeps about the Mac it paired with, in the Keychain, on this device only.
-struct Pairing: Codable {
+nonisolated struct Pairing: Codable, Sendable {
     let relay: String
     let room: Data
     let macPublic: Data

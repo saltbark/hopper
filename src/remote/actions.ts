@@ -5,7 +5,7 @@ import { dispatchOnce } from '../commands.ts'
 import { chosen, defaultsFor, type Config } from '../config.ts'
 import { EFFORTS, MODELS } from '../conversations.ts'
 import { setDone } from '../done.ts'
-import { newDraftId, saveDraft, type Draft } from '../drafts.ts'
+import { deleteDraft, newDraftId, saveDraft, type Draft } from '../drafts.ts'
 import { readIfThere } from '../fsutil.ts'
 import { setHeld } from '../held.ts'
 import { readItems } from '../items.ts'
@@ -24,8 +24,10 @@ import { groupOf } from '../tui/state.ts'
 // went. Every action carries a `ref` the answer echoes, so the phone can show the right toast.
 //
 //   new      {project}                                   → newinfo: open items, defaults, route
-//   start    {project, text, model?, effort?, worktree?, account?, queue?: 'now' | 'night', draft?}
-//            draft: true saves it as a draft and starts nothing
+//   start    {project, text, model?, effort?, worktree?, account?, queue?: 'now' | 'night', draft?, id?}
+//            draft: true saves it as a draft and starts nothing; id: an existing draft (its
+//            item id, draft:<id>) that this replaces
+//   discard  {id}   throws a draft away
 //   hold     {id}   toggles a waiting conversation on and off hold
 //   done     {id, undo?}   archives it, or brings it back from Archived
 //   routine  {id, do: 'resume' | 'pause' | 'run'}
@@ -47,7 +49,19 @@ export type Answer = Record<string, unknown> & { t: string }
 
 const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined)
 
-export const ACTIONS = new Set(['new', 'start', 'hold', 'done', 'routine', 'routineinfo', 'report'])
+export const ACTIONS = new Set([
+  'new',
+  'start',
+  'discard',
+  'hold',
+  'done',
+  'routine',
+  'routineinfo',
+  'report',
+])
+
+// A draft's id from what the phone sends: its item id (draft:<id>) or the bare id.
+const draftId = (v: unknown) => str(v)?.replace(/^draft:/, '')
 
 // How many of a routine's reports the phone is told about.
 export const REPORTS_SENT = 30
@@ -94,12 +108,22 @@ export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<An
         if (!project) return no(`No project ${String(m['project'])}.`)
         const now = Date.now()
         const queue = m['queue'] === 'now' || m['queue'] === 'night' ? m['queue'] : undefined
+        // Editing one that's there keeps what the phone doesn't show (after, done, depth) and
+        // when it was made; what the phone does show is replaced.
+        const id = draftId(m['id'])
+        const was = id ? snap.drafts.find((d) => d.id === id) : undefined
+        if (id && !was) return no('That draft is gone: started or thrown away on the Mac.')
         const draft: Draft = {
-          id: newDraftId(now),
+          id: was?.id ?? newDraftId(now),
           project: project.key,
           text,
-          created: now,
+          created: was?.created ?? now,
           updated: now,
+          ...(was?.after ? { after: was.after } : {}),
+          ...(was?.done ? { done: was.done } : {}),
+          ...(was?.depth ? { depth: was.depth } : {}),
+          // Proposed by an agent until it's queued, as on the Mac.
+          ...(was?.proposed && !queue ? { proposed: was.proposed } : {}),
           ...(str(m['model']) ? { model: str(m['model']) } : {}),
           ...(str(m['effort']) ? { effort: str(m['effort']) } : {}),
           ...(str(m['worktree']) ? { worktree: str(m['worktree']) } : {}),
@@ -110,7 +134,7 @@ export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<An
         if (m['draft'] === true) {
           await saveDraft(config.home, draft)
           await deps.refresh()
-          return ok('Saved as a draft.')
+          return ok(was ? 'Saved.' : 'Saved as a draft.')
         }
         if (queue) {
           await saveDraft(config.home, draft)
@@ -144,6 +168,15 @@ export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<An
             )
           return no(`${(e as Error).message}. The draft is kept.`)
         }
+      }
+
+      case 'discard': {
+        const id = draftId(m['id'])
+        const d = id ? snap.drafts.find((x) => x.id === id) : undefined
+        if (!d) return no('That draft is gone already.')
+        await deleteDraft(config.home, d.id)
+        await deps.refresh()
+        return ok('Thrown away.')
       }
 
       case 'hold': {

@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Everything not done, in the Mac's groups and order: what you're writing, what's running, what
-/// waits on you, what's on hold, what's up next. Routines have their own tab. Tap a conversation
-/// to open it; swipe left for Done, right to put one that waits on you on hold. Archived is at
-/// the bottom.
+/// waits on you, what's on hold, what's up next. Tap a conversation to open it, a draft to edit
+/// it; swipe left for Done, right to put one that waits on you on hold. Routines and Archived are
+/// at the bottom.
 struct WorkView: View {
     @Environment(AppModel.self) private var model
 
@@ -15,47 +15,37 @@ struct WorkView: View {
         .background(T.bg)
     }
 
-    private var groups: [(WorkGroup, [PhoneItem])] {
-        guard let snap = model.snapshot else { return [] }
-        return WorkGroup.allCases.filter { $0 != .routines }.compactMap { g in
-            let items = snap.items.filter { $0.group == g.rawValue }
-            return items.isEmpty ? nil : (g, items)
-        }
-    }
-
     private var list: some View {
         List {
-            if let snap = model.snapshot {
-                if groups.isEmpty {
+            if model.snapshot != nil {
+                if model.sections.isEmpty {
                     Text("Nothing running or waiting.").font(.system(size: 15)).foregroundStyle(T.soft)
                         .frame(maxWidth: .infinity).padding(.top, 60)
                         .listRowBackground(Color.clear)
                 }
-                ForEach(groups, id: \.0) { g, items in
+                ForEach(model.sections) { s in
                     Section {
-                        ForEach(items) { item in
-                            WorkRow(item: item, accounts: snap.accounts)
+                        ForEach(s.items) { item in
+                            WorkRow(item: item, accounts: model.snapshot?.accounts ?? [])
                                 .opens(item)
                                 .cardRow()
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) { doneSwipe(item) }
-                                .swipeActions(edge: .leading, allowsFullSwipe: true) { holdSwipe(item, g) }
+                                .swipeActions(edge: .leading, allowsFullSwipe: true) { holdSwipe(item, s.group) }
                         }
                     } header: {
-                        GroupHeading(label: g.label, count: items.count, color: T.groupColor(g))
-                            .textCase(nil)
-                            .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 6, trailing: 0))
+                        GroupHeading(label: s.group.label, count: s.items.count, color: T.groupColor(s.group))
+                            .sectionHeading()
                     }
                 }
                 Section {
-                    let routines = snap.items.filter { $0.kind == "routine" }
-                    let unread = routines.reduce(0) { $0 + ($1.unread ?? 0) }
+                    let unread = model.routines.reduce(0) { $0 + ($1.unread ?? 0) }
                     NavigationLink(value: RoutinesRoute()) {
                         PlaceRow(glyph: "↻", color: T.focus, title: "Routines",
-                                 count: unread > 0 ? "\(unread) unread" : "\(routines.count)", lit: unread > 0)
+                                 count: unread > 0 ? "\(unread) unread" : "\(model.routines.count)", lit: unread > 0)
                     }
                     .cardRow(link: true)
                     NavigationLink(value: ArchivedRoute()) {
-                        PlaceRow(glyph: "✓", color: T.dim, title: "Archived", count: "\(snap.archived?.count ?? 0)")
+                        PlaceRow(glyph: "✓", color: T.dim, title: "Archived", count: "\(model.archived.count)")
                     }
                     .cardRow(link: true)
                 }
@@ -71,7 +61,7 @@ struct WorkView: View {
     @ViewBuilder
     private func doneSwipe(_ item: PhoneItem) -> some View {
         if item.kind == "background" || item.kind == "interactive" {
-            Button { Task { await model.archive(item.id) } } label: { Label("Done", systemImage: "checkmark") }
+            Button { Task { await model.archive(item) } } label: { Label("Done", systemImage: "checkmark") }
                 .tint(T.focus)
         }
     }
@@ -81,17 +71,17 @@ struct WorkView: View {
     @ViewBuilder
     private func holdSwipe(_ item: PhoneItem, _ g: WorkGroup) -> some View {
         if g == .waiting {
-            Button { Task { await model.hold(item.id) } } label: { Label("Later", systemImage: "clock") }
-                .tint(Color(hex: 0x8C7A4F))
+            Button { Task { await model.hold(item) } } label: { Label("Later", systemImage: "clock") }
+                .tint(T.holdTint)
         } else if g == .held {
-            Button { Task { await model.hold(item.id) } } label: { Label("Back", systemImage: "arrow.uturn.backward") }
-                .tint(Color(hex: 0x8C7A4F))
+            Button { Task { await model.hold(item) } } label: { Label("Back", systemImage: "arrow.uturn.backward") }
+                .tint(T.holdTint)
         }
     }
 }
 
 /// A conversation, draft or queued draft: its glyph and name, then where and on what, then age.
-struct WorkRow: View {
+struct WorkRow: View, Equatable {
     let item: PhoneItem
     let accounts: [PhoneAccount]
 
@@ -106,8 +96,8 @@ struct WorkRow: View {
                 meta.font(T.mono(12)).lineLimit(1)
             }
             Spacer(minLength: 8)
-            if item.kind != "draft", item.group != WorkGroup.next.rawValue {
-                Text(Ago.short(item.activeAt)).font(T.mono(12)).foregroundStyle(T.dim)
+            if !item.isDraft, item.group != WorkGroup.next.rawValue {
+                AgoText(ms: item.activeAt).font(T.mono(12)).foregroundStyle(T.dim)
             }
         }
         .padding(.horizontal, 14)
@@ -118,7 +108,7 @@ struct WorkRow: View {
 
     private var meta: Text {
         let color = accounts.first { $0.name == item.account }.map { Color(css: $0.color) } ?? T.dim
-        let account = item.kind == "draft" ? Text("") : Text(" · \(Text(item.account).foregroundStyle(color))")
+        let account = item.isDraft && item.picked != true ? Text("") : Text(" · \(Text(item.account).foregroundStyle(color))")
         let model = [item.model, item.effort].compactMap { $0 }.joined(separator: " ")
         var tail = model.isEmpty ? "" : " · \(model)"
         if item.group == WorkGroup.next.rawValue { tail += item.queue == "night" ? " · tonight" : " · when there's room" }
@@ -140,6 +130,7 @@ struct PlaceRow: View {
             Text(title).font(.system(size: 15)).foregroundStyle(T.text)
             Spacer()
             Text(count).font(T.mono(12)).foregroundStyle(lit ? T.focus : T.dim)
+                .contentTransition(.numericText())
         }
         .padding(.horizontal, 14).frame(height: 46)
         .contentShape(.rect)

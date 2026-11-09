@@ -16,8 +16,10 @@ import { gather } from '../../src/model.ts'
 import { act } from '../../src/remote/actions.ts'
 import { Bridge } from '../../src/remote/bridge.ts'
 import { pairPhone } from '../../src/remote/pair.ts'
+import { loadIdentity } from '../../src/remote/store.ts'
 import { phoneView } from '../../src/remote/view.ts'
 import { accountColor } from '../../src/tui/panels/primitives.tsx'
+import { demoSpawn } from './demo-screen.ts'
 
 const [linkFile, relay = 'wss://hopper-relay.saltbark.com'] = process.argv.slice(2)
 if (!linkFile) throw new Error('usage: demo-mac.ts <link file> [relay]')
@@ -43,7 +45,8 @@ const paired = pairPhone({
 })
 await paired
 
-const bridge = await Bridge.open(remote)
+// Conversations open on a made-up Claude (demo-screen.ts): the demo's items have no real one.
+const bridge = new Bridge(await loadIdentity(remote), remote, demoSpawn)
 bridge.onAction = (m) =>
   act(m, {
     config,

@@ -24,8 +24,8 @@ struct RoutinesView: View {
 
     private var list: some View {
         List {
-            if let snap = model.snapshot {
-                let routines = snap.items.filter { $0.kind == "routine" }
+            if model.snapshot != nil {
+                let routines = model.routines
                 if routines.isEmpty {
                     Text("No routines yet. hopper routine templates lists the ones Hopper ships.")
                         .font(.system(size: 15)).foregroundStyle(T.soft).padding(.top, 40)
@@ -91,10 +91,11 @@ struct RoutineRow: View {
 struct RoutineView: View {
     @Environment(AppModel.self) private var model
     let id: String
-    @State private var info: RoutineInfo?
     @State private var loaded = false
 
-    private var item: PhoneItem? { model.snapshot?.items.first { $0.id == id } }
+    private var item: PhoneItem? { model.item(id) }
+    // Shown at once from last time while a fresh answer comes.
+    private var info: RoutineInfo? { model.routineInfos[id] }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -103,7 +104,8 @@ struct RoutineView: View {
         }
         .background(T.bg)
         .toolbar(.hidden, for: .navigationBar)
-        .task(id: model.snapshot?.items.first { $0.id == id }) { await load() }
+        // Again when the routine changes on the Mac: a run, a report read.
+        .task(id: item) { await load() }
     }
 
     private var list: some View {
@@ -155,13 +157,10 @@ struct RoutineView: View {
                     }
                 } header: {
                     GroupHeading(label: "reports", count: info.reports.count, color: T.focus)
-                        .textCase(nil)
-                        .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 6, trailing: 0))
+                        .sectionHeading()
                 }
             } else {
-                Text(loaded ? "The Mac didn't answer." : "Loading…").font(.system(size: 15)).foregroundStyle(T.soft)
-                    .frame(maxWidth: .infinity).padding(.top, 40)
-                    .listRowBackground(Color.clear)
+                Loading(failed: loaded).listRowBackground(Color.clear)
             }
         }
         .cardList()
@@ -172,7 +171,7 @@ struct RoutineView: View {
     private var paused: Bool { (item?.state ?? (info?.enabled == false ? "paused" : "")) == "paused" }
 
     private func load() async {
-        if let i = await model.routineInfo(id) { info = i }
+        await model.routineInfo(id)
         loaded = true
     }
 
@@ -187,10 +186,25 @@ struct RoutineView: View {
             Label(title, systemImage: icon).font(.system(size: 15, weight: .semibold))
                 .frame(maxWidth: .infinity).frame(height: 46)
                 .background(primary ? T.focus : T.surface, in: .rect(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(primary ? .clear : Color(hex: 0x243036), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(primary ? .clear : T.fieldLine, lineWidth: 1))
+                .contentShape(.rect)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(primary ? Color(hex: 0x0A0C0D) : T.hi)
+        .buttonStyle(.press(0.96))
+        .foregroundStyle(primary ? T.ink : T.hi)
+    }
+}
+
+/// While an answer is on its way, and when it didn't come.
+struct Loading: View {
+    let failed: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            if !failed { ProgressView().controlSize(.small).tint(T.dim) }
+            Text(failed ? "The Mac didn't answer." : "Loading…").font(.system(size: 15)).foregroundStyle(T.soft)
+        }
+        .frame(maxWidth: .infinity).padding(.top, 40)
+        .transition(.opacity)
     }
 }
 
@@ -198,8 +212,9 @@ struct RoutineView: View {
 struct ReportView: View {
     @Environment(AppModel.self) private var model
     let route: ReportRoute
-    @State private var text: ReportText?
     @State private var loaded = false
+
+    private var text: ReportText? { model.reports[AppModel.reportKey(route.routine, route.file)] }
 
     var body: some View {
         ScrollView {
@@ -208,18 +223,19 @@ struct ReportView: View {
                 Text(route.routine).font(T.mono(12)).foregroundStyle(T.dim).padding(.leading, 40).padding(.top, -10)
                 if let text {
                     Markdown(text: text.markdown).padding(.horizontal, 4)
+                        .transition(.opacity)
                 } else {
-                    Text(loaded ? "The Mac didn't answer." : "Loading…").font(.system(size: 15)).foregroundStyle(T.soft)
-                        .frame(maxWidth: .infinity).padding(.top, 40)
+                    Loading(failed: loaded)
                 }
             }
+            .animation(.easeOut(duration: 0.25), value: text == nil)
             .padding(.horizontal, 16)
             .padding(.bottom, 30)
         }
         .background(T.bg)
         .toolbar(.hidden, for: .navigationBar)
         .task {
-            text = await model.report(route.routine, route.file)
+            await model.report(route.routine, route.file)
             loaded = true
         }
     }
@@ -228,11 +244,14 @@ struct ReportView: View {
 /// Markdown as a report uses it: headings, lists, quotes, code blocks and paragraphs, with links,
 /// bold, italics and code inside lines.
 struct Markdown: View {
-    let text: String
+    // Parsed once, when the text arrives, not on every redraw.
+    private let blocks: [Block]
+
+    init(text: String) { blocks = Self.blocks(text) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(Array(Self.blocks(text).enumerated()), id: \.offset) { _, b in block(b) }
+        LazyVStack(alignment: .leading, spacing: 10) {
+            ForEach(blocks.indices, id: \.self) { i in block(blocks[i]) }
         }
         .tint(Color(hex: 0x7EAAEA))
         .textSelection(.enabled)

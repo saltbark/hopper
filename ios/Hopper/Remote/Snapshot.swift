@@ -3,7 +3,7 @@ import Foundation
 // What the Mac sends after each poll: src/remote/view.ts's PhoneView. Already grouped and sorted
 // the way the Mac's list is, so the phone only draws it.
 
-struct PhoneSnapshot: Decodable, Equatable {
+nonisolated struct PhoneSnapshot: Decodable, Equatable {
     let at: Double
     let mac: String
     let items: [PhoneItem]
@@ -13,7 +13,7 @@ struct PhoneSnapshot: Decodable, Equatable {
     let projects: [PhoneProject]
 }
 
-struct PhoneItem: Decodable, Hashable, Identifiable {
+nonisolated struct PhoneItem: Decodable, Hashable, Identifiable {
     let id: String
     let kind: String
     let title: String
@@ -30,14 +30,31 @@ struct PhoneItem: Decodable, Hashable, Identifiable {
     let queue: String?
     /// A background conversation the phone can open.
     let attach: Bool?
+    /// A draft's own: its whole text, worktree, and whether its account was picked by hand.
+    let text: String?
+    let worktree: String?
+    let picked: Bool?
+
+    var isDraft: Bool { kind == "draft" }
+    /// Whether a tap opens something: a conversation to watch or a draft to edit.
+    var opens: Bool { attach == true || isDraft }
+    var workGroup: WorkGroup? { WorkGroup(rawValue: group) }
+
+    /// The same item in another group, for showing a move before the Mac confirms it.
+    func moved(to group: String) -> PhoneItem {
+        PhoneItem(
+            id: id, kind: kind, title: title, project: project, account: account, group: group, state: state,
+            activeAt: activeAt, model: model, effort: effort, nextAt: nextAt, unread: unread, waiting: waiting,
+            queue: queue, attach: attach, text: text, worktree: worktree, picked: picked)
+    }
 }
 
-struct UsageWindow: Decodable, Equatable {
+nonisolated struct UsageWindow: Decodable, Equatable {
     let pct: Double
     let resetsAt: String?
 }
 
-struct PhoneAccount: Decodable, Equatable, Identifiable {
+nonisolated struct PhoneAccount: Decodable, Equatable, Identifiable {
     var id: String { name }
     let name: String
     let label: String
@@ -53,7 +70,7 @@ struct PhoneAccount: Decodable, Equatable, Identifiable {
     let waiting: Int
 }
 
-struct PhoneProject: Decodable, Equatable, Identifiable {
+nonisolated struct PhoneProject: Decodable, Equatable, Identifiable {
     var id: String { key }
     let key: String
     let open: Int?
@@ -62,7 +79,7 @@ struct PhoneProject: Decodable, Equatable, Identifiable {
 }
 
 /// The Mac's list groups, in its order (GROUPS in src/tui/state.ts).
-enum WorkGroup: String, CaseIterable {
+nonisolated enum WorkGroup: String, CaseIterable {
     case draft, proposed, running, waiting, held, next, routines
 
     var label: String {

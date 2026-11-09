@@ -231,6 +231,36 @@ describe('the phone view and the key store', () => {
     expect(v.archived.map((i) => [i.id, i.group])).toEqual([['old', 'archived']])
   })
 
+  it("sends a draft's text, so the phone opens it to edit at once", () => {
+    const v = phoneView(
+      snapshot({
+        drafts: [
+          {
+            id: 'd1',
+            project: 'bh/atlas',
+            text: 'Tile cache\n\nall of it',
+            created: 1,
+            updated: 1,
+          },
+        ],
+        items: [
+          item({
+            sessionId: 'draft:d1',
+            kind: 'draft',
+            draft: 'd1',
+            where: 'needs',
+            state: 'draft',
+          }),
+          item({ sessionId: 'run', name: 'Running one' }),
+        ],
+      }),
+      'mac',
+      () => '#7eaaea',
+    )
+    expect(v.items.find((i) => i.id === 'draft:d1')?.text).toBe('Tile cache\n\nall of it')
+    expect(v.items.find((i) => i.id === 'run')?.text).toBeUndefined()
+  })
+
   it('keeps the Mac key private and remembers phones', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'hopper-remote-'))
     const a = await loadIdentity(dir)

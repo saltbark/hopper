@@ -11,7 +11,12 @@ struct AccountsView: View {
                 ScreenTitle(title: "accounts")
                 if let snap = model.snapshot {
                     if let at = snap.accounts.compactMap(\.usageAt).max() {
-                        Text("usage read \(Ago.short(at)) ago").font(T.mono(12)).foregroundStyle(T.dim).padding(.horizontal, 4)
+                        HStack(spacing: 0) {
+                            Text("usage read ")
+                            AgoText(ms: at)
+                            Text(" ago")
+                        }
+                        .font(T.mono(12)).foregroundStyle(T.dim).padding(.horizontal, 4)
                     }
                     ForEach(snap.accounts) { AccountCard(account: $0) }
                 } else {

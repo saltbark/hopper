@@ -5,7 +5,7 @@ import Foundation
 // fresh keys per connection, ChaCha20-Poly1305 frames. test/fixtures/remote-vectors.json holds
 // the bytes both must produce; ios/scripts/check-vectors.swift runs this file against them.
 
-enum RemoteCrypto {
+nonisolated enum RemoteCrypto {
     static let pairInfo = Data("hopper pair v1".utf8)
     static let sessionInfo = Data("hopper session v1".utf8)
     static let proofLabel = Data("hopper pair v1".utf8)
@@ -64,7 +64,7 @@ enum RemoteCrypto {
 }
 
 /// One direction of a connection; each side counts, so frames carry no nonce.
-final class RemoteChannel {
+nonisolated final class RemoteChannel {
     private let sendKey: SymmetricKey
     private let receiveKey: SymmetricKey
     private var sent: UInt64 = 0
@@ -92,11 +92,11 @@ final class RemoteChannel {
     }
 }
 
-extension SymmetricKey {
+nonisolated extension SymmetricKey {
     var data: Data { withUnsafeBytes { Data($0) } }
 }
 
-extension Data {
+nonisolated extension Data {
     init?(hex: String) {
         guard hex.count % 2 == 0 else { return nil }
         var out = Data(capacity: hex.count / 2)

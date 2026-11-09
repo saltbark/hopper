@@ -23,6 +23,18 @@ enum T {
     static let draft = Color(hex: 0xC69CE8)
     static let running = Color(hex: 0x7FCF8F)
     static let code = Color(hex: 0xA3C3F0)
+    /// Text on the accent.
+    static let ink = Color(hex: 0x0A0C0D)
+    /// Where you type, and its edge.
+    static let field = Color(hex: 0x0A0E10)
+    static let fieldLine = Color(hex: 0x243036)
+    /// The edge of a form's card.
+    static let cardLine = Color(hex: 0x1F2A2F)
+    /// A key on the key row; the bar the keys sit in.
+    static let key = Color(hex: 0x1D262A)
+    static let panel = Color(hex: 0x0D1214)
+    /// Behind "Later" and "Back" when swiping.
+    static let holdTint = Color(hex: 0x8C7A4F)
 
     static func mono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
         .system(size: size, weight: weight, design: .monospaced)
@@ -43,7 +55,7 @@ enum T {
     }
 }
 
-extension Color {
+nonisolated extension Color {
     init(hex: UInt32) {
         self.init(
             red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255,

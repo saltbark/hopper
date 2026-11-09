@@ -196,7 +196,13 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   `HOPPER_RELAY`); `pnpm relay:deploy` ships it, only when asked, from the main checkout (its `.env`
   holds the token, as for the site).
 - **The iOS app** is SwiftUI for iOS 27 with no packages; the project uses synchronized folders, so
-  a file added under `ios/Hopper/` is in the target. Build it with `DEVELOPER_DIR` set to Xcode
+  a file added under `ios/Hopper/` is in the target. Everything is on the main actor by default;
+  the socket, crypto and decoding are `nonisolated` (`Connection.swift`, `Wire.swift`,
+  `Crypto.swift`, the `Decodable` types) so frames are opened and laid out off the main thread
+  (`ScreenBuffer`), and only what's ready to draw reaches it. `AppModel` works the lists out once
+  per snapshot (`sections`, `items`, `archived`), not in views, and shows a swipe's move before
+  the Mac answers (`move`), putting it back if the Mac says no. It keeps the last snapshot on the
+  phone, so the app opens on it while it connects. Build it with `DEVELOPER_DIR` set to Xcode
   (`xcodebuild -project ios/Hopper.xcodeproj -scheme Hopper -destination 'generic/platform=iOS
 Simulator' CODE_SIGNING_ALLOWED=NO build`).
 - **To see a screen without a phone**, run `npx tsx ios/scripts/demo-mac.ts <link file>` (Hopper's
@@ -205,7 +211,8 @@ Simulator' CODE_SIGNING_ALLOWED=NO build`).
   Debug build paired from the link and opened on that screen (`HOPPER_PAIR_LINK`, `HOPPER_SHOW`,
   both `#if DEBUG`). Build it signed for the simulator (no `CODE_SIGNING_ALLOWED=NO`): an unsigned
   simulator app can't write the Keychain, so the pairing doesn't stick. An iPhone 13 mini
-  simulator shows the smallest screen the app is used on.
+  simulator shows the smallest screen the app is used on. The demo's conversations open on a
+  made-up Claude (`ios/scripts/demo-screen.ts`), so `conversation` shows the pane too.
 
 ## Where things are
 

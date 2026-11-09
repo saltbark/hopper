@@ -2,7 +2,7 @@ import Foundation
 
 /// The Mac's answer to "new conversation in this project": its open items, what it would start
 /// with, and which account its route picks (src/remote/actions.ts, `new`).
-struct NewInfo: Decodable, Equatable {
+nonisolated struct NewInfo: Decodable, Equatable {
     let project: String
     let runIn: String
     let items: [String]
@@ -26,7 +26,7 @@ struct NewInfo: Decodable, Equatable {
 }
 
 /// A routine as the Mac has it (src/remote/actions.ts, `routineinfo`).
-struct RoutineInfo: Decodable, Equatable {
+nonisolated struct RoutineInfo: Decodable, Equatable {
     let name: String
     let project: String
     let schedule: String
@@ -49,7 +49,7 @@ struct RoutineInfo: Decodable, Equatable {
 }
 
 /// One report's text (`report`).
-struct ReportText: Decodable, Equatable {
+nonisolated struct ReportText: Decodable, Equatable {
     let routine: String
     let at: Double
     let markdown: String

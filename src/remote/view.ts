@@ -24,6 +24,11 @@ export type PhoneItem = {
   queue?: string
   // A background conversation the phone can open (attach takes its id).
   attach?: boolean
+  // A draft's own: its whole text, worktree, and whether its account was picked by hand, so the
+  // phone opens it to edit with nothing to wait for.
+  text?: string
+  worktree?: string
+  picked?: boolean
 }
 
 export type PhoneAccount = {
@@ -74,6 +79,7 @@ export function phoneView(
   color: (account: string) => string,
 ): PhoneView {
   const listed = snap.items.filter((i) => LISTED.has(i.where)).sort(order)
+  const drafts = new Map(snap.drafts.map((d) => [d.id, d]))
   const phoneItem = (i: Item, group: PhoneItem['group']) =>
     pick<PhoneItem>({
       id: i.sessionId,
@@ -91,6 +97,9 @@ export function phoneView(
       waiting: i.waiting,
       queue: i.queue,
       attach: i.kind === 'background' && !!i.id ? true : undefined,
+      text: i.kind === 'draft' ? drafts.get(i.draft ?? '')?.text : undefined,
+      worktree: i.kind === 'draft' ? i.worktree : undefined,
+      picked: i.kind === 'draft' && i.picked ? true : undefined,
     })
   const items = listed.map((i) => phoneItem(i, groupOf(i)))
   const archived = snap.items

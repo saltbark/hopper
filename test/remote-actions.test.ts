@@ -135,6 +135,46 @@ describe("the phone's actions", () => {
     })
   })
 
+  it('edits, queues, starts and throws away a draft that is there', async () => {
+    const { home, deps, started } = await world()
+    await act({ t: 'start', project: 'pm/tern', text: 'First go', draft: true }, deps)
+    const [d] = await listDrafts(home)
+    deps.snap.drafts = [{ ...d!, after: ['other'], proposed: 'daily-brief' }]
+
+    // Saved again under its own id: one draft, the new text, what the phone doesn't show kept.
+    const s = await act(
+      { t: 'start', id: `draft:${d!.id}`, project: 'pm/tern', text: 'Second go', draft: true },
+      deps,
+    )
+    expect(s).toMatchObject({ ok: true, text: 'Saved.' })
+    let all = await listDrafts(home)
+    expect(all).toHaveLength(1)
+    expect(all[0]).toMatchObject({ id: d!.id, text: 'Second go', after: ['other'] })
+    expect(all[0]!.proposed).toBe('daily-brief')
+
+    // Queued: no longer a proposal.
+    await act(
+      { t: 'start', id: d!.id, project: 'pm/tern', text: 'Second go', queue: 'night' },
+      deps,
+    )
+    all = await listDrafts(home)
+    expect(all).toHaveLength(1)
+    expect(all[0]).toMatchObject({ id: d!.id, queue: 'night' })
+    expect(all[0]!.proposed).toBeUndefined()
+
+    deps.snap.drafts = all
+    await act({ t: 'start', id: d!.id, project: 'pm/tern', text: 'Go now' }, deps)
+    expect(started).toEqual(['pm: Go now'])
+
+    expect(await act({ t: 'discard', id: `draft:${d!.id}` }, deps)).toMatchObject({ ok: true })
+    expect(await listDrafts(home)).toHaveLength(0)
+    deps.snap.drafts = []
+    expect(await act({ t: 'discard', id: d!.id }, deps)).toMatchObject({ ok: false })
+    expect(
+      await act({ t: 'start', id: 'gone', project: 'pm/tern', text: 'x', draft: true }, deps),
+    ).toMatchObject({ ok: false })
+  })
+
   it('holds only what waits on you, and archives', async () => {
     const { home, deps } = await world()
     expect(await act({ t: 'hold', id: 'sess-wait' }, deps)).toMatchObject({

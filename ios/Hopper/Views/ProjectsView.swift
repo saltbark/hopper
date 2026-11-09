@@ -84,11 +84,3 @@ struct ProjectRow: View {
     }
 }
 
-/// A row that lights while pressed.
-struct RowPress: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background(configuration.isPressed ? T.sel : .clear)
-            .contentShape(.rect)
-    }
-}

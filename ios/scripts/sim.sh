@@ -4,7 +4,8 @@
 #
 #   ios/scripts/sim.sh <simulator id> <link file> <show> <out.png> [--fresh]
 #
-# show: work, new, new:<project>, routines, routine:<name>, archived, project:<key>, conversation
+# show: work, projects, accounts, new, new:<project>, draft, queued, routines, routine:<name>, archived,
+#       project:<key>, conversation
 # --fresh forgets the pairing first and pairs from the link again.
 set -eu
 sim=$1 link=$2 show=$3 out=$4 fresh=${5:-}
