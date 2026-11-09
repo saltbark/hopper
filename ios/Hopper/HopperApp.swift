@@ -71,9 +71,12 @@ struct RootView: View {
         .animation(.smooth(duration: 0.35), value: model.pairing == nil)
     }
 
-    // The system's tab bar, its glass pill holding Work, Projects, Accounts and New. (A tab in the
-    // search role, which the system once drew apart from the pill, stays inside it on iOS 27, so
-    // New is an ordinary tab.)
+    // The system's tab bar, its glass pill holding Work, Projects, Accounts and New. The system
+    // draws a tab apart from the pill (as Photos' search) only when choosing it opens a search
+    // field in the bar (`.searchable` with `.tabViewSearchActivation(.searchTabSelection)`); the
+    // search role or `.tabPlacement(.pinned)` alone leave it inside. New opening on a search for a
+    // project was offered and turned down, so it's an ordinary tab that opens on the form. The bar
+    // doesn't shrink on scroll: a touch springing it back added to the system's own lift.
     private var tabs: some View {
         TabView(selection: $tab) {
             Tab("Work", systemImage: "tray", value: TabID.work) {
@@ -97,7 +100,6 @@ struct RootView: View {
             }
             .accessibilityLabel("New conversation")
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
         .overlay(alignment: .top) { ToastView() }
         .sensoryFeedback(.selection, trigger: tab)
         // The + tab chosen: a fresh form. Leaving it some other way lets it go.
