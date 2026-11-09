@@ -21,6 +21,7 @@ struct HopperApp: App {
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @State private var path = NavigationPath()
 
     var body: some View {
         @Bindable var model = model
@@ -28,7 +29,7 @@ struct RootView: View {
             PairView()
         } else {
             // Pages push above the tabs, so the tab bar slides away with the list and back with it.
-            NavigationStack {
+            NavigationStack(path: $path) {
                 TabView {
                     Tab("Work", systemImage: "tray") { WorkView() }
                         .badge(waiting)
@@ -45,9 +46,37 @@ struct RootView: View {
             }
             .sheet(item: $model.newRequest) { NewConversationView(start: $0.project) }
             .overlay(alignment: .top) { ToastView() }
-            .onAppear { model.start() }
+            .onAppear {
+                model.start()
+                #if DEBUG
+                    debugShow()
+                #endif
+            }
         }
     }
+
+    #if DEBUG
+        // For screenshots in the simulator (ios/scripts/sim.sh): HOPPER_SHOW opens a screen at
+        // launch, once the Mac's first snapshot is in. Not in release builds.
+        private func debugShow() {
+            guard let show = ProcessInfo.processInfo.environment["HOPPER_SHOW"] else { return }
+            Task {
+                for _ in 0..<40 where model.snapshot == nil { try? await Task.sleep(for: .milliseconds(250)) }
+                let snap = model.snapshot
+                switch show {
+                case "new": model.newConversation()
+                case "routines": path.append(RoutinesRoute())
+                case "archived": path.append(ArchivedRoute())
+                case let s where s.hasPrefix("new:"): model.newConversation(in: String(s.dropFirst(4)))
+                case let s where s.hasPrefix("project:"): path.append(ProjectRoute(key: String(s.dropFirst(8))))
+                case let s where s.hasPrefix("routine:"): path.append(RoutineRoute(id: s))
+                case "conversation":
+                    if let item = snap?.items.first(where: { $0.attach == true }) { path.append(item) }
+                default: break
+                }
+            }
+        }
+    #endif
 
     // Waiting on you, as the Mac counts it: not what's on hold.
     private var waiting: Int {

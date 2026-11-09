@@ -71,6 +71,8 @@ struct StateMark {
 
     init(_ item: PhoneItem) {
         let g = WorkGroup(rawValue: item.group)
+        // Archived: done with, whatever state Claude left it in.
+        if item.group == "archived" { self.init(mark: "✓", color: T.dim); return }
         if g == .next { self.init(mark: item.queue == "night" ? "☾" : "○", color: T.dim); return }
         if item.kind == "draft" { self.init(mark: "◇", color: T.draft); return }
         if item.kind == "routine" {

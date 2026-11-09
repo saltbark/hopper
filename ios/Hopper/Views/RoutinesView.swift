@@ -14,11 +14,16 @@ struct RoutinesView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        VStack(spacing: 0) {
+            PageHeader(title: "routines").titleStrip(page: true)
+            list
+        }
+        .background(T.bg)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var list: some View {
         List {
-            PageHeader(title: "routines")
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 6, trailing: 16))
-                .listRowSeparator(.hidden)
             if let snap = model.snapshot {
                 let routines = snap.items.filter { $0.kind == "routine" }
                 if routines.isEmpty {
@@ -29,9 +34,7 @@ struct RoutinesView: View {
                     Section {
                         ForEach(routines) { r in
                             NavigationLink(value: RoutineRoute(id: r.id)) { RoutineRow(routine: r) }
-                                .listRowBackground(T.surface)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparatorTint(T.rowLine)
+                                .cardRow(link: true)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button { Task { await model.routine(r.id, "run") } } label: { Label("Run now", systemImage: "play.fill") }
                                         .tint(T.focus)
@@ -52,11 +55,7 @@ struct RoutinesView: View {
                 Waiting().listRowBackground(Color.clear)
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(T.bg)
-        .contentMargins(.horizontal, 16, for: .scrollContent)
-        .toolbar(.hidden, for: .navigationBar)
+        .cardList()
     }
 }
 
@@ -98,12 +97,17 @@ struct RoutineView: View {
     private var item: PhoneItem? { model.snapshot?.items.first { $0.id == id } }
 
     var body: some View {
-        List {
-            PageHeader(title: item?.title ?? info?.name ?? "routine")
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 6, trailing: 16))
-                .listRowSeparator(.hidden)
+        VStack(spacing: 0) {
+            PageHeader(title: item?.title ?? info?.name ?? "routine").titleStrip(page: true)
+            list
+        }
+        .background(T.bg)
+        .toolbar(.hidden, for: .navigationBar)
+        .task(id: model.snapshot?.items.first { $0.id == id }) { await load() }
+    }
 
+    private var list: some View {
+        List {
             if let info {
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
@@ -147,9 +151,7 @@ struct RoutineView: View {
                             }
                             .padding(.horizontal, 14).padding(.vertical, 10)
                         }
-                        .listRowBackground(T.surface)
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparatorTint(T.rowLine)
+                        .cardRow(link: true)
                     }
                 } header: {
                     GroupHeading(label: "reports", count: info.reports.count, color: T.focus)
@@ -162,13 +164,8 @@ struct RoutineView: View {
                     .listRowBackground(Color.clear)
             }
         }
-        .listStyle(.insetGrouped)
+        .cardList()
         .listSectionSpacing(12)
-        .scrollContentBackground(.hidden)
-        .background(T.bg)
-        .contentMargins(.horizontal, 16, for: .scrollContent)
-        .toolbar(.hidden, for: .navigationBar)
-        .task(id: model.snapshot?.items.first { $0.id == id }) { await load() }
         .refreshable { await load() }
     }
 

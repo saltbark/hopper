@@ -24,7 +24,8 @@ import { groupOf } from '../tui/state.ts'
 // went. Every action carries a `ref` the answer echoes, so the phone can show the right toast.
 //
 //   new      {project}                                   → newinfo: open items, defaults, route
-//   start    {project, text, model?, effort?, worktree?, account?, queue?: 'now' | 'night'}
+//   start    {project, text, model?, effort?, worktree?, account?, queue?: 'now' | 'night', draft?}
+//            draft: true saves it as a draft and starts nothing
 //   hold     {id}   toggles a waiting conversation on and off hold
 //   done     {id, undo?}   archives it, or brings it back from Archived
 //   routine  {id, do: 'resume' | 'pause' | 'run'}
@@ -104,6 +105,12 @@ export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<An
           ...(str(m['worktree']) ? { worktree: str(m['worktree']) } : {}),
           ...(str(m['account']) ? { account: str(m['account']) } : {}),
           ...(queue ? { queue } : {}),
+        }
+        // Kept as a draft, to start later from either side: what Hopper's editor saves on esc.
+        if (m['draft'] === true) {
+          await saveDraft(config.home, draft)
+          await deps.refresh()
+          return ok('Saved as a draft.')
         }
         if (queue) {
           await saveDraft(config.home, draft)

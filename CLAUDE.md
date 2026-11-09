@@ -199,6 +199,13 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   a file added under `ios/Hopper/` is in the target. Build it with `DEVELOPER_DIR` set to Xcode
   (`xcodebuild -project ios/Hopper.xcodeproj -scheme Hopper -destination 'generic/platform=iOS
 Simulator' CODE_SIGNING_ALLOWED=NO build`).
+- **To see a screen without a phone**, run `npx tsx ios/scripts/demo-mac.ts <link file>` (Hopper's
+  made-up world from `src/demo.ts`, a real bridge on the relay, pairing that says yes by itself),
+  then `ios/scripts/sim.sh <simulator> <link file> <screen> <out.png> [--fresh]`, which launches a
+  Debug build paired from the link and opened on that screen (`HOPPER_PAIR_LINK`, `HOPPER_SHOW`,
+  both `#if DEBUG`). Build it signed for the simulator (no `CODE_SIGNING_ALLOWED=NO`): an unsigned
+  simulator app can't write the Keychain, so the pairing doesn't stick. An iPhone 13 mini
+  simulator shows the smallest screen the app is used on.
 
 ## Where things are
 

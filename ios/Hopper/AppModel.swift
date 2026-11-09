@@ -34,6 +34,17 @@ final class AppModel {
     private var drafts: [String: String] = [:]
 
     private let relay = RelayClient()
+
+    init() {
+        #if DEBUG
+            // For the simulator, which has no camera (ios/scripts/sim.sh): pair from a link at launch.
+            let env = ProcessInfo.processInfo.environment
+            if let link = env["HOPPER_PAIR_LINK"] {
+                if env["HOPPER_UNPAIR"] != nil { Keychain.clear(); pairing = nil }
+                if pairing == nil { Task { self.pair(link: link, name: "Simulator") } }
+            }
+        #endif
+    }
     private var session: PhoneSession?
     private var retry = 1.0
     private var running = false

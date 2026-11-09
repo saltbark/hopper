@@ -178,12 +178,20 @@ struct NewConversationView: View {
     private var options: some View {
         VStack(spacing: 0) {
             row("Account") {
-                Menu {
-                    Picker("Account", selection: $account) {
-                        Text(routeText).tag(String?.none)
-                        ForEach(info?.accounts ?? [], id: \.self) { Text($0.label).tag(Optional($0.name)) }
-                    }
-                } label: { value(account.flatMap { a in info?.accounts.first { $0.name == a }?.label } ?? routeText, dot: accountColor) }
+                let accounts = info?.accounts ?? []
+                if accounts.count <= 1 {
+                    value(accountText, dot: accountColor, menu: false)
+                } else {
+                    Menu {
+                        Picker("Account", selection: $account) {
+                            if info?.route == nil { Text("Pick one").tag(String?.none) }
+                            ForEach(accounts, id: \.self) { a in
+                                Text(a.name == info?.route ? "\(a.label) (route)" : a.label)
+                                    .tag(a.name == info?.route ? String?.none : Optional(a.name))
+                            }
+                        }
+                    } label: { value(accountText, dot: accountColor) }
+                }
             }
             RowDivider()
             row("Model") {
@@ -215,13 +223,23 @@ struct NewConversationView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: 0x1F2A2F), lineWidth: 1))
     }
 
+    // Save draft and Start now are what you'll press; queueing (unattended, when there's room or
+    // tonight) is in the clock's menu.
     private var actions: some View {
         HStack(spacing: 8) {
-            Button { go(queue: "night") } label: { Label("Tonight", systemImage: "moon").labelStyle(.titleAndIcon) }
+            Menu {
+                Button { go(.queue("now")) } label: { Label("Queue: start when there's room", systemImage: "circle") }
+                Button { go(.queue("night")) } label: { Label("Queue for tonight", systemImage: "moon") }
+            } label: {
+                Image(systemName: "clock").font(.system(size: 17, weight: .medium))
+                    .frame(width: 52, height: 52)
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: 0x243036), lineWidth: 1))
+            }
+            .foregroundStyle(T.hi)
+            .accessibilityLabel("Queue")
+            Button { go(.draft) } label: { Text("Save draft").frame(maxWidth: .infinity) }
                 .buttonStyle(Outline())
-            Button { go(queue: "now") } label: { Label("Queue", systemImage: "circle").labelStyle(.titleAndIcon) }
-                .buttonStyle(Outline())
-            Button { go(queue: nil) } label: {
+            Button { go(.start) } label: {
                 Group { if busy { ProgressView().tint(Color(hex: 0x0A0C0D)) } else { Text("Start now") } }
                     .font(.system(size: 16, weight: .bold)).frame(maxWidth: .infinity).frame(height: 52)
             }
@@ -240,9 +258,13 @@ struct NewConversationView: View {
 
     private var canGo: Bool { !project.isEmpty && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && model.link == .live }
 
-    private var routeText: String {
+    private var accountText: String {
         guard let info else { return "–" }
-        if let r = info.route { return "\(info.accounts.first { $0.name == r }?.label ?? r) (route)" }
+        if let a = account { return info.accounts.first { $0.name == a }?.label ?? a }
+        if let r = info.route {
+            let label = info.accounts.first { $0.name == r }?.label ?? r
+            return info.accounts.count <= 1 ? label : "\(label) (route)"
+        }
         return "none: \(info.routeWhy ?? "no route")"
     }
 
@@ -266,13 +288,19 @@ struct NewConversationView: View {
         info = await model.newInfo(project)
     }
 
-    private func go(queue: String?) {
+    enum Go { case start, draft, queue(String) }
+
+    private func go(_ how: Go) {
         var m: [String: Any] = ["t": "start", "project": project, "text": text]
+        switch how {
+        case .start: break
+        case .draft: m["draft"] = true
+        case .queue(let q): m["queue"] = q
+        }
         if let account { m["account"] = account }
         if let chosenModel { m["model"] = chosenModel }
         if let effort { m["effort"] = effort }
         if let worktree { m["worktree"] = worktree }
-        if let queue { m["queue"] = queue }
         lastProject = project
         recent = ([project] + recent.split(separator: "\n").map(String.init).filter { $0 != project }).prefix(6).joined(separator: "\n")
         busy = true
@@ -297,11 +325,11 @@ struct NewConversationView: View {
         .frame(minHeight: 48)
     }
 
-    private func value(_ s: String, dot: Color? = nil) -> some View {
+    private func value(_ s: String, dot: Color? = nil, menu: Bool = true) -> some View {
         HStack(spacing: 7) {
             if let dot { Circle().fill(dot).frame(width: 7, height: 7) }
             Text(s).font(T.mono(13)).foregroundStyle(T.text)
-            Image(systemName: "chevron.up.chevron.down").font(.system(size: 11)).foregroundStyle(T.dim)
+            if menu { Image(systemName: "chevron.up.chevron.down").font(.system(size: 11)).foregroundStyle(T.dim) }
         }
     }
 }

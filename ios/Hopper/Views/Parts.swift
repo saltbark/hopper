@@ -55,7 +55,8 @@ struct Mark: View {
             } else {
                 TimelineView(.periodic(from: .now, by: 0.12)) { ctx in
                     let i = Int(ctx.date.timeIntervalSinceReferenceDate / 0.12) % Self.frames.count
-                    Text(Self.frames[i]).font(T.mono(size))
+                    // Braille dots are small in any font: a size up so they read as a spinner.
+                    Text(Self.frames[i]).font(T.mono(size + 5, .bold))
                 }
             }
         }
@@ -193,6 +194,29 @@ struct LinkChip: View {
             return (T.held, "Mac away")
         case .offline: return (T.blocked, "offline")
         }
+    }
+}
+
+extension View {
+    /// A row in one of the lists' cards. One that opens something keeps its chevron off the edge.
+    func cardRow(link: Bool = false) -> some View {
+        listRowBackground(T.surface)
+            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: link ? 14 : 0))
+            .listRowSeparatorTint(T.rowLine)
+    }
+
+    /// The look every list screen shares. Its title sits above it, not in it: a title as a row
+    /// takes the list's own top spacing and its row indent.
+    func cardList() -> some View {
+        listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .contentMargins(.top, 2, for: .scrollContent)
+    }
+
+    /// A title strip above a list, in line with its section headings.
+    func titleStrip(page: Bool = false) -> some View {
+        padding(.leading, page ? 8 : 16).padding(.trailing, 16).padding(.top, 2).padding(.bottom, 2)
     }
 }
 

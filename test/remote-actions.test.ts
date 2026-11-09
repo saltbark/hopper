@@ -120,6 +120,13 @@ describe("the phone's actions", () => {
     expect(tonight).toMatchObject({ queue: 'night', model: 'sonnet', project: 'pm/tern' })
     expect(refreshed()).toBe(2)
 
+    // Saved as a draft: kept, not queued, nothing started.
+    const d = await act({ t: 'start', project: 'pm/tern', text: 'Later, maybe', draft: true }, deps)
+    expect(d).toMatchObject({ ok: true, text: 'Saved as a draft.' })
+    const kept = (await listDrafts(home)).find((x) => x.text === 'Later, maybe')
+    expect(kept?.queue).toBeUndefined()
+    expect(started).toEqual(['pm: Move it off cron'])
+
     expect(await act({ t: 'start', project: 'pm/tern', text: '  ' }, deps)).toMatchObject({
       ok: false,
     })

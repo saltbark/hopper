@@ -7,7 +7,13 @@ import SwiftUI
 struct WorkView: View {
     @Environment(AppModel.self) private var model
 
-    var body: some View { list }
+    var body: some View {
+        VStack(spacing: 0) {
+            ScreenTitle(title: "hopper", frog: true, newIn: .some(nil)).titleStrip()
+            list
+        }
+        .background(T.bg)
+    }
 
     private var groups: [(WorkGroup, [PhoneItem])] {
         guard let snap = model.snapshot else { return [] }
@@ -19,10 +25,6 @@ struct WorkView: View {
 
     private var list: some View {
         List {
-            ScreenTitle(title: "hopper", frog: true, newIn: .some(nil))
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
-                .listRowSeparator(.hidden)
             if let snap = model.snapshot {
                 if groups.isEmpty {
                     Text("Nothing running or waiting.").font(.system(size: 15)).foregroundStyle(T.soft)
@@ -33,9 +35,7 @@ struct WorkView: View {
                     Section {
                         ForEach(items) { item in
                             row(item, snap.accounts)
-                                .listRowBackground(T.surface)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparatorTint(T.rowLine)
+                                .cardRow(link: item.attach == true)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) { doneSwipe(item) }
                                 .swipeActions(edge: .leading, allowsFullSwipe: true) { holdSwipe(item, g) }
                         }
@@ -52,24 +52,18 @@ struct WorkView: View {
                         PlaceRow(glyph: "↻", color: T.focus, title: "Routines",
                                  count: unread > 0 ? "\(unread) unread" : "\(routines.count)", lit: unread > 0)
                     }
-                    .listRowBackground(T.surface)
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparatorTint(T.rowLine)
+                    .cardRow(link: true)
                     NavigationLink(value: ArchivedRoute()) {
                         PlaceRow(glyph: "✓", color: T.dim, title: "Archived", count: "\(snap.archived?.count ?? 0)")
                     }
-                    .listRowBackground(T.surface)
-                    .listRowInsets(EdgeInsets())
+                    .cardRow(link: true)
                 }
             } else {
                 Waiting().listRowBackground(Color.clear)
             }
         }
-        .listStyle(.insetGrouped)
+        .cardList()
         .listSectionSpacing(14)
-        .scrollContentBackground(.hidden)
-        .background(T.bg)
-        .contentMargins(.horizontal, 16, for: .scrollContent)
     }
 
     @ViewBuilder

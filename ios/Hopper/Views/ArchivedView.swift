@@ -14,21 +14,9 @@ struct ArchivedView: View {
         let all = model.snapshot?.archived ?? []
         let shown = query.isEmpty
             ? all : all.filter { $0.title.localizedCaseInsensitiveContains(query) || $0.project.localizedCaseInsensitiveContains(query) }
+        VStack(spacing: 0) {
+        PageHeader(title: "archived").titleStrip(page: true)
         List {
-            HStack(spacing: 4) {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 19, weight: .semibold)).frame(width: 36, height: 44)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(T.focus)
-                .accessibilityLabel("Back to Work")
-                Text("archived").font(T.mono(28, .bold)).foregroundStyle(T.hi).tracking(-0.4)
-                Spacer()
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 0, trailing: 16))
-            .listRowSeparator(.hidden)
-
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(T.dim)
                 TextField("", text: $query, prompt: Text("Find one").foregroundStyle(T.dim))
@@ -57,9 +45,7 @@ struct ArchivedView: View {
                                 ArchivedRow(item: item)
                             }
                         }
-                        .listRowBackground(T.surface)
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparatorTint(T.rowLine)
+                        .cardRow(link: item.attach == true)
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {
                             Button { Task { await model.unarchive(item.id) } } label: {
                                 Label("Bring back", systemImage: "arrow.uturn.backward")
@@ -74,11 +60,11 @@ struct ArchivedView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
+        .cardList()
+        .listSectionSpacing(8)
         .scrollDismissesKeyboard(.immediately)
+        }
         .background(T.bg)
-        .contentMargins(.horizontal, 16, for: .scrollContent)
         .toolbar(.hidden, for: .navigationBar)
     }
 }

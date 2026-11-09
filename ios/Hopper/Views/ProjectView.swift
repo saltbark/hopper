@@ -9,12 +9,16 @@ struct ProjectView: View {
     let key: String
 
     var body: some View {
-        List {
-            PageHeader(title: key) { NewButton(project: key) }
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 0, trailing: 16))
-                .listRowSeparator(.hidden)
+        VStack(spacing: 0) {
+            PageHeader(title: key) { NewButton(project: key) }.titleStrip(page: true)
+            list
+        }
+        .background(T.bg)
+        .toolbar(.hidden, for: .navigationBar)
+    }
 
+    private var list: some View {
+        List {
             if let snap = model.snapshot {
                 let project = snap.projects.first { $0.key == key }
                 let mine = snap.items.filter { $0.project == key && $0.kind != "routine" }
@@ -23,7 +27,7 @@ struct ProjectView: View {
                 Text(summary(project, mine))
                     .font(T.mono(12)).foregroundStyle(T.dim)
                     .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 44, bottom: 4, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 0))
                     .listRowSeparator(.hidden)
 
                 Section {
@@ -47,9 +51,7 @@ struct ProjectView: View {
                         Section {
                             ForEach(items) { item in
                                 link(item, snap.accounts)
-                                    .listRowBackground(T.surface)
-                                    .listRowInsets(EdgeInsets())
-                                    .listRowSeparatorTint(T.rowLine)
+                                    .cardRow(link: item.attach == true)
                             }
                         } header: {
                             GroupHeading(label: g.label, count: items.count, color: T.groupColor(g))
@@ -63,9 +65,7 @@ struct ProjectView: View {
                     Section {
                         ForEach(archived) { item in
                             link(item, snap.accounts)
-                                .listRowBackground(T.surface)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparatorTint(T.rowLine)
+                                .cardRow(link: item.attach == true)
                                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                     Button { Task { await model.unarchive(item.id) } } label: {
                                         Label("Bring back", systemImage: "arrow.uturn.backward")
@@ -89,12 +89,8 @@ struct ProjectView: View {
                 Waiting().listRowBackground(Color.clear)
             }
         }
-        .listStyle(.insetGrouped)
+        .cardList()
         .listSectionSpacing(12)
-        .scrollContentBackground(.hidden)
-        .background(T.bg)
-        .contentMargins(.horizontal, 16, for: .scrollContent)
-        .toolbar(.hidden, for: .navigationBar)
     }
 
     private func summary(_ p: PhoneProject?, _ items: [PhoneItem]) -> String {
