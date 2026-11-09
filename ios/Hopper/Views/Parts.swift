@@ -195,12 +195,17 @@ struct LinkChip: View {
         }
     }
 
-    private var state: (Color, String)? {
-        switch model.shownLink {
+    private var state: (Color, String)? { model.linkNote }
+}
+
+extension AppModel {
+    /// What to say about the Mac when it isn't connected, in its colour; nil when it is.
+    var linkNote: (Color, String)? {
+        switch shownLink {
         case .live: return nil
         case .connecting: return (T.dim, "connecting")
         case .macAway:
-            if let at = model.heardAt { return (T.held, "Mac away · \(Ago.short(at.timeIntervalSince1970 * 1000))") }
+            if let at = heardAt { return (T.held, "Mac away · \(Ago.short(at.timeIntervalSince1970 * 1000))") }
             return (T.held, "Mac away")
         case .offline: return (T.blocked, "offline")
         }

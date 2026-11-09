@@ -18,10 +18,10 @@ struct ConversationView: View {
         .navigationTitle(model.item(id)?.title ?? "")
         .toolbarTitleDisplayMode(.inline)
         .toolbar {
-            // Its glyph follows its state, as the row's does.
+            // Its glyph follows its state, as the row's does. The Mac's state shows only when it
+            // isn't connected, in the line under the title: a long title leaves no room for the
+            // chip the other pages have.
             ToolbarItem(placement: .principal) { title }
-            ToolbarItem(placement: .topBarTrailing) { MacDot().padding(.horizontal, 8) }
-                .sharedBackgroundVisibility(.hidden)
         }
         .toolbarVisibility(.hidden, for: .tabBar)
         .onDisappear { model.closeScreen() }
@@ -35,9 +35,21 @@ struct ConversationView: View {
                     Mark(mark: StateMark(live), size: 14)
                     Text(live.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(T.hi).lineLimit(1)
                 }
-                Text(meta(live)).font(T.mono(11)).foregroundStyle(T.dim).lineLimit(1)
+                Group {
+                    if let (color, note) = model.linkNote {
+                        HStack(spacing: 5) {
+                            Circle().fill(color).frame(width: 6, height: 6)
+                            Text(note).foregroundStyle(T.soft)
+                        }
+                    } else {
+                        Text(meta(live)).foregroundStyle(T.dim)
+                    }
+                }
+                .font(T.mono(11)).lineLimit(1)
+                .transition(.opacity)
             }
             .animation(.snappy, value: live.state)
+            .animation(.snappy, value: model.shownLink)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
         }
@@ -46,18 +58,6 @@ struct ConversationView: View {
     private func meta(_ live: PhoneItem) -> String {
         ([live.project, live.account] + [[live.model, live.effort].compactMap { $0 }.joined(separator: " ")]
             + [Ago.short(live.activeAt)]).filter { !$0.isEmpty }.joined(separator: " · ")
-    }
-}
-
-/// Just the dot of the Mac's state, where there's no room for the pill.
-private struct MacDot: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        Circle().fill(model.link == .live ? T.running : model.link == .offline ? T.blocked : T.held)
-            .frame(width: 8, height: 8)
-            .animation(.smooth, value: model.link)
-            .accessibilityLabel(model.link == .live ? "Mac connected" : "Mac not connected")
     }
 }
 
