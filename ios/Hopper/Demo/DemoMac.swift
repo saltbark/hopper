@@ -398,9 +398,15 @@ final class DemoScreen {
         started = .now
         say(.you, "Yes", lead: "> ")
         tool("Bash", "pnpm test:visual", "Running…")
+        running = said.count - 2
     }
 
+    /// The row saying how the tests are getting on, while they run.
+    private var running: Int?
+
     func finish() {
+        if let running { said[running] = [["  ⎿  214 passed in 41s", Self.colors[.dim]!, "", 0]] }
+        running = nil
         working = false
         say(.claude, "All 214 visual tests pass, zoom 14 included. Done: the change is on the branch fix/retina-tiles.")
     }

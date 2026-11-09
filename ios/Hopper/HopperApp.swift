@@ -153,6 +153,13 @@ struct RootView: View {
                 for _ in 0..<40 where model.link != .live { try? await Task.sleep(for: .milliseconds(250)) }
                 switch show {
                 case "tour": await tour()
+                case "answer":
+                    // The demo's question answered with 1, as the review notes tell App Review to.
+                    if let item = model.items.first(where: { $0.title.contains("blurry") }) {
+                        workPath.append(ConversationRoute(id: item.id))
+                        try? await Task.sleep(for: .seconds(2))
+                        model.keys("1")
+                    }
                 case "new": model.newConversation()
                 case "routines": workPath.append(RoutinesRoute())
                 case "archived": workPath.append(ArchivedRoute())
