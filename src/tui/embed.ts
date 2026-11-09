@@ -111,6 +111,12 @@ export function admit<S extends { id: string }>(
   return { open: next.slice(0, cap), dropped: [...dropped, ...next.slice(cap)] }
 }
 
+// A conversation draws at one size, whichever attach client set it last: Hopper's panel and the
+// phone's (src/remote/screen.ts) each run their own, in this process, so this knows which. The
+// side someone types, pastes or scrolls on takes the size back on its first key (`claim`), and the
+// other can say it's showing a screen drawn for someone else (`hasSize`).
+const sizeOwner = new Map<string, EmbeddedSession>()
+
 export class EmbeddedSession {
   private term: xterm.Terminal
   private pty: IPty | null = null
@@ -175,6 +181,8 @@ export class EmbeddedSession {
       ...(cwd ? { cwd } : {}),
       env: { ...env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
     })
+    // Attaching sends this client's size: the conversation is drawn for it now.
+    sizeOwner.set(this.id, this)
     this.pty.onData((d) => this.term.write(d, () => this.changed()))
     this.pty.onExit(() => {
       this.exited = true
@@ -197,7 +205,7 @@ export class EmbeddedSession {
     this.lastDraw = Date.now()
     const agents = AGENTS_SCREEN.test(this.bottomText())
     if (agents && !this.onAgents) {
-      this.send('\r')
+      this.write('\r')
       this.events.onStepBack()
     }
     this.onAgents = agents
@@ -251,7 +259,10 @@ export class EmbeddedSession {
     const c = Math.max(1, Math.min(this.cols, col))
     const r = Math.max(1, Math.min(this.rows, row))
     const button = kind === 'drag' ? 32 : kind === 'move' ? 35 : 0
-    this.send(`\x1b[<${button};${c};${r}${kind === 'release' ? 'm' : 'M'}`)
+    const bytes = `\x1b[<${button};${c};${r}${kind === 'release' ? 'm' : 'M'}`
+    // The pointer passing over the panel isn't someone using it; a click is.
+    if (kind === 'move') this.write(bytes)
+    else this.send(bytes)
   }
 
   // The text between two cells (0-based, either order), a line per row, trailing space trimmed.
@@ -274,10 +285,26 @@ export class EmbeddedSession {
     return () => this.listeners.delete(fn)
   }
 
+  // Someone's input: the conversation is drawn for this side first, if it wasn't.
   send(data: string): void {
+    if (this.closed || this.exited) return
+    this.claim()
+    this.write(data)
+  }
+
+  private write(data: string): void {
     if (this.closed || this.exited) return
     this.lastSent = Date.now()
     this.pty?.write(data)
+  }
+
+  // Whether the conversation is drawn at this client's size, rather than another's.
+  hasSize(): boolean {
+    return sizeOwner.get(this.id) === this
+  }
+
+  private claim(): void {
+    if (!this.hasSize()) this.reclaim()
   }
 
   // Sent in one write: a paste split up arrives as several pastes, or as keys whose line breaks
@@ -299,6 +326,7 @@ export class EmbeddedSession {
     this.rows = rows
     this.term.resize(cols, rows)
     this.pty?.resize(cols, rows)
+    if (this.pty) sizeOwner.set(this.id, this)
   }
 
   // Two attach clients on one conversation share one width, the last to resize (the phone's
@@ -306,6 +334,7 @@ export class EmbeddedSession {
   // nothing, so it goes one column narrower first.
   reclaim(): void {
     if (this.closed || this.exited || !this.pty) return
+    sizeOwner.set(this.id, this)
     const pty = this.pty
     pty.resize(Math.max(10, this.cols - 1), this.rows)
     setTimeout(() => {
@@ -368,6 +397,7 @@ export class EmbeddedSession {
   close(): void {
     if (this.closed) return
     this.closed = true
+    if (sizeOwner.get(this.id) === this) sizeOwner.delete(this.id)
     if (this.timer) clearTimeout(this.timer)
     // Killing the attach client leaves the session itself running in the background.
     try {

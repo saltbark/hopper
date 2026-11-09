@@ -172,10 +172,18 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   its top). The phone's snapshot types (`Snapshot.swift`) follow `src/remote/view.ts`, and its
   screen frames (`Screen.swift`) follow `src/remote/screen.ts`.
 - **A conversation on the phone is a second attach on the Mac.** `PhoneScreen` (`screen.ts`) runs
-  its own `EmbeddedSession` at the phone's size and sends the changed rows of `screen()` as runs;
-  keys, pastes and the wheel come back. **Two attach clients share one width, the last to
-  resize**: opening on the phone redraws the conversation at the phone's width, and `enter`
-  (`actions.ts`) calls `reclaim()` so Hopper's panel takes it back when it gets the keyboard.
+  its own `EmbeddedSession` at the phone's width and `TALL` (400) rows, and sends the changed rows
+  of `screen()` as runs. Claude draws its whole conversation into a screen that tall (from the
+  top, prompt pinned to the bottom, blank rows between, which the phone folds), so the phone
+  scrolls it natively; only older history goes to Claude as wheel ticks. `submit` pastes the text
+  and presses Enter `SUBMIT_GAP_MS` later: sent together, Claude takes the Enter as part of the
+  paste.
+- **A conversation draws at one size, the last attach client's**, rows included, and nothing can
+  give two clients two layouts. Hopper's panel and the phone's attach are both `EmbeddedSession`s
+  in this process, so `sizeOwner` (`embed.ts`) knows which one set it: `send` (keys, pastes,
+  clicks, the wheel; not the pointer passing over) calls `claim`, which takes the size back
+  first, and `enter` (`actions.ts`) reclaims too. The phone is told whether it has the size
+  (`mine` in each frame) and offers to take it back.
 - **What the phone does goes through the Mac's own code.** `src/remote/actions.ts` (`act`) answers
   `new`, `start` (now, or queued for when there's room or tonight), `hold`, `done` and `routine`
   (resume, pause, run) with `startDraft`, `saveDraft` and dispatch, `setHeld`, `setDone`,

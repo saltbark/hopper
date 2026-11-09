@@ -29,7 +29,9 @@ final class AppModel {
     var pairStep: PairStep = .idle
     /// The conversation open on the phone, if any, and the size it was asked for.
     private(set) var screen: Screen?
-    private var screenSize = (cols: 0, rows: 0)
+    private var screenCols = 0
+    /// What's typed in each conversation and not yet sent, so it's there when you come back.
+    private var drafts: [String: String] = [:]
 
     private let relay = RelayClient()
     private var session: PhoneSession?
@@ -130,7 +132,7 @@ final class AppModel {
                 if session.onHello(data) {
                     link = .live
                     // A new session: the Mac's attach for the phone went with the old one.
-                    if let screen { send(["t": "open", "id": screen.id, "cols": screenSize.cols, "rows": screenSize.rows]) }
+                    if let screen { send(["t": "open", "id": screen.id, "cols": screenCols]) }
                 }
                 return
             }
@@ -256,10 +258,12 @@ final class AppModel {
         relay.send(frame)
     }
 
-    func open(_ id: String, cols: Int, rows: Int) {
+    /// Only the width is the phone's: the Mac draws the conversation into a screen far taller than
+    /// this one, and it scrolls here.
+    func open(_ id: String, cols: Int) {
         if screen?.id != id { screen = Screen(id: id) }
-        screenSize = (cols, rows)
-        send(["t": "open", "id": id, "cols": cols, "rows": rows])
+        screenCols = cols
+        send(["t": "open", "id": id, "cols": cols])
     }
 
     func closeScreen() {
@@ -268,10 +272,29 @@ final class AppModel {
         self.screen = nil
     }
 
-    func resizeScreen(cols: Int, rows: Int) {
-        guard let screen, (cols, rows) != screenSize else { return }
-        screenSize = (cols, rows)
-        send(["t": "resize", "id": screen.id, "cols": cols, "rows": rows])
+    func resizeScreen(cols: Int) {
+        guard let screen, cols != screenCols else { return }
+        screenCols = cols
+        send(["t": "resize", "id": screen.id, "cols": cols])
+    }
+
+    /// The conversation is drawn for the Mac's panel: draw it for the phone again.
+    func reclaimScreen() {
+        guard let screen else { return }
+        send(["t": "reclaim", "id": screen.id])
+    }
+
+    /// Sends what was typed: the Mac pastes it, then presses Enter a moment later, so Claude takes
+    /// it as sent rather than as a new line. Nothing typed is just Enter.
+    func submit(_ text: String) {
+        guard let screen else { return }
+        send(["t": "submit", "id": screen.id, "text": text])
+    }
+
+    func draft(_ id: String) -> String { drafts[id] ?? "" }
+
+    func setDraft(_ id: String, _ text: String) {
+        if text.isEmpty { drafts[id] = nil } else { drafts[id] = text }
     }
 
     /// Bytes for Claude, as a terminal would send them.

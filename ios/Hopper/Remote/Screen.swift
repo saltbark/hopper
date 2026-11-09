@@ -33,6 +33,8 @@ struct ScreenFrame: Decodable {
     let set: [Row]
     let full: Bool
     let cursor: [Int]?
+    /// Whether the conversation is drawn at the phone's size (false: the Mac's panel has it).
+    let mine: Bool?
 
     /// [index, runs]
     struct Row: Decodable {
@@ -55,6 +57,7 @@ final class Screen {
     private(set) var rows: [[Run]] = []
     private(set) var cols = 0
     private(set) var cursor: (col: Int, row: Int)?
+    private(set) var mine = true
     /// Why it isn't showing any more, once it isn't.
     var closed: String?
 
@@ -65,5 +68,6 @@ final class Screen {
         cols = f.cols
         for r in f.set where r.index < rows.count { rows[r.index] = r.runs }
         cursor = f.cursor.flatMap { $0.count == 2 ? ($0[0], $0[1]) : nil }
+        if let m = f.mine, m != mine { mine = m }
     }
 }

@@ -3,7 +3,7 @@ import { mkdtemp, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { Item, Snapshot } from '../src/model.ts'
 import { Bridge, targetsOf } from '../src/remote/bridge.ts'
@@ -18,7 +18,7 @@ import {
   sealBox,
   sessionKeys,
 } from '../src/remote/crypto.ts'
-import type { ScreenFrame, Spawn } from '../src/remote/screen.ts'
+import { runs, SUBMIT_GAP_MS, TALL, type ScreenFrame, type Spawn } from '../src/remote/screen.ts'
 import { addPhone, loadIdentity, loadPhones, removePhone } from '../src/remote/store.ts'
 import { phoneView } from '../src/remote/view.ts'
 import {
@@ -287,6 +287,7 @@ describe('a conversation open on the phone', () => {
         wheel: (up: boolean) => void state.sent.push(up ? 'PgUp' : 'PgDn'),
         close: () => void (state.closed = true),
         reclaim: () => void state.reclaimed++,
+        hasSize: () => state.reclaimed % 2 === 0,
       }
     }
     return { state, spawn }
@@ -368,7 +369,8 @@ describe('a conversation open on the phone', () => {
 
   it('attaches at the phone size in its folder, and sends only what changed', () => {
     const { state, out } = open()
-    expect(state.size).toEqual([48, 30])
+    // As tall as TALL whatever the phone's screen: Claude draws the whole conversation into it.
+    expect(state.size).toEqual([48, TALL])
     expect(state.cwd).toBe('/work/atlas')
     state.redraw()
     const first = out.at(-1) as unknown as ScreenFrame
@@ -377,6 +379,7 @@ describe('a conversation open on the phone', () => {
       [1, [['❯ ', '#6fcac3', '', 1]]],
     ])
     expect(first.cursor).toEqual([2, 1])
+    expect(first.mine).toBe(true)
     state.rows = [state.rows[0]!, [{ text: '❯ hi', fg: '#c7cfca' }]]
     state.redraw()
     expect((out.at(-1) as unknown as ScreenFrame).set).toEqual([[1, [['❯ hi']]]])
@@ -393,8 +396,27 @@ describe('a conversation open on the phone', () => {
     bridge.receive('p1', link, { t: 'keys', id: 'other', data: 'x' })
     expect(state.sent).toEqual(['1', 'PgUp'])
     expect(state.pasted).toEqual(['two\nlines'])
-    expect(state.size).toEqual([60, 40])
+    expect(state.size).toEqual([60, TALL])
     expect(state.reclaimed).toBe(1)
+  })
+
+  it('submits what was typed: the paste, then Enter a moment after', () => {
+    vi.useFakeTimers()
+    try {
+      const { bridge, state, link } = open()
+      bridge.receive('p1', link, { t: 'submit', id: 'sess-1', text: 'Ship it' })
+      expect(state.pasted).toEqual(['Ship it'])
+      expect(state.sent).toEqual([])
+      vi.advanceTimersByTime(SUBMIT_GAP_MS)
+      expect(state.sent).toEqual(['\r'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('sends a blank row as nothing', () => {
+    expect(runs([{ text: '      ', fg: '#c7cfca' }])).toEqual([])
+    expect(runs([{ text: '  ', bg: '#243039' }])).toEqual([['  ', '', '#243039']])
   })
 
   it("hands the phone's actions to the app and sends back the answer", async () => {

@@ -2,8 +2,9 @@ import SwiftUI
 import UIKit
 
 /// One conversation, as in Hopper's right panel: Claude's own screen, drawn by the Mac at this
-/// phone's width, with a text field and a row of keys under it. Swipe the screen to scroll
-/// (Claude's PgUp/PgDn); 1 2 3 answer its questions as on the Mac.
+/// phone's width, with a text field and a row of keys under it. The Mac draws the whole
+/// conversation into a tall screen, so it scrolls here like any list; 1 2 3 answer Claude's
+/// questions as on the Mac.
 struct ConversationView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -14,7 +15,7 @@ struct ConversationView: View {
             header
             Rectangle().fill(T.rowLine).frame(height: 1)
             TerminalView(id: item.id)
-            InputBar()
+            InputBar(id: item.id)
         }
         .background(T.bg)
         .toolbar(.hidden, for: .navigationBar)
@@ -28,7 +29,7 @@ struct ConversationView: View {
                     .frame(width: 44, height: 44)
             }
             .foregroundStyle(T.focus)
-            .accessibilityLabel("Back to Work")
+            .accessibilityLabel("Back")
             VStack(alignment: .leading, spacing: 1) {
                 HStack(alignment: .firstTextBaseline, spacing: 7) {
                     Mark(mark: StateMark(live), size: 15)
@@ -37,30 +38,10 @@ struct ConversationView: View {
                 Text(meta).font(T.mono(11.5)).foregroundStyle(T.dim).lineLimit(1)
             }
             Spacer(minLength: 4)
-            if live.group == WorkGroup.waiting.rawValue || live.group == WorkGroup.held.rawValue {
-                Button { Task { await model.hold(item.id) } } label: {
-                    Text("◷").font(T.mono(16)).frame(width: 38, height: 38)
-                        .background(T.surface, in: .circle)
-                        .overlay(Circle().stroke(Color(hex: 0x1F2A2F), lineWidth: 1))
-                }
-                .foregroundStyle(T.held)
-                .accessibilityLabel(live.group == WorkGroup.held.rawValue ? "Take off hold" : "Put on hold")
-            }
-            Button {
-                Task {
-                    if await model.perform(["t": "done", "id": item.id]) { dismiss() }
-                }
-            } label: {
-                Text("✓").font(T.mono(16)).frame(width: 38, height: 38)
-                    .background(T.surface, in: .circle)
-                    .overlay(Circle().stroke(Color(hex: 0x1F2A2F), lineWidth: 1))
-            }
-            .foregroundStyle(T.focus)
-            .accessibilityLabel("Mark done")
-            MacDot().padding(.leading, 4)
+            MacDot()
         }
         .padding(.leading, 4)
-        .padding(.trailing, 14)
+        .padding(.trailing, 16)
         .padding(.bottom, 8)
     }
 
@@ -86,11 +67,12 @@ private struct MacDot: View {
     }
 }
 
-/// Claude's screen. Its size in cells follows the space it has, and the Mac redraws to match.
+/// Claude's screen, scrolled here. Claude draws its conversation from the top and pins its
+/// prompt to the bottom of a screen far taller than the phone's, with blank rows between; those
+/// fold to one, so it reads as one column ending at the prompt.
 struct TerminalView: View {
     @Environment(AppModel.self) private var model
     let id: String
-    @State private var dragged: CGFloat = 0
     @State private var pending: Task<Void, Never>?
 
     static let fontSize: CGFloat = 11.5
@@ -100,77 +82,115 @@ struct TerminalView: View {
     }()
 
     var body: some View {
+        let screen = model.screen?.id == id ? model.screen : nil
+        let shown = screen.map(Self.fold) ?? Fold(rows: [], full: false)
         GeometryReader { geo in
-            let cell = Self.cell
-            let screen = model.screen?.id == id ? model.screen : nil
-            ZStack(alignment: .topLeading) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array((screen?.rows ?? []).enumerated()), id: \.offset) { _, runs in
-                        TermRow(runs: runs).equatable().frame(height: cell.height, alignment: .leading)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if shown.full {
+                        Button { older() } label: {
+                            Label("Older", systemImage: "arrow.up").font(.system(size: 13, weight: .medium))
+                                .padding(.horizontal, 12).frame(height: 30)
+                                .background(T.surface, in: .capsule)
+                        }
+                        .foregroundStyle(T.soft)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                    }
+                    ForEach(shown.rows, id: \.index) { row in
+                        TermRow(runs: row.runs, cursor: screen?.cursor?.row == row.index ? screen?.cursor?.col : nil)
+                            .equatable()
+                            .frame(height: Self.cell.height, alignment: .leading)
                     }
                 }
-                if let c = screen?.cursor {
-                    Rectangle().fill(T.focus.opacity(0.55))
-                        .frame(width: cell.width, height: cell.height)
-                        .offset(x: CGFloat(c.col) * cell.width, y: CGFloat(c.row) * cell.height)
-                        .accessibilityHidden(true)
-                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+            }
+            .defaultScrollAnchor(.bottom)
+            .scrollIndicators(.visible)
+            .overlay {
                 if let why = screen?.closed {
                     note(why)
-                } else if screen?.rows.allSatisfy(\.isEmpty) ?? true {
+                } else if shown.rows.isEmpty {
                     note(model.link == .live ? "Opening…" : "Waiting for the Mac…")
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 8)
-            .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
-            .clipped()
-            .contentShape(.rect)
-            .gesture(scroll)
-            .onAppear { size(geo.size, open: true) }
-            .onChange(of: geo.size) { _, s in size(s, open: false) }
+            .overlay(alignment: .top) {
+                if screen?.mine == false, screen?.closed == nil { notMine }
+            }
+            .onAppear { size(geo.size.width, open: true) }
+            .onChange(of: geo.size.width) { _, w in size(w, open: false) }
         }
+    }
+
+    /// Claude's screen with its runs of blank rows folded to one, and whether it was full (no
+    /// blank stretch: there may be more above, for Claude to scroll to).
+    struct Fold {
+        let rows: [(index: Int, runs: [Run])]
+        let full: Bool
+    }
+
+    static func fold(_ s: Screen) -> Fold {
+        var out: [(index: Int, runs: [Run])] = []
+        var folded = false
+        for (i, runs) in s.rows.enumerated() {
+            if runs.isEmpty, out.last?.runs.isEmpty ?? true {
+                folded = true
+                continue
+            }
+            out.append((i, runs))
+        }
+        return Fold(rows: out, full: !folded && !out.isEmpty)
+    }
+
+    private var notMine: some View {
+        HStack(spacing: 10) {
+            Text("Drawn for the Mac's panel").font(.system(size: 13)).foregroundStyle(T.hi)
+            Button("Take it back") { model.reclaimScreen() }
+                .font(.system(size: 13, weight: .semibold)).foregroundStyle(T.focus)
+        }
+        .padding(.horizontal, 14).frame(height: 36)
+        .background(Color(hex: 0x182024).opacity(0.97), in: .capsule)
+        .overlay(Capsule().stroke(Color(hex: 0x2A363C), lineWidth: 1))
+        .padding(.top, 8)
     }
 
     private func note(_ text: String) -> some View {
         Text(text).font(.system(size: 14)).foregroundStyle(T.soft)
             .padding(12).background(T.surface, in: .rect(cornerRadius: 12))
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // A swipe scrolls Claude's view a page per stretch, as the wheel does on the Mac.
-    private var scroll: some Gesture {
-        DragGesture(minimumDistance: 12)
-            .onChanged { v in
-                let step = Self.cell.height * 4
-                let moved = v.translation.height - dragged
-                if abs(moved) >= step {
-                    model.wheel(up: moved > 0)
-                    dragged += moved
-                }
-            }
-            .onEnded { _ in dragged = 0 }
+    // History older than the tall screen: Claude scrolls its own view back a few lines a time.
+    private func older() {
+        for _ in 0..<5 { model.wheel(up: true) }
     }
 
-    private func size(_ s: CGSize, open: Bool) {
-        let cols = Int((s.width - 16) / Self.cell.width)
-        let rows = Int((s.height - 8) / Self.cell.height)
-        if open { return model.open(id, cols: cols, rows: rows) }
-        // The keyboard comes and goes: wait for it to settle before Claude redraws.
+    private func size(_ width: CGFloat, open: Bool) {
+        let cols = Int((width - 16) / Self.cell.width)
+        if open { return model.open(id, cols: cols) }
         pending?.cancel()
         pending = Task {
             try? await Task.sleep(for: .milliseconds(250))
-            if !Task.isCancelled { model.resizeScreen(cols: cols, rows: rows) }
+            if !Task.isCancelled { model.resizeScreen(cols: cols) }
         }
     }
 }
 
-/// One row of the screen, in the Mac's colours.
+/// One row of the screen, in the Mac's colours, with the cursor on it if it's there.
 struct TermRow: View, Equatable {
     let runs: [Run]
+    var cursor: Int?
 
     var body: some View {
         Text(attributed).lineLimit(1).fixedSize(horizontal: true, vertical: false)
+            .overlay(alignment: .leading) {
+                if let cursor {
+                    Rectangle().fill(T.focus.opacity(0.55))
+                        .frame(width: TerminalView.cell.width, height: TerminalView.cell.height)
+                        .offset(x: CGFloat(cursor) * TerminalView.cell.width)
+                        .accessibilityHidden(true)
+                }
+            }
     }
 
     private var attributed: AttributedString {
@@ -192,21 +212,23 @@ struct TermRow: View, Equatable {
     }
 }
 
-/// What you type to Claude, and the keys a phone keyboard lacks.
+/// What you type to Claude, and the keys a phone keyboard lacks. Return sends, as the arrow does;
+/// what's typed and not yet sent stays with the conversation when you leave it.
 struct InputBar: View {
     @Environment(AppModel.self) private var model
-    @State private var text = ""
+    let id: String
     @State private var taps = 0
     @FocusState private var typing: Bool
 
     var body: some View {
         VStack(spacing: 9) {
             HStack(alignment: .bottom, spacing: 8) {
-                TextField("", text: $text, prompt: Text("Type to Claude…").foregroundStyle(T.dim), axis: .vertical)
+                TextField("", text: draft, prompt: Text("Type to Claude…").foregroundStyle(T.dim), axis: .vertical)
                     .lineLimit(1...5)
                     .font(.system(size: 16))
                     .foregroundStyle(T.hi)
                     .focused($typing)
+                    .submitLabel(.send)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 11)
                     .background(Color(hex: 0x11171A), in: .rect(cornerRadius: 22))
@@ -217,7 +239,7 @@ struct InputBar: View {
                         .background(T.sel, in: .circle)
                 }
                 .foregroundStyle(T.focus)
-                .accessibilityLabel(text.isEmpty ? "Enter" : "Send")
+                .accessibilityLabel(model.draft(id).isEmpty ? "Enter" : "Send")
             }
             HStack(spacing: 5) {
                 key("esc", "\u{1b}")
@@ -238,13 +260,27 @@ struct InputBar: View {
         .overlay(alignment: .top) { Rectangle().fill(T.surfaceLine).frame(height: 1) }
     }
 
-    /// Short typing goes as keys; anything long or on several lines as one paste. Then Enter.
+    // The conversation's own draft. Return arrives as a new line at the end: that's send. A line
+    // break inside (pasted text) stays.
+    private var draft: Binding<String> {
+        Binding(
+            get: { model.draft(id) },
+            set: { new in
+                if new.hasSuffix("\n"), new.count == model.draft(id).count + 1 {
+                    model.setDraft(id, String(new.dropLast()))
+                    send()
+                } else {
+                    model.setDraft(id, new)
+                }
+            })
+    }
+
+    /// The text goes as one paste and the Mac presses Enter a moment after, so Claude sends it.
     private func send() {
-        let t = text
-        text = ""
-        if t.isEmpty { return model.keys("\r") }
-        if t.contains("\n") || t.count > 200 { model.paste(t) } else { model.keys(t) }
-        model.keys("\r")
+        let t = model.draft(id)
+        model.setDraft(id, "")
+        taps += 1
+        model.submit(t)
     }
 
     private func key(_ title: String, _ bytes: String, label: String? = nil, answer: Bool = false, primary: Bool = false) -> some View {

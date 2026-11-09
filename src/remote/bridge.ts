@@ -11,8 +11,9 @@ import type { PhoneView } from './view.ts'
 // Phones paired while the app is open are picked up on the next snapshot (`sync`), and an
 // unpaired one is let go.
 //
-// From the phone: open {id, cols, rows}, close {id}, keys {id, data}, paste {id, text},
-// resize {id, cols, rows}, wheel {id, up}, reclaim {id}. To it: snapshot, screen, closed.
+// From the phone: open {id, cols}, close {id}, keys {id, data}, paste {id, text},
+// submit {id, text} (paste it, then Enter), resize {id, cols}, wheel {id, up}, reclaim {id}.
+// To it: snapshot, screen, closed.
 // Actions (new, start, hold, done, routine) go to `onAction` (actions.ts), and its answer back.
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
@@ -91,7 +92,7 @@ export class Bridge {
         if (!target) return void link.send({ t: 'closed', id, why: 'not open on the Mac' })
         this.screens.set(
           phone,
-          new PhoneScreen(target, num(m['cols']), num(m['rows']), (f) => link.send(f), this.spawn),
+          new PhoneScreen(target, num(m['cols']), (f) => link.send(f), this.spawn),
         )
         return
       }
@@ -102,8 +103,10 @@ export class Bridge {
         return mine?.keys(str(m['data']))
       case 'paste':
         return mine?.paste(str(m['text']))
+      case 'submit':
+        return mine?.submit(str(m['text']))
       case 'resize':
-        return mine?.resize(num(m['cols']), num(m['rows']))
+        return mine?.resize(num(m['cols']))
       case 'wheel':
         return mine?.wheel(m['up'] === true)
       case 'reclaim':

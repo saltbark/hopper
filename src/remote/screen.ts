@@ -2,14 +2,22 @@ import type { Account } from '../config.ts'
 import { EmbeddedSession, type Seg } from '../tui/embed.ts'
 import { T } from '../tui/theme.ts'
 
-// A conversation open on the phone. The Mac runs its own `claude attach` at the phone's size (the
-// same EmbeddedSession the right panel uses) and sends the screen as rows of styled runs; only
-// the rows that changed go after the first. The phone draws them and sends keys back. Like the
-// panel, it shows Claude's screen and nothing else: the wheel becomes PgUp/PgDn (or mouse events,
-// when Claude asked for the mouse), and Claude scrolls itself.
+// A conversation open on the phone. The Mac runs its own `claude attach` (the same
+// EmbeddedSession the right panel uses) at the phone's width and TALL rows high, and sends the
+// screen as rows of styled runs; only the rows that changed go after the first. Claude draws its
+// whole conversation into a screen that tall (from the top, its prompt pinned to the bottom), so
+// the phone scrolls it natively, with no round trip per swipe; only history older than that needs
+// Claude to scroll (`wheel`).
 //
-// Two attach clients share one width, the last to resize: opening here takes the conversation to
-// the phone's width, and Hopper's panel takes it back when it gets the keyboard (`reclaim`).
+// A conversation draws at one size, the last attach client's: the side someone types or scrolls
+// on takes it back on the first key (`claim` in embed.ts). `mine` tells the phone whether the
+// screen it has was drawn for it.
+
+export const TALL = 400
+
+// After a paste, how long before Enter: sent together, Claude takes the Enter as part of the paste
+// (a new line in it), not as sending it.
+export const SUBMIT_GAP_MS = 120
 
 // A run of text: [text, fg, bg, flags]. fg is left out when it's Hopper's text colour, bg when
 // there is none, flags (1 bold, 2 dim, 4 italic, 8 underline, 16 inverse) when zero.
@@ -28,9 +36,13 @@ export type ScreenFrame = {
   set: [number, Run[]][]
   full: boolean
   cursor: [number, number] | null
+  // Whether the conversation is drawn at the phone's size, not the Mac panel's.
+  mine: boolean
 }
 
 export function runs(segs: Seg[]): Run[] {
+  // A row of nothing but spaces is sent empty: most of a tall screen is blank.
+  if (segs.every((s) => !s.text.trim() && !s.bg && !s.inverse)) return []
   return segs.map((s) => {
     const flags =
       (s.bold ? 1 : 0) |
@@ -69,6 +81,7 @@ export type Spawn = (
   | 'wheel'
   | 'close'
   | 'reclaim'
+  | 'hasSize'
 >
 
 const realSpawn: Spawn = (account, id, name, cols, rows, events) =>
@@ -77,18 +90,17 @@ const realSpawn: Spawn = (account, id, name, cols, rows, events) =>
 export class PhoneScreen {
   private readonly embed: ReturnType<Spawn>
   private sent: string[] = []
+  private sentMine: boolean | null = null
   private cols: number
-  private rows: number
+  private readonly rows = TALL
 
   constructor(
     readonly target: Target,
     cols: number,
-    rows: number,
     private readonly out: (frame: ScreenFrame | { t: 'closed'; id: string }) => void,
     spawn: Spawn = realSpawn,
   ) {
     this.cols = clamp(cols, 20, 200)
-    this.rows = clamp(rows, 8, 120)
     this.embed = spawn(target.account, target.attachId, '', this.cols, this.rows, {
       onLeave: () => this.out({ t: 'closed', id: target.sessionId }),
       // Claude's agents screen means ← at an empty prompt; the embed puts the conversation back.
@@ -104,11 +116,14 @@ export class PhoneScreen {
 
   frame(full: boolean) {
     const rows = this.embed.screen().map((r) => JSON.stringify(runs(r)))
+    const mine = this.embed.hasSize()
     const set: [number, Run[]][] = []
     rows.forEach((r, i) => {
       if (full || r !== this.sent[i]) set.push([i, JSON.parse(r) as Run[]])
     })
+    if (!set.length && mine === this.sentMine) return
     this.sent = rows
+    this.sentMine = mine
     const c = this.embed.cursor()
     this.out({
       t: 'screen',
@@ -118,6 +133,7 @@ export class PhoneScreen {
       set,
       full,
       cursor: c ? [c.col, c.row] : null,
+      mine,
     })
   }
 
@@ -129,18 +145,24 @@ export class PhoneScreen {
     this.embed.paste(text)
   }
 
+  // What was typed, then Enter a moment later, so Claude sends it rather than adding a new line.
+  submit(text: string, wait = SUBMIT_GAP_MS) {
+    if (text) this.embed.paste(text)
+    setTimeout(() => this.embed.send('\r'), text ? wait : 0)
+  }
+
   wheel(up: boolean) {
     this.embed.wheel(up, Math.floor(this.cols / 2), Math.floor(this.rows / 2))
   }
 
-  resize(cols: number, rows: number) {
+  // Only the width follows the phone; the height stays TALL whatever the keyboard does.
+  resize(cols: number) {
     this.cols = clamp(cols, 20, 200)
-    this.rows = clamp(rows, 8, 120)
     this.embed.resize(this.cols, this.rows)
     this.sent = []
   }
 
-  // The phone came back to the foreground: take the width again, and send the whole screen.
+  // Take the size back for the phone (it came back to the screen, or asked), and send it all.
   reclaim() {
     this.embed.reclaim()
     this.sent = []
