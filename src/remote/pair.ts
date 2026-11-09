@@ -28,6 +28,8 @@ export type PairDeps = {
   confirm: (question: string) => Promise<boolean>
   relay?: string
   dir?: string
+  // What the phone calls this Mac; its own name when not given (the demo passes one).
+  name?: string
   timeout?: number
 }
 
@@ -41,7 +43,7 @@ export async function pairPhone(deps: PairDeps): Promise<Phone | null> {
     token: randomBytes(32),
     macPublic: identity.publicKey,
     secret: randomBytes(32),
-    name: await macName(),
+    name: deps.name ?? (await macName()),
   }
   const link = offerLink(offer)
   deps.print(renderUnicodeCompact(link, { border: 2 }))

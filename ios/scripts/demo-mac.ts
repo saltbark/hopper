@@ -36,6 +36,7 @@ const color = (name: string) => accountColor(config, name)
 const paired = pairPhone({
   dir: remote,
   relay,
+  name: 'Demo Mac',
   confirm: async () => true,
   print: (text) => {
     const link = /hopper:\/\/pair\S+/.exec(text)?.[0]
