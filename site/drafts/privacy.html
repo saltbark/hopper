@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hopper for iPhone: privacy</title>
+    <meta
+      name="description"
+      content="What Hopper for iPhone keeps, sends and sees: no accounts, nothing collected."
+    />
+    <meta name="theme-color" content="#090c0e" />
+    <link rel="icon" type="image/svg+xml" href="/frog.svg" />
+    <link rel="stylesheet" href="/page.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <header>
+        <a class="home" href="/"><img src="/frog.svg" alt="" width="22" height="22" /> hopper</a>
+      </header>
+
+      <h1>Hopper for iPhone: privacy</h1>
+      <p class="when">Updated 9 November 2026</p>
+
+      <p class="lead">
+        Hopper for iPhone has no accounts, collects nothing and tracks no one. It is a window onto
+        Hopper running on your own Mac, and what passes between the two is sealed so that only they
+        can read it.
+      </p>
+
+      <h2>What the app is</h2>
+      <p>
+        Hopper is a terminal app for the Mac that hands work to Claude Code. The iPhone app pairs
+        with Hopper on your Mac and shows its lists and conversations, and lets you answer them,
+        start new ones and move them along. The work itself happens on your Mac. Saltbark LLC makes
+        both.
+      </p>
+
+      <h2>What we collect</h2>
+      <p>
+        Nothing. There is no sign-up, no analytics, no advertising, no crash reporting of our own
+        and no third-party code in the app. We don't know who uses it.
+      </p>
+
+      <h2>What stays on your phone</h2>
+      <ul>
+        <li>
+          <strong>The pairing</strong>: the phone's own key and what it needs to reach your Mac, in
+          the iPhone's Keychain, on this device only: it doesn't move to another phone, even from a
+          backup.
+        </li>
+        <li>
+          <strong>The last thing it showed</strong>, so it opens at once: the Mac's latest lists,
+          and text you typed but didn't send. Both are files the iPhone keeps encrypted while it's
+          locked, are not backed up, and are deleted when you unpair.
+        </li>
+        <li>
+          <strong>A few settings</strong>: the name you gave the phone and the projects you used
+          last.
+        </li>
+      </ul>
+      <p>
+        The camera is used only to read the pairing code, and Face ID or your passcode only to
+        unlock the app. Neither picture nor face leaves the phone, and the app never sees your face
+        data: iOS checks it and tells the app only yes or no.
+      </p>
+
+      <h2>What passes between your phone and your Mac</h2>
+      <p>
+        Your phone and your Mac don't talk directly. They meet at a relay we run on Cloudflare
+        (<code>hopper-relay.saltbark.com</code>), which passes messages between them. Every message
+        is encrypted on one end and decrypted on the other, with keys made when you paired and fresh
+        keys for every connection, so the relay can't read them, and neither can we.
+      </p>
+      <p>The relay keeps none of the messages. What it can see, while they pass:</p>
+      <ul>
+        <li>the internet addresses of your phone and your Mac, and when they connect;</li>
+        <li>how many messages pass and how big they are;</li>
+        <li>
+          a random code for each pairing (the "room") and a one-way hash of its key, which is the
+          one thing it stores, so that only your phone and your Mac can use that room.
+        </li>
+      </ul>
+      <p>
+        We don't log any of that ourselves. Cloudflare handles the traffic under
+        <a href="https://www.cloudflare.com/privacypolicy/">its own privacy policy</a>.
+      </p>
+
+      <h2>Apple</h2>
+      <p>
+        Apple delivers the app and its updates. If you choose to share analytics with app developers
+        in your iPhone's settings, Apple may send us anonymous crash reports and usage figures; we
+        use them only to fix problems.
+      </p>
+
+      <h2>Children</h2>
+      <p>The app is a tool for developers and is not meant for children.</p>
+
+      <h2>Changes</h2>
+      <p>
+        If this changes, the new version goes on this page with a new date. If the app ever starts
+        collecting anything, it will ask you first.
+      </p>
+
+      <h2>Questions</h2>
+      <p>
+        Write to <a href="mailto:SUPPORT_EMAIL">SUPPORT_EMAIL</a>. The code for the app, the relay
+        and Hopper itself is open:
+        <a href="https://github.com/saltbark/hopper">github.com/saltbark/hopper</a>.
+      </p>
+
+      <footer>
+        <span>Saltbark LLC</span>
+        <span><a href="/iphone">Hopper for iPhone</a> · <a href="/privacy">Privacy</a></span>
+      </footer>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hopper for iPhone</title>
+    <meta
+      name="description"
+      content="Hopper for iPhone: watch and answer the Claude Code work Hopper runs on your Mac. Setup, pairing and help."
+    />
+    <meta name="theme-color" content="#090c0e" />
+    <link rel="icon" type="image/svg+xml" href="/frog.svg" />
+    <link rel="stylesheet" href="/page.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <header>
+        <a class="home" href="/"><img src="/frog.svg" alt="" width="22" height="22" /> hopper</a>
+      </header>
+
+      <h1>Hopper for iPhone</h1>
+      <p class="lead">
+        Your Mac's Hopper, in your pocket: see what's running and what's waiting on you, answer
+        Claude, start new work and move it along. The work still happens on your Mac; the phone is a
+        window onto it.
+      </p>
+
+      <h2>What you need</h2>
+      <ul>
+        <li>
+          <strong>Hopper on a Mac</strong>, version MAC_VERSION or later, with Claude Code signed
+          in. Install it with
+          <pre><code>curl -fsSL https://hopper.saltbark.com/install.sh | sh</code></pre>
+          or update it with <code>hopper update</code>.
+        </li>
+        <li>An iPhone on iOS 27 or later.</li>
+      </ul>
+
+      <h2>Pair your phone</h2>
+      <ol>
+        <li>
+          On your Mac, run <code>hopper pair</code>. It shows a code that works once, for five
+          minutes.
+        </li>
+        <li>Open the app on your phone and point the camera at the code.</li>
+        <li>Say yes on the Mac when it asks whether to let your phone in.</li>
+      </ol>
+      <p>
+        That's all. The phone connects whenever Hopper is open on the Mac. To see paired phones on
+        the Mac, run <code>hopper phones</code>; to forget one,
+        <code>hopper unpair &lt;name&gt;</code>. On the phone, unpair from Accounts.
+      </p>
+
+      <h2>When something's wrong</h2>
+      <dl>
+        <dt>"Mac away"</dt>
+        <dd>
+          Hopper isn't open on your Mac, or the Mac is asleep. The phone shows what it last heard
+          and connects again by itself once Hopper is back. Press <code>z</code> in Hopper to keep
+          the Mac awake while you're away.
+        </dd>
+        <dt>"Update needed"</dt>
+        <dd>
+          The app and Hopper on your Mac are on different versions. The app says which one to
+          update: the app from the App Store, or Hopper with <code>hopper update</code>.
+        </dd>
+        <dt>"Pair again"</dt>
+        <dd>
+          The relay no longer knows this pairing, or it was made by an older version. Unpair in
+          Accounts, run <code>hopper pair</code> on the Mac and scan the new code.
+        </dd>
+        <dt>"Offline"</dt>
+        <dd>The phone can't reach the relay. It keeps trying; tap the status to try at once.</dd>
+        <dt>The code won't scan</dt>
+        <dd>
+          Make the terminal window bigger so the code is sharp, or copy the link under it on the Mac
+          and use "Paste the link instead" on the phone.
+        </dd>
+      </dl>
+
+      <h2>Privacy</h2>
+      <p>
+        No accounts, nothing collected. Everything between your phone and your Mac is encrypted end
+        to end; the relay in between can't read it. The details are in the
+        <a href="/privacy">privacy policy</a>.
+      </p>
+
+      <h2>Help</h2>
+      <p>
+        Write to <a href="mailto:SUPPORT_EMAIL">SUPPORT_EMAIL</a>, or open an issue on
+        <a href="https://github.com/saltbark/hopper/issues">GitHub</a>.
+      </p>
+
+      <footer>
+        <span>Saltbark LLC</span>
+        <span><a href="/iphone">Hopper for iPhone</a> · <a href="/privacy">Privacy</a></span>
+      </footer>
+    </main>
+  </body>
+</html>

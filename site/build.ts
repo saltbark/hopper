@@ -2,7 +2,7 @@
 // styled runs that the page draws on a canvas, the latest release's version written in (so the
 // page never asks GitHub from the browser), and install.sh.
 // Run pnpm site:capture first when the app's look has changed; frames.json is committed.
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { ansiToRows } from './ansi.ts'
@@ -35,6 +35,11 @@ await mkdir(join(here, 'dist'), { recursive: true })
 await writeFile(join(here, 'dist', 'index.html'), page)
 await copyFile(join(here, 'frog.svg'), join(here, 'dist', 'frog.svg'))
 await copyFile(join(here, 'install.sh'), join(here, 'dist', 'install.sh'))
+// Plain pages beside the landing page (site/pages/: the privacy policy, the iPhone app's page),
+// served without their .html (/privacy, /iphone). New ones wait in site/drafts/, which isn't
+// published, until their words are approved.
+const pages = await readdir(join(here, 'pages')).catch(() => [] as string[])
+for (const p of pages) await copyFile(join(here, 'pages', p), join(here, 'dist', p))
 // What a release copy of Hopper asks for to learn of a newer one (src/update.ts): the version, and
 // its entry in CHANGELOG.md as plain lines, one per bullet.
 if (latest) {
