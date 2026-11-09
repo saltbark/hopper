@@ -19,7 +19,7 @@ struct WorkView: View {
 
     private var list: some View {
         List {
-            ScreenTitle(title: "hopper", frog: true)
+            ScreenTitle(title: "hopper", frog: true, newIn: .some(nil))
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
                 .listRowSeparator(.hidden)
@@ -46,13 +46,17 @@ struct WorkView: View {
                     }
                 }
                 Section {
+                    let routines = snap.items.filter { $0.kind == "routine" }
+                    let unread = routines.reduce(0) { $0 + ($1.unread ?? 0) }
+                    NavigationLink(value: RoutinesRoute()) {
+                        PlaceRow(glyph: "↻", color: T.focus, title: "Routines",
+                                 count: unread > 0 ? "\(unread) unread" : "\(routines.count)", lit: unread > 0)
+                    }
+                    .listRowBackground(T.surface)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparatorTint(T.rowLine)
                     NavigationLink(value: ArchivedRoute()) {
-                        HStack {
-                            Text("Archived").font(.system(size: 15)).foregroundStyle(T.soft)
-                            Spacer()
-                            Text("\(snap.archived?.count ?? 0)").font(T.mono(13)).foregroundStyle(T.dim)
-                        }
-                        .padding(.horizontal, 14).frame(height: 46)
+                        PlaceRow(glyph: "✓", color: T.dim, title: "Archived", count: "\(snap.archived?.count ?? 0)")
                     }
                     .listRowBackground(T.surface)
                     .listRowInsets(EdgeInsets())
@@ -133,5 +137,25 @@ struct WorkRow: View {
         var tail = model.isEmpty ? "" : " · \(model)"
         if item.group == WorkGroup.next.rawValue { tail += item.queue == "night" ? " · tonight" : " · when there's room" }
         return Text("\(item.project)\(account)\(tail)").foregroundStyle(T.dim)
+    }
+}
+
+/// A row on Work that leads somewhere else: Routines, Archived.
+struct PlaceRow: View {
+    let glyph: String
+    let color: Color
+    let title: String
+    let count: String
+    var lit = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(glyph).font(T.mono(15)).foregroundStyle(color).frame(width: 18)
+            Text(title).font(.system(size: 15)).foregroundStyle(T.text)
+            Spacer()
+            Text(count).font(T.mono(12)).foregroundStyle(lit ? T.focus : T.dim)
+        }
+        .padding(.horizontal, 14).frame(height: 46)
+        .contentShape(.rect)
     }
 }

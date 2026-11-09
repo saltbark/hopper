@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -143,6 +143,37 @@ describe("the phone's actions", () => {
       text: 'Back in conversations: Rate limit the public API',
     })
     expect((await loadDone(home)).has('sess-wait')).toBe(false)
+  })
+
+  it("tells the phone a routine's details and reads its reports, marking them read", async () => {
+    const { home, deps } = await world()
+    const file = join(home, '2026-11-08-0700.md')
+    await writeFile(file, '# Overnight\n\n- Magic link sign-in is on a branch.\n')
+    deps.snap.reports = {
+      // Newer than the read state's start: older reports count as read already (seen.ts).
+      'daily-brief': [
+        { path: file, at: Date.now() + 60_000, needs: null, summary: 'Overnight', unread: true },
+      ],
+    }
+    const info = await act({ t: 'routineinfo', id: 'routine:daily-brief', ref: 4 }, deps)
+    expect(info).toMatchObject({
+      t: 'routineinfo',
+      ref: 4,
+      name: 'daily-brief',
+      schedule: 'weekdays 7:00',
+      prompt: 'Write the brief.',
+      model: 'opus[1m] (default)',
+      reports: [{ file: '2026-11-08-0700.md', unread: true, summary: 'Overnight' }],
+    })
+    const rep = await act({ t: 'report', id: 'daily-brief', file: '2026-11-08-0700.md' }, deps)
+    expect(rep).toMatchObject({ t: 'report', markdown: expect.stringContaining('Magic link') })
+    expect(await readFile(join(home, 'state', 'read.json'), 'utf8')).toContain('2026-11-08-0700.md')
+    // Never a path the routine doesn't list.
+    expect(
+      await act({ t: 'report', id: 'daily-brief', file: '../../config.toml' }, deps),
+    ).toMatchObject({
+      ok: false,
+    })
   })
 
   it('resumes, pauses and runs a routine', async () => {

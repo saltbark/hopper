@@ -1,9 +1,12 @@
+import { basename } from 'node:path'
+
 import { UntrustedError } from '../claude.ts'
 import { dispatchOnce } from '../commands.ts'
 import { chosen, defaultsFor, type Config } from '../config.ts'
 import { EFFORTS, MODELS } from '../conversations.ts'
 import { setDone } from '../done.ts'
 import { newDraftId, saveDraft, type Draft } from '../drafts.ts'
+import { readIfThere } from '../fsutil.ts'
 import { setHeld } from '../held.ts'
 import { readItems } from '../items.ts'
 import { routineSessionId, type Snapshot } from '../model.ts'
@@ -11,6 +14,7 @@ import { tildify } from '../paths.ts'
 import { hopperPrompt } from '../prompts.ts'
 import { runRoutine, saveRoutine } from '../routines/index.ts'
 import { pickAccount } from '../routing.ts'
+import { markRead } from '../seen.ts'
 import { startDraft } from '../start.ts'
 import { groupOf } from '../tui/state.ts'
 
@@ -24,6 +28,8 @@ import { groupOf } from '../tui/state.ts'
 //   hold     {id}   toggles a waiting conversation on and off hold
 //   done     {id, undo?}   archives it, or brings it back from Archived
 //   routine  {id, do: 'resume' | 'pause' | 'run'}
+//   routineinfo {id}           → its prompt, schedule, model and reports (newest first)
+//   report   {id, file}        → that report's markdown; it counts as read, as on the Mac
 
 export type ActDeps = {
   config: Config
@@ -40,7 +46,10 @@ export type Answer = Record<string, unknown> & { t: string }
 
 const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined)
 
-export const ACTIONS = new Set(['new', 'start', 'hold', 'done', 'routine'])
+export const ACTIONS = new Set(['new', 'start', 'hold', 'done', 'routine', 'routineinfo', 'report'])
+
+// How many of a routine's reports the phone is told about.
+export const REPORTS_SENT = 30
 
 export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<Answer> {
   const ref = m['ref'] ?? null
@@ -178,6 +187,54 @@ export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<An
           return ok(`Running ${r.name} on ${out.account}.`)
         }
         return no('Resume, pause or run.')
+      }
+
+      case 'routineinfo': {
+        const r = snap.routines.find(
+          (x) => routineSessionId(x.name) === m['id'] || x.name === m['id'],
+        )
+        if (!r) return no('No such routine.')
+        const item = snap.items.find((i) => i.sessionId === routineSessionId(r.name))
+        const defaults = defaultsFor(
+          config,
+          snap.projects.find((p) => p.key === r.project),
+        )
+        return {
+          t: 'routineinfo',
+          ref,
+          name: r.name,
+          project: r.project,
+          schedule: r.schedule,
+          enabled: r.enabled,
+          prompt: r.prompt,
+          model: r.model ?? `${defaults.model} (default)`,
+          effort: r.effort ?? `${defaults.effort} (default)`,
+          check: r.check ?? null,
+          nextAt: item?.nextAt ?? null,
+          reports: (snap.reports[r.name] ?? []).slice(0, REPORTS_SENT).map((rep) => ({
+            file: basename(rep.path),
+            at: rep.at,
+            summary: rep.summary.slice(0, 200),
+            unread: !!rep.unread,
+            account: rep.account ?? null,
+          })),
+        }
+      }
+
+      case 'report': {
+        const r = snap.routines.find(
+          (x) => routineSessionId(x.name) === m['id'] || x.name === m['id'],
+        )
+        const reports = r ? (snap.reports[r.name] ?? []) : []
+        // Only a report Hopper lists for this routine: the phone names it, never a path.
+        const rep = reports.find((x) => basename(x.path) === m['file'])
+        if (!r || !rep) return no('That report is gone.')
+        const markdown = (await readIfThere(rep.path)) ?? ''
+        if (rep.unread) {
+          await markRead(config.home, r.name, [rep.path], reports)
+          await deps.refresh()
+        }
+        return { t: 'report', ref, routine: r.name, at: rep.at, markdown }
       }
     }
   } catch (e) {

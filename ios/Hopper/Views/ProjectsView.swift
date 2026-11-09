@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The projects in Hopper's home, with how many open items each has, how many conversations are
-/// running and how many wait on you.
+/// running and how many wait on you. Tap one for its conversations.
 struct ProjectsView: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
@@ -9,7 +9,7 @@ struct ProjectsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                ScreenTitle(title: "projects")
+                ScreenTitle(title: "projects", newIn: .some(nil))
                 if let snap = model.snapshot {
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass").foregroundStyle(T.dim)
@@ -30,11 +30,12 @@ struct ProjectsView: View {
                     .foregroundStyle(T.dim)
                     .padding(.horizontal, 14)
 
-                    let shown = snap.projects.filter { query.isEmpty || $0.key.localizedCaseInsensitiveContains(query) }
+                    let shown = Fuzzy.rank(snap.projects, query) { $0.key }
                     Card {
                         ForEach(Array(shown.enumerated()), id: \.element.id) { i, p in
                             if i > 0 { RowDivider() }
-                            ProjectRow(project: p)
+                            NavigationLink(value: ProjectRoute(key: p.key)) { ProjectRow(project: p) }
+                                .buttonStyle(RowPress())
                         }
                     }
                 } else {
@@ -80,5 +81,14 @@ struct ProjectRow: View {
             .font(T.mono(13, bold && (n ?? 0) > 0 ? .bold : .regular))
             .foregroundStyle((n ?? 0) > 0 ? color : T.dim)
             .frame(width: 40, alignment: .trailing)
+    }
+}
+
+/// A row that lights while pressed.
+struct RowPress: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? T.sel : .clear)
+            .contentShape(.rect)
     }
 }

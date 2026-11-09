@@ -6,7 +6,13 @@ import SwiftUI
 struct NewConversationView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("newProject") private var project = ""
+    /// The project it opened in, when it came from a project's page.
+    let start: String?
+    @AppStorage("newProject") private var lastProject = ""
+    @AppStorage("recentProjects") private var recent = ""
+    @State private var project = ""
+    @State private var query = ""
+    @FocusState private var finding: Bool
     @State private var info: NewInfo?
     @State private var text = ""
     @State private var account: String?
@@ -43,32 +49,86 @@ struct NewConversationView: View {
         .task(id: project) { await load() }
         .onAppear {
             let keys = model.snapshot?.projects.map(\.key) ?? []
-            if !keys.contains(project) { project = keys.first ?? "" }
+            if let start, keys.contains(start) {
+                project = start
+            } else if keys.contains(lastProject) {
+                project = lastProject
+            } else {
+                // Nothing to go on: start by finding one.
+                finding = true
+            }
         }
     }
 
     // MARK: Parts
 
+    // Type a few letters to find a project: matches drop in under the field, the ones used
+    // lately first while nothing is typed. The list is too long to scroll through.
     private var projectPicker: some View {
-        Menu {
-            Picker("Project", selection: $project) {
-                ForEach(model.snapshot?.projects ?? []) { Text($0.key).tag($0.key) }
-            }
-        } label: {
+        VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Image(systemName: "folder").foregroundStyle(T.dim)
+                Image(systemName: finding ? "magnifyingglass" : "folder").foregroundStyle(T.dim).frame(width: 18)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(project.isEmpty ? "Pick a project" : project).font(T.mono(15, .medium)).foregroundStyle(T.hi)
-                    Text(projectLine).font(.system(size: 12)).foregroundStyle(T.dim)
+                    TextField("", text: $query, prompt: Text(project.isEmpty ? "Find a project" : project)
+                        .foregroundStyle(finding || project.isEmpty ? T.dim : T.hi))
+                        .font(T.mono(15, .medium))
+                        .foregroundStyle(T.hi)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.done)
+                        .focused($finding)
+                        .onSubmit { if let first = matches.first { choose(first) } }
+                    if !finding { Text(projectLine).font(.system(size: 12)).foregroundStyle(T.dim) }
                 }
                 Spacer()
-                Image(systemName: "chevron.up.chevron.down").font(.system(size: 13)).foregroundStyle(T.dim)
+                if finding, !project.isEmpty {
+                    Button("Cancel") { query = ""; finding = false }.font(.system(size: 14)).foregroundStyle(T.focus)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .background(T.chip, in: .rect(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: 0x1F2A2F), lineWidth: 1))
+            if finding {
+                ForEach(matches.prefix(7), id: \.self) { key in
+                    Rectangle().fill(T.rowLine).frame(height: 1)
+                    Button { choose(key) } label: {
+                        HStack {
+                            Text(key).font(T.mono(14)).foregroundStyle(key == project ? T.focus : T.text).lineLimit(1)
+                            Spacer()
+                            if let open = model.snapshot?.projects.first(where: { $0.key == key })?.open {
+                                Text("\(open) open").font(T.mono(11)).foregroundStyle(T.dim)
+                            }
+                        }
+                        .padding(.horizontal, 14).frame(height: 42)
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(RowPress())
+                }
+                if matches.isEmpty {
+                    Rectangle().fill(T.rowLine).frame(height: 1)
+                    Text("No project matches.").font(.system(size: 14)).foregroundStyle(T.dim)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(14)
+                }
+            }
         }
+        .background(T.chip, in: .rect(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(finding ? T.focus.opacity(0.6) : Color(hex: 0x1F2A2F), lineWidth: 1))
+        .animation(.snappy(duration: 0.2), value: finding)
+    }
+
+    private var matches: [String] {
+        let keys = model.snapshot?.projects.map(\.key) ?? []
+        if query.trimmingCharacters(in: .whitespaces).isEmpty {
+            let used = recent.split(separator: "\n").map(String.init).filter(keys.contains)
+            return used + keys.filter { !used.contains($0) }
+        }
+        return Fuzzy.rank(keys, query) { $0 }
+    }
+
+    private func choose(_ key: String) {
+        project = key
+        query = ""
+        finding = false
+        writing = true
     }
 
     private var projectLine: String {
@@ -213,6 +273,8 @@ struct NewConversationView: View {
         if let effort { m["effort"] = effort }
         if let worktree { m["worktree"] = worktree }
         if let queue { m["queue"] = queue }
+        lastProject = project
+        recent = ([project] + recent.split(separator: "\n").map(String.init).filter { $0 != project }).prefix(6).joined(separator: "\n")
         busy = true
         Task {
             let ok = await model.perform(m)

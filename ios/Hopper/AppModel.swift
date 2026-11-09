@@ -172,7 +172,7 @@ final class AppModel {
             if let c = try? JSONDecoder().decode(Closed.self, from: json), let screen, c.id == screen.id {
                 screen.closed = c.why ?? "The conversation closed on the Mac."
             }
-        case "result", "newinfo":
+        case "result", "newinfo", "routineinfo", "report":
             if let r = try? JSONDecoder().decode(Ref.self, from: json), let ref = r.ref, let waiting = answers.removeValue(forKey: ref) {
                 waiting.resume(returning: json)
             }
@@ -250,6 +250,31 @@ final class AppModel {
         guard let data = await ask(["t": "new", "project": project]) else { return nil }
         return try? JSONDecoder().decode(NewInfo.self, from: data)
     }
+
+    /// A routine's prompt, schedule and reports.
+    func routineInfo(_ id: String) async -> RoutineInfo? {
+        guard let data = await ask(["t": "routineinfo", "id": id]) else { return nil }
+        return try? JSONDecoder().decode(RoutineInfo.self, from: data)
+    }
+
+    /// One of a routine's reports, as markdown. Reading it marks it read, as on the Mac.
+    func report(_ routine: String, _ file: String) async -> ReportText? {
+        guard let data = await ask(["t": "report", "id": routine, "file": file]) else { return nil }
+        return try? JSONDecoder().decode(ReportText.self, from: data)
+    }
+
+    // MARK: The new conversation sheet
+
+    /// The sheet is open while this is set; `project` is the one to start in, when it came from a
+    /// project's page.
+    struct NewRequest: Identifiable {
+        let id = UUID()
+        let project: String?
+    }
+
+    var newRequest: NewRequest?
+
+    func newConversation(in project: String? = nil) { newRequest = NewRequest(project: project) }
 
     // MARK: The open conversation
 

@@ -24,3 +24,33 @@ struct NewInfo: Decodable, Equatable {
         let label: String
     }
 }
+
+/// A routine as the Mac has it (src/remote/actions.ts, `routineinfo`).
+struct RoutineInfo: Decodable, Equatable {
+    let name: String
+    let project: String
+    let schedule: String
+    let enabled: Bool
+    let prompt: String
+    let model: String
+    let effort: String
+    let check: String?
+    let nextAt: Double?
+    let reports: [Report]
+
+    struct Report: Decodable, Equatable, Hashable, Identifiable {
+        var id: String { file }
+        let file: String
+        let at: Double
+        let summary: String
+        let unread: Bool
+        let account: String?
+    }
+}
+
+/// One report's text (`report`).
+struct ReportText: Decodable, Equatable {
+    let routine: String
+    let at: Double
+    let markdown: String
+}

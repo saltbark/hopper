@@ -98,51 +98,99 @@ struct RowDivider: View {
     var body: some View { Rectangle().fill(T.rowLine).frame(height: 1) }
 }
 
-/// Top of a tab: its name in Hopper's mono, the Mac's state on the right.
+/// Top of a tab: its name in Hopper's mono; the Mac's state only when it isn't connected (a phone
+/// this size has no room to say "connected" all day); and a + where a new conversation fits.
 struct ScreenTitle: View {
     @Environment(AppModel.self) private var model
     let title: String
     var frog = false
+    var newIn: String?? = nil
 
     var body: some View {
-        HStack {
-            HStack(spacing: 10) {
-                if frog { Frog() }
-                Text(title).font(T.mono(frog ? 19 : 28, .bold)).foregroundStyle(T.hi).tracking(-0.4)
-            }
+        HStack(spacing: 10) {
+            if frog { Frog() }
+            Text(title).font(T.mono(frog ? 19 : 26, .bold)).foregroundStyle(T.hi).tracking(-0.4)
             Spacer()
-            MacPill()
+            LinkChip()
+            if let project = newIn { NewButton(project: project) }
         }
         .padding(.horizontal, 4)
     }
 }
 
-struct MacPill: View {
+/// A page pushed from a tab: back, then its title, then whatever it adds on the right.
+struct PageHeader<Trailing: View>: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    var mono = true
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left").font(.system(size: 19, weight: .semibold)).frame(width: 36, height: 44)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(T.focus)
+            .accessibilityLabel("Back")
+            Text(title)
+                .font(mono ? T.mono(22, .bold) : .system(size: 20, weight: .bold))
+                .foregroundStyle(T.hi).tracking(mono ? -0.4 : 0).lineLimit(1).truncationMode(.head)
+            Spacer(minLength: 8)
+            LinkChip()
+            trailing
+        }
+    }
+}
+
+extension PageHeader where Trailing == EmptyView {
+    init(title: String, mono: Bool = true) {
+        self.init(title: title, mono: mono) { EmptyView() }
+    }
+}
+
+/// The round + that opens a new conversation, in a project when it knows which.
+struct NewButton: View {
+    @Environment(AppModel.self) private var model
+    let project: String?
+
+    var body: some View {
+        Button { model.newConversation(in: project) } label: {
+            Image(systemName: "plus").font(.system(size: 17, weight: .bold))
+                .frame(width: 36, height: 36)
+                .background(T.focus, in: .circle)
+        }
+        .foregroundStyle(Color(hex: 0x0A0C0D))
+        .accessibilityLabel(project.map { "New conversation in \($0)" } ?? "New conversation")
+    }
+}
+
+/// Says the Mac isn't there, and nothing when it is.
+struct LinkChip: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        let (color, text) = state
-        HStack(spacing: 7) {
-            Circle().fill(color).frame(width: 7, height: 7)
-            Text(text).lineLimit(1)
+        if let (color, text) = state {
+            HStack(spacing: 6) {
+                Circle().fill(color).frame(width: 6, height: 6)
+                Text(text).lineLimit(1)
+            }
+            .font(T.mono(11))
+            .foregroundStyle(T.soft)
+            .padding(.horizontal, 9)
+            .frame(height: 26)
+            .background(T.surface, in: .capsule)
+            .accessibilityElement(children: .combine)
         }
-        .font(T.mono(12))
-        .foregroundStyle(T.text)
-        .padding(.horizontal, 12)
-        .frame(height: 32)
-        .background(T.surface, in: .capsule)
-        .overlay(Capsule().stroke(Color(hex: 0x1F2A2F), lineWidth: 1))
-        .accessibilityElement(children: .combine)
     }
 
-    private var state: (Color, String) {
-        let name = model.snapshot?.mac ?? model.pairing?.macName ?? "Mac"
+    private var state: (Color, String)? {
         switch model.link {
-        case .live: return (T.running, name)
+        case .live: return nil
         case .connecting: return (T.dim, "connecting")
         case .macAway:
-            if let at = model.heardAt { return (T.held, "away · \(Ago.short(at.timeIntervalSince1970 * 1000))") }
-            return (T.held, "\(name) away")
+            if let at = model.heardAt { return (T.held, "Mac away · \(Ago.short(at.timeIntervalSince1970 * 1000))") }
+            return (T.held, "Mac away")
         case .offline: return (T.blocked, "offline")
         }
     }
