@@ -75,6 +75,14 @@ final class AppLock {
         }
     }
 
+    #if DEBUG
+        /// The cover as it shows when locked, without the system's sheet over it (the tour).
+        func demoLock() {
+            neverAsk = true
+            withAnimation(.smooth(duration: 0.25)) { locked = true }
+        }
+    #endif
+
     /// Nothing to keep once there's no pairing; locked again on the next pairing's first open.
     func unpaired() {
         locked = false

@@ -85,7 +85,7 @@ final class AppModel {
             let env = ProcessInfo.processInfo.environment
             if let link = env["HOPPER_PAIR_LINK"] {
                 if env["HOPPER_UNPAIR"] != nil { Keychain.clear(); pairing = nil; snapshot = nil; Saved.clear() }
-                if pairing == nil { Task { self.pair(link: link, name: "Simulator") } }
+                if pairing == nil { Task { self.pair(link: link, name: env["HOPPER_PHONE_NAME"] ?? "Simulator") } }
             }
         #endif
     }

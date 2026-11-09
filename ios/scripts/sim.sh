@@ -4,7 +4,7 @@
 #
 #   ios/scripts/sim.sh <simulator id> <link file> <show> <out.png> [--fresh]
 #
-# show: lock, work, projects, accounts, new, new:<project>, draft, queued, routines, routine:<name>, archived,
+# show: tour (walks through the app, for the review video), lock, work, projects, accounts, new, new:<project>, draft, queued, routines, routine:<name>, archived,
 #       project:<key>, conversation
 # --fresh forgets the pairing first and pairs from the link again.
 set -eu

@@ -238,7 +238,11 @@ Simulator' CODE_SIGNING_ALLOWED=NO build`).
   both `#if DEBUG`). Build it signed for the simulator (no `CODE_SIGNING_ALLOWED=NO`): an unsigned
   simulator app can't write the Keychain, so the pairing doesn't stick. An iPhone 13 mini
   simulator shows the smallest screen the app is used on. The demo's conversations open on a
-  made-up Claude (`ios/scripts/demo-screen.ts`), so `conversation` shows the pane too.
+  made-up Claude (`ios/scripts/demo-screen.ts`), so `conversation` shows the pane too. `tour`
+  walks the app through pairing, a conversation answered, a draft started, projects, accounts and
+  the lock by itself, marking each step on stderr: it's what the App Review video was recorded
+  from (`HOPPER_PHONE_NAME` names the phone; `HOPPER_DEMO_CONFIRM_MS` makes the demo Mac wait
+  before its yes, so the pairing screen shows).
 - **TestFlight**: `ios/scripts/testflight.sh` archives a Release build, its build number the UTC
   time (`YYYYMMDDHHMM`, so each is higher than the last), and uploads it to App Store Connect;
   `--dry` exports a local `.ipa` instead. It signs and uploads with the Apple ID signed in to

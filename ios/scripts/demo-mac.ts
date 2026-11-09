@@ -37,7 +37,12 @@ const paired = pairPhone({
   dir: remote,
   relay,
   name: 'Demo Mac',
-  confirm: async () => true,
+  // HOPPER_DEMO_CONFIRM_MS: wait that long before saying yes, so a recording shows the phone
+  // waiting for the Mac.
+  confirm: async () => {
+    await new Promise((r) => setTimeout(r, Number(process.env['HOPPER_DEMO_CONFIRM_MS'] ?? 0)))
+    return true
+  },
   print: (text) => {
     const link = /hopper:\/\/pair\S+/.exec(text)?.[0]
     if (link) void writeFile(linkFile, link)
@@ -52,6 +57,12 @@ bridge.onAction = (m) =>
   act(m, {
     config,
     snap,
+    // The demo's stand-in claude can't start a background session: a start is answered as the
+    // real one is, with nothing run.
+    start: async ({ project, draft }) => ({
+      id: 'demo',
+      name: `${project.key} · ${draft.text.split('\n')[0]}`,
+    }),
     refresh: async () => {
       snap = await gather(config, null, false)
       bridge.update(phoneView(snap, 'Demo Mac', color), snap)

@@ -64,6 +64,7 @@ struct DraftRoute: Hashable { let id: String }
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AppLock.self) private var lock
     @State private var tab: TabID = .work
     // Where the New tab goes back to.
     @State private var back: TabID = .work
@@ -151,6 +152,7 @@ struct RootView: View {
             Task {
                 for _ in 0..<40 where model.link != .live { try? await Task.sleep(for: .milliseconds(250)) }
                 switch show {
+                case "tour": await tour()
                 case "new": model.newConversation()
                 case "routines": workPath.append(RoutinesRoute())
                 case "archived": workPath.append(ArchivedRoute())
@@ -174,6 +176,49 @@ struct RootView: View {
                 default: break
                 }
             }
+        }
+
+        // The app walked through by itself, for the screen recording that goes with App Review
+        // (the simulator takes no taps): the lists, a conversation answered, a draft started,
+        // the projects and accounts, and the lock. Each step is marked on stderr with the time,
+        // so the recording can be cut to it.
+        private func tour() async {
+            func mark(_ step: String) { fputs("TOUR \(Date().timeIntervalSince1970) \(step)\n", stderr) }
+            func wait(_ s: Double) async { try? await Task.sleep(for: .seconds(s)) }
+            mark("work")
+            await wait(5)
+            if let item = model.items.first(where: { $0.attach == true }) {
+                mark("conversation")
+                workPath.append(ConversationRoute(id: item.id))
+                await wait(4.5)
+                mark("reply")
+                model.submit("Yes, run them")
+                await wait(4.5)
+                workPath.removeLast()
+                await wait(2)
+            }
+            if let d = model.items.first(where: \.isDraft) {
+                mark("draft")
+                workPath.append(DraftRoute(id: d.id))
+                await wait(4)
+                mark("start")
+                _ = await model.send(draft: ["t": "start", "project": d.project, "text": d.text ?? d.title, "id": d.id])
+                await wait(1.5)
+                workPath.removeLast()
+                await wait(3)
+            }
+            mark("projects")
+            tab = .projects
+            await wait(2.5)
+            projectsPath.append(ProjectRoute(key: "bh/atlas"))
+            await wait(3)
+            mark("accounts")
+            tab = .accounts
+            await wait(4)
+            mark("lock")
+            lock.demoLock()
+            await wait(4)
+            mark("end")
         }
     #endif
 }
