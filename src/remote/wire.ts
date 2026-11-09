@@ -22,9 +22,21 @@ import {
 //   HELLO   either       box under the pairing key: {v, id, eph}; the phone asks, the Mac answers
 //   DATA    either       a frame under this connection's key: JSON
 //
+// A hello from a phone on a version the Mac doesn't speak gets an answer with no `eph`: {v, id,
+// oldest}, the versions the Mac speaks, so the phone can say which side to update. Both sides
+// come from separate updates (the App Store, Hopper's own), so this is how they find out.
+//
 // The app has the same in `ios/Hopper/Remote/Wire.swift`.
 
-export const PROTOCOL = 1
+// 2: the pairing link carries a room token, which both sides show the relay on connecting.
+export const PROTOCOL = 2
+// The oldest phone the Mac still answers. Raise PROTOCOL without raising this when a change
+// leaves older phones working. Version 1 had no room token, and the relay refuses those rooms.
+export const OLDEST = 2
+
+// What a hello's `v` says about the other side.
+export type Versions = { v: number; oldest: number }
+export const versionsMatch = (theirs: number) => theirs >= OLDEST && theirs <= PROTOCOL
 
 export const Kind = { pair: 1, paired: 2, hello: 3, data: 4 } as const
 
@@ -48,14 +60,23 @@ function parse(b: Buffer | null): Record<string, unknown> | null {
   }
 }
 
-// What a QR code carries.
-export type Offer = { relay: string; room: Buffer; macPublic: Buffer; secret: Buffer; name: string }
+// What a QR code carries. The room token is the room's for good: both sides present it to the
+// relay on every connection, and the relay lets in only the token it saw first (relay/).
+export type Offer = {
+  relay: string
+  room: Buffer
+  token: Buffer
+  macPublic: Buffer
+  secret: Buffer
+  name: string
+}
 
 export function offerLink(o: Offer): string {
   const q = new URLSearchParams({
     v: String(PROTOCOL),
     r: o.relay,
     room: b64u(o.room),
+    t: b64u(o.token),
     k: b64u(o.macPublic),
     s: b64u(o.secret),
     n: o.name,
@@ -71,11 +92,16 @@ export function parseOffer(link: string): Offer {
   return {
     relay: p.get('r') ?? '',
     room: fromB64u(p.get('room') ?? '', 16),
+    token: fromB64u(p.get('t') ?? '', 32),
     macPublic: fromB64u(p.get('k') ?? '', 32),
     secret: fromB64u(p.get('s') ?? '', 32),
     name: p.get('n') ?? '',
   }
 }
+
+// Where a side connects: its room on the relay, as `role`, showing the room's token.
+export const roomUrl = (relay: string, room: string, role: 'mac' | 'phone', token: string) =>
+  `${relay}/v1/room/${room}?role=${role}&token=${token}`
 
 // The phone's request to pair. Here for the tests and as the reference for the Swift side.
 export function pairRequest(offer: Offer, phone: KeyPair, name: string): Buffer {
@@ -116,36 +142,48 @@ export function readPairedReply(data: Buffer, pairKey: Buffer): { name: string }
 // The Mac's end of a connection. A hello from the phone starts a new session (a phone that
 // reconnects says hello again); the Mac answers with its own fresh key, and from then on frames
 // go under the session's keys.
+// The Mac's answer to a hello. Without `eph` it says only which versions the Mac speaks.
+export const macHello = (pairKey: Buffer, body: Record<string, unknown>, nonce?: Buffer) =>
+  frame(Kind.hello, sealBox(pairKey, json(body), AAD.helloMac, nonce))
+
 export class MacSession {
   private channel: Channel | null = null
+  // The version the phone's last hello was on, when it's one the Mac doesn't speak.
+  mismatch: number | null = null
   constructor(private readonly pairKey: Buffer) {}
 
   get ready() {
     return this.channel !== null
   }
 
-  // The reply to send, or null when the frame isn't a hello from this phone.
+  // The reply to send, or null when the frame isn't a hello from this phone. A phone on another
+  // version is told which versions the Mac speaks, and no session starts.
   onHello(data: Buffer, eph: KeyPair = newKeyPair()): Buffer | null {
     if (data[0] !== Kind.hello) return null
     const body = parse(openBox(this.pairKey, data.subarray(1), AAD.helloPhone))
-    if (!body || body.v !== PROTOCOL || typeof body.id !== 'string' || typeof body.eph !== 'string')
-      return null
+    if (!body || typeof body.id !== 'string' || body.id.length > 64) return null
+    const v = typeof body.v === 'number' ? body.v : 0
+    if (!versionsMatch(v)) {
+      this.channel = null
+      this.mismatch = v
+      return macHello(this.pairKey, { v: PROTOCOL, oldest: OLDEST, id: body.id })
+    }
+    if (typeof body.eph !== 'string') return null
     let phoneEph: Buffer
     try {
       phoneEph = fromB64u(body.eph, 32)
     } catch {
       return null
     }
+    this.mismatch = null
     const keys = sessionKeys(eph.privateKey, phoneEph, this.pairKey, eph.publicKey, phoneEph)
     this.channel = new Channel(keys.macToPhone, keys.phoneToMac)
-    return frame(
-      Kind.hello,
-      sealBox(
-        this.pairKey,
-        json({ v: PROTOCOL, id: body.id, eph: b64u(eph.publicKey) }),
-        AAD.helloMac,
-      ),
-    )
+    return macHello(this.pairKey, {
+      v: PROTOCOL,
+      oldest: OLDEST,
+      id: body.id,
+      eph: b64u(eph.publicKey),
+    })
   }
 
   seal(message: unknown): Buffer {
@@ -171,7 +209,12 @@ export class MacSession {
 export class PhoneSession {
   private channel: Channel | null = null
   private pending: { id: string; eph: KeyPair } | null = null
-  constructor(private readonly pairKey: Buffer) {}
+  // The Mac's versions, when it answered that it doesn't speak this one.
+  mismatch: Versions | null = null
+  constructor(
+    private readonly pairKey: Buffer,
+    private readonly version = PROTOCOL,
+  ) {}
 
   get ready() {
     return this.channel !== null
@@ -182,14 +225,26 @@ export class PhoneSession {
     this.channel = null
     return frame(
       Kind.hello,
-      sealBox(this.pairKey, json({ v: PROTOCOL, id, eph: b64u(eph.publicKey) }), AAD.helloPhone),
+      sealBox(
+        this.pairKey,
+        json({ v: this.version, id, eph: b64u(eph.publicKey) }),
+        AAD.helloPhone,
+      ),
     )
   }
 
   onHello(data: Buffer): boolean {
     if (data[0] !== Kind.hello || !this.pending) return false
     const body = parse(openBox(this.pairKey, data.subarray(1), AAD.helloMac))
-    if (!body || body.id !== this.pending.id || typeof body.eph !== 'string') return false
+    if (!body || body.id !== this.pending.id) return false
+    if (typeof body.eph !== 'string') {
+      if (typeof body.v === 'number')
+        this.mismatch = {
+          v: body.v,
+          oldest: typeof body.oldest === 'number' ? body.oldest : body.v,
+        }
+      return false
+    }
     const macEph = fromB64u(body.eph, 32)
     const { eph } = this.pending
     const keys = sessionKeys(eph.privateKey, macEph, this.pairKey, macEph, eph.publicKey)

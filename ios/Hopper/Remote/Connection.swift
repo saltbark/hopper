@@ -13,9 +13,15 @@ nonisolated final class RelaySocket: Sendable {
         /// The Mac is on the relay too, or has left it.
         case up, down
         case data(Data)
-        /// The socket is gone. Not sent after `close()`.
-        case closed
+        /// The socket is gone, with the relay's close code when it closed it (`refused` and the
+        /// limits in relay/src/index.ts). Not sent after `close()`.
+        case closed(code: Int?)
     }
+
+    /// The relay's close codes.
+    static let refused = 4001
+    static let tooBig = 4009
+    static let tooMany = 4029
 
     let events: AsyncStream<Event>
     private let task: URLSessionWebSocketTask
@@ -32,8 +38,8 @@ nonisolated final class RelaySocket: Sendable {
         return URLSession(configuration: c)
     }()
 
-    init?(relay: String, room: String, role: String = "phone") {
-        guard let url = URL(string: "\(relay)/v1/room/\(room)?role=\(role)") else { return nil }
+    init?(relay: String, room: String, token: Data, role: String = "phone") {
+        guard let url = URL(string: "\(relay)/v1/room/\(room)?role=\(role)&token=\(token.base64url)") else { return nil }
         task = Self.session.webSocketTask(with: url)
         task.maximumMessageSize = 16 << 20
         (events, yield) = AsyncStream.makeStream(of: Event.self, bufferingPolicy: .unbounded)
@@ -53,7 +59,8 @@ nonisolated final class RelaySocket: Sendable {
                         break
                     }
                 } catch {
-                    yield.yield(.closed)
+                    let code = task.closeCode.rawValue
+                    yield.yield(.closed(code: code >= 4000 ? code : nil))
                     yield.finish()
                     return
                 }
@@ -117,8 +124,10 @@ nonisolated enum Inbound: Sendable {
     case screenClosed(id: String, why: String)
     /// The Mac's answer to something asked with this `ref`.
     case answer(ref: Int, Data)
-    /// The socket is gone.
-    case lost
+    /// The Mac speaks other versions; what to update.
+    case otherVersion(String)
+    /// The socket is gone, with the relay's close code when it closed it.
+    case lost(code: Int?)
 }
 
 /// A session with the Mac over one socket: hello, then sealed messages. Frames are opened and
@@ -133,7 +142,8 @@ nonisolated final class Connection: Sendable {
     static let keepAfter: Duration = .seconds(30)
 
     init?(pairing: Pairing) {
-        guard let key = try? pairing.pairKey(), let socket = RelaySocket(relay: pairing.relay, room: pairing.roomID)
+        guard let key = try? pairing.pairKey(), let token = pairing.token,
+            let socket = RelaySocket(relay: pairing.relay, room: pairing.roomID, token: token)
         else { return nil }
         self.socket = socket
         session = PhoneSession(pairKey: key)
@@ -166,12 +176,16 @@ nonisolated final class Connection: Sendable {
                 case .down:
                     session.end()
                     await deliver(.peerDown)
-                case .closed:
+                case .closed(let code):
                     session.end()
-                    await deliver(.lost)
+                    await deliver(.lost(code: code))
                 case .data(let data):
                     if data.first == FrameKind.hello.rawValue {
-                        if session.onHello(data) { await deliver(.live) }
+                        switch session.onHello(data) {
+                        case .live: await deliver(.live)
+                        case .otherVersion(let advice): await deliver(.otherVersion(advice))
+                        case .ignored: break
+                        }
                         continue
                     }
                     // A frame that doesn't open ends the session: start a new one.

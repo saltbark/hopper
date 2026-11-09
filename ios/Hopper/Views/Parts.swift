@@ -208,6 +208,17 @@ extension AppModel {
             if let at = heardAt { return (T.held, "Mac away · \(Ago.short(at.timeIntervalSince1970 * 1000))") }
             return (T.held, "Mac away")
         case .offline: return (T.blocked, "offline")
+        case .refused: return (T.blocked, "pair again")
+        case .otherVersion: return (T.blocked, "update needed")
+        }
+    }
+
+    /// What the owner has to do before the Mac answers again, when it's on them.
+    var linkTrouble: String? {
+        switch link {
+        case .refused: "The relay turned this pairing away. Unpair, then run hopper pair on your Mac."
+        case .otherVersion(let advice): advice
+        default: nil
         }
     }
 }
@@ -333,6 +344,8 @@ struct Waiting: View {
         switch model.link {
         case .macAway: "Waiting for Hopper on \(model.pairing?.macName ?? "your Mac").\nIt answers while it's open and awake."
         case .offline: "Can't reach the relay. Trying again."
+        case .refused: "The relay turned this pairing away.\nUnpair in Accounts, then run hopper pair on your Mac."
+        case .otherVersion(let advice): advice
         default: "Connecting…"
         }
     }

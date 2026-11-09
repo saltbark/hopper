@@ -32,6 +32,12 @@ struct AccountsView: View {
                                 Text(pairing.macName).font(T.mono(13)).foregroundStyle(T.text)
                             }
                             .padding(.horizontal, 16).frame(height: 50)
+                            if let trouble = model.linkTrouble {
+                                RowDivider()
+                                Text(trouble).font(.system(size: 14)).foregroundStyle(T.blocked)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 16).padding(.vertical, 12)
+                            }
                             RowDivider()
                             Button(role: .destructive) { confirmUnpair = true } label: {
                                 HStack { Text("Unpair this phone"); Spacer() }

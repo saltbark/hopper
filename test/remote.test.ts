@@ -18,6 +18,7 @@ import {
   sealBox,
   sessionKeys,
 } from '../src/remote/crypto.ts'
+import { versionNote } from '../src/remote/link.ts'
 import {
   PACE,
   runs,
@@ -31,13 +32,17 @@ import { phoneView } from '../src/remote/view.ts'
 import {
   Kind,
   MacSession,
+  macHello,
   offerLink,
+  OLDEST,
   pairedReply,
   pairRequest,
   parseOffer,
   PhoneSession,
+  PROTOCOL,
   readPairedReply,
   readPairRequest,
+  roomUrl,
   type Offer,
 } from '../src/remote/wire.ts'
 import type { Seg } from '../src/tui/embed.ts'
@@ -102,19 +107,68 @@ describe('pairing and sessions', () => {
   const offer: Offer = {
     relay: 'wss://relay.example',
     room: Buffer.alloc(16, 9),
+    token: Buffer.alloc(32, 8),
     macPublic: mac.publicKey,
     secret: Buffer.alloc(32, 7),
     name: "sam's MacBook Pro",
   }
 
-  it('carries an offer through its link', () => {
+  it('carries an offer through its link, room token included', () => {
     const back = parseOffer(offerLink(offer))
     expect(back.relay).toBe(offer.relay)
     expect(back.name).toBe(offer.name)
     expect(back.room.equals(offer.room)).toBe(true)
+    expect(back.token.equals(offer.token)).toBe(true)
     expect(back.macPublic.equals(offer.macPublic)).toBe(true)
     expect(back.secret.equals(offer.secret)).toBe(true)
     expect(() => parseOffer('https://example.com/?v=1')).toThrow()
+    // A link from before room tokens is another version.
+    expect(() => parseOffer(offerLink(offer).replace('v=2', 'v=1'))).toThrow(/another version/)
+    expect(roomUrl('wss://r', 'abc', 'phone', 'tok')).toBe(
+      'wss://r/v1/room/abc?role=phone&token=tok',
+    )
+  })
+
+  // The same link and hello are read by the app in ios/scripts/check-vectors.swift.
+  it('writes the shared link and version answer', () => {
+    const i = vectors.inputs
+    const link = offerLink({
+      relay: 'wss://relay.example',
+      room: h(i.room!),
+      token: h(i.token!),
+      macPublic: publicOf(h(i.macPrivate!)),
+      secret: h(i.secret!),
+      name: 'Test Mac',
+    })
+    expect(link).toBe(vectors.expect.link)
+    const pk = h(vectors.expect.pairingKey!)
+    const answer = macHello(pk, { v: 3, oldest: 3, id: 'hello-1' }, h(i.nonce!))
+    expect(hex(answer)).toBe(vectors.expect.versionAnswer)
+  })
+
+  it('tells a phone on another version which versions the Mac speaks', () => {
+    const phone = newKeyPair()
+    const key = pairingKey(mac.privateKey, phone.publicKey, offer.room)
+    const m = new MacSession(key)
+    const old = new PhoneSession(key, 1)
+    const reply = m.onHello(old.hello())
+    expect(reply).not.toBeNull()
+    expect(m.ready).toBe(false)
+    expect(m.mismatch).toBe(1)
+    expect(old.onHello(reply!)).toBe(false)
+    expect(old.mismatch).toEqual({ v: PROTOCOL, oldest: OLDEST })
+    expect(versionNote(1)).toMatch(/update the app/)
+
+    const newer = new PhoneSession(key, PROTOCOL + 1)
+    newer.onHello(m.onHello(newer.hello())!)
+    expect(m.mismatch).toBe(PROTOCOL + 1)
+    expect(versionNote(PROTOCOL + 1)).toMatch(/update Hopper on this Mac/)
+
+    // The same phone, updated: the session starts and the mismatch is forgotten.
+    const p = new PhoneSession(key)
+    expect(p.onHello(m.onHello(p.hello())!)).toBe(true)
+    expect(m.mismatch).toBeNull()
+    expect(p.mismatch).toBeNull()
   })
 
   it('pairs a phone that saw the code, and no one else', () => {

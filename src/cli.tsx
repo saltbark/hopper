@@ -36,7 +36,7 @@ import { gather, OTHER } from './model.ts'
 import { configPath, tildify } from './paths.ts'
 import { hopperPrompt } from './prompts.ts'
 import { pairPhone } from './remote/pair.ts'
-import { loadPhones, removePhone } from './remote/store.ts'
+import { loadPhones, loadStatus, removePhone } from './remote/store.ts'
 import { listRoutines, loadRoutine, nextRun, runRoutine, removeLaunchd } from './routines/index.ts'
 import { App } from './tui/App.tsx'
 import { MOUSE_OFF, MOUSE_ON } from './tui/mouse.ts'
@@ -362,8 +362,12 @@ async function pair(rest: string[]) {
 async function phones() {
   const all = await loadPhones()
   if (!all.length) return console.log('No phones paired. Run: hopper pair')
-  for (const p of all)
+  const status = await loadStatus()
+  for (const p of all) {
     console.log(`${p.id}  ${p.name.padEnd(24)} paired ${when(p.pairedAt)}  ${p.relay}`)
+    const note = p.token ? status[p.id]?.note : 'paired before room tokens: pair it again'
+    if (note) console.log(`${' '.repeat(p.id.length)}  ${note}`)
+  }
 }
 
 async function unpair(id: string | undefined) {

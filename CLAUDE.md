@@ -169,7 +169,12 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   (`HOPPER_NO_REMOTE`). The crypto has a Swift twin (`ios/Hopper/Remote/Crypto.swift`, `Wire.swift`):
   a change to keys, framing or messages changes both, and `test/fixtures/remote-vectors.json` is
   checked by `test/remote.test.ts` and by `ios/scripts/check-vectors.swift` (how to run it is at
-  its top). The phone's snapshot types (`Snapshot.swift`) follow `src/remote/view.ts`, and its
+  its top; it reads the pairing link and a version answer through `Wire.swift` too). The protocol
+  version (`PROTOCOL`, `OLDEST` in `wire.ts`; `protocolVersion` in `Wire.swift`) is in the link and
+  the hellos; a Mac that doesn't speak a phone's version answers its hello with no `eph`, and each
+  side says which one to update (the phone in its chip and on Accounts, the Mac in `hopper
+  phones`, through `~/.hopper/remote/status.json`). The App Store app and Hopper update apart, so
+  keep `OLDEST` low when a change leaves older phones working. The phone's snapshot types (`Snapshot.swift`) follow `src/remote/view.ts`, and its
   screen frames (`Screen.swift`) follow `src/remote/screen.ts`.
 - **A conversation on the phone is a second attach on the Mac.** `PhoneScreen` (`screen.ts`) runs
   its own `EmbeddedSession` at the phone's width and `TALL` (400) rows, and sends the changed rows
@@ -190,7 +195,14 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   `saveRoutine` and `runRoutine`, as the keys in `src/tui/actions.ts` do; a change to what a key
   does on the Mac changes it here too. Each answer echoes the action's `ref`.
 - **The relay** (`relay/`, a Worker with one Durable Object per pairing) forwards binary frames
-  between a room's `mac` and `phone` sockets and says only `{"peer":"up"|"down"}` itself. It lives
+  between a room's `mac` and `phone` sockets and says only `{"peer":"up"|"down"}` itself. Each
+  pairing has a room token (in the QR link, `t`; `phones.json` and the phone's Keychain); both
+  sides show it on connecting (`roomUrl`), the room keeps a hash of the first one it sees and
+  closes any other with 4001, and the Worker turns away a request with no token before it reaches
+  a room. It also closes a socket over `MAX_BYTES` (4009) or `PER_MINUTE` messages (4029)
+  (`relay/src/limits.ts`; the entry module may export only handlers and classes, and the runtime
+  makes a Durable Object with `(state, env)`). A side refused with 4001 stops trying: every retry
+  would be refused and billed. `test/relay.test.ts` runs the room against fakes. It lives
   at `hopper-relay.saltbark.com` (Cloudflare's free certificates don't cover a sub-subdomain).
   `pnpm relay:dev` runs it on :8787 (`hopper pair --relay ws://<this mac>:8787`, or
   `HOPPER_RELAY`); `pnpm relay:deploy` ships it, only when asked, from the main checkout (its `.env`

@@ -120,7 +120,12 @@ function open(key: Buffer, nonce: Buffer, box: Buffer, aad: Buffer): Buffer | nu
 
 // Sealed with a random nonce carried in front: nonce, ciphertext, tag (CryptoKit's `combined`).
 // For the few messages under the pairing key, where both sides share one key.
-export function sealBox(key: Buffer, plaintext: Buffer, aad: Buffer, nonce = randomBytes(12)) {
+export function sealBox(
+  key: Buffer,
+  plaintext: Buffer,
+  aad: Buffer,
+  nonce: Buffer = randomBytes(12),
+) {
   return Buffer.concat([nonce, seal(key, nonce, plaintext, aad)])
 }
 

@@ -20,11 +20,39 @@ export const relayUrl = () => process.env['HOPPER_RELAY'] || RELAY
 export type Phone = {
   id: string
   name: string
-  // base64url: its X25519 key and the room the two meet in.
+  // base64url: its X25519 key, the room the two meet in, and the room's token, which both show
+  // the relay. Phones paired before tokens (protocol 1) have none and must pair again.
   publicKey: string
   room: string
+  token?: string
   relay: string
   pairedAt: number
+}
+
+// What the open app last found wrong with a phone's link (refused by the relay, on another
+// version), for `hopper phones`, which runs apart from it.
+export type PhoneStatus = Record<string, { note: string; at: number }>
+
+const parseStatus = (text: string | null) => (text ? (JSON.parse(text) as PhoneStatus) : {})
+
+export async function loadStatus(dir = remoteDir()): Promise<PhoneStatus> {
+  try {
+    return parseStatus(await readIfThere(join(dir, 'status.json')))
+  } catch {
+    return {}
+  }
+}
+
+export async function setStatus(id: string, note: string | null, dir = remoteDir()) {
+  const path = join(dir, 'status.json')
+  await inTurn(path, async () => {
+    const all = await readForChange(path, parseStatus)
+    if ((all[id]?.note ?? null) === note) return
+    if (note) all[id] = { note, at: Date.now() }
+    else delete all[id]
+    await ensureDir(dir)
+    await writePrivate(path, all)
+  })
 }
 
 async function writePrivate(path: string, value: unknown) {

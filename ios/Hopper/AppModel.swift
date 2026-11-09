@@ -19,13 +19,19 @@ final class AppModel {
         case live
         /// The relay can't be reached; trying again.
         case offline
+        /// The relay turned this pairing's room away (another token holds it): pair again.
+        case refused
+        /// The Mac speaks other protocol versions; says which side to update.
+        case otherVersion(String)
     }
 
     enum PairStep: Equatable {
         case idle, connecting, waitingForMac, failed(String)
     }
 
-    private(set) var pairing: Pairing? = Keychain.load()
+    private(set) var pairing: Pairing?
+    /// Why this phone has to pair again, said on the pairing screen.
+    private(set) var pairAgain: String?
     private(set) var link: Link = .connecting {
         didSet { if link != oldValue { linkChanged() } }
     }
@@ -59,6 +65,15 @@ final class AppModel {
     private let paths = NWPathMonitor()
 
     init() {
+        let kept = Keychain.load()
+        if let kept, kept.token == nil {
+            // Paired before room tokens: the relay turns that room away now, so it's let go.
+            Keychain.clear()
+            Saved.clear()
+            pairAgain = "This phone was paired with an earlier version. Run hopper pair on your Mac and scan the new code."
+        } else {
+            pairing = kept
+        }
         loadSaved()
         paths.pathUpdateHandler = { [weak self] path in
             guard path.status == .satisfied else { return }
@@ -92,7 +107,7 @@ final class AppModel {
             pairStep = .failed(error.localizedDescription)
             return
         }
-        guard let socket = RelaySocket(relay: offer.relay, room: offer.room.base64url) else {
+        guard let socket = RelaySocket(relay: offer.relay, room: offer.room.base64url, token: offer.token) else {
             pairStep = .failed("That code names a relay that can't be reached.")
             return
         }
@@ -109,8 +124,8 @@ final class AppModel {
                 case .data(let data):
                     guard let macName = Wire.pairedReply(data, pairKey: request.pairKey) else { continue }
                     let p = Pairing(
-                        relay: offer.relay, room: offer.room, macPublic: offer.macPublic, macName: macName,
-                        phonePrivate: phone.rawRepresentation)
+                        relay: offer.relay, room: offer.room, token: offer.token, macPublic: offer.macPublic,
+                        macName: macName, phonePrivate: phone.rawRepresentation)
                     socket.close()
                     pairSocket = nil
                     do { try Keychain.save(p) } catch {
@@ -119,12 +134,18 @@ final class AppModel {
                     }
                     withAnimation(.smooth) {
                         pairing = p
+                        pairAgain = nil
                         pairStep = .idle
                     }
                     start()
                     return
-                case .closed:
-                    if pairing == nil { pairStep = .failed("Lost the relay. Make a new code on the Mac and scan again.") }
+                case .closed(let code):
+                    if pairing == nil {
+                        pairStep = .failed(
+                            code == RelaySocket.refused
+                                ? "The relay turned that code away. Make a new code on the Mac and scan again."
+                                : "Lost the relay. Make a new code on the Mac and scan again.")
+                    }
                     return
                 case .reachable, .down:
                     break
@@ -239,10 +260,19 @@ final class AppModel {
         case .answer(let ref, let json):
             heardAt = .now
             answers.removeValue(forKey: ref)?.resume(returning: json)
-        case .lost:
+        case .otherVersion(let advice):
+            // Saying hello again would get the same answer: it waits for an update, or a tap.
+            failAnswers()
+            link = .otherVersion(advice)
+        case .lost(let code):
             connection = nil
             peerUp = false
             failAnswers()
+            // Another token holds the room: every try would be turned away, and each is billed.
+            if code == RelaySocket.refused {
+                link = .refused
+                return
+            }
             link = .offline
             scheduleRetry()
         }

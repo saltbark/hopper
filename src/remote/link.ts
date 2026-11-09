@@ -2,7 +2,7 @@ import WebSocket from 'ws'
 
 import { fromB64u, pairingKey, type KeyPair } from './crypto.ts'
 import type { Phone } from './store.ts'
-import { Kind, MacSession } from './wire.ts'
+import { Kind, MacSession, PROTOCOL, roomUrl } from './wire.ts'
 
 // The Mac's connection to one paired phone's room on the relay. It stays connected while Hopper
 // is open, reconnecting with a growing wait when the relay drops it, and answers the phone's
@@ -14,9 +14,22 @@ export type LinkEvents = {
   message(m: Record<string, unknown>): void
   // The phone went (it left the relay, or the connection dropped): let go of what it had open.
   gone(): void
+  // Something the owner should hear about this phone (`hopper phones`), or null once it's fine.
+  trouble(note: string | null): void
 }
 
 const MAX_WAIT = 30_000
+
+// The relay's own close codes (relay/src/index.ts).
+export const REFUSED = 4001
+export const TOO_BIG = 4009
+export const TOO_MANY = 4029
+
+// What to tell the owner about a phone on another protocol version.
+export const versionNote = (theirs: number) =>
+  theirs > PROTOCOL
+    ? `the phone's app is newer (protocol ${theirs}): update Hopper on this Mac`
+    : `the phone's app is older (protocol ${theirs}): update the app on it`
 
 // Cloudflare drops a WebSocket that says nothing for about three minutes (seen: 191 s), and every
 // reconnect is a billed request. A protocol ping is free, doesn't wake the relay's Durable Object,
@@ -48,7 +61,8 @@ export class Link {
 
   start() {
     if (this.stopped || this.ws) return
-    const ws = new WebSocket(`${this.phone.relay}/v1/room/${this.phone.room}?role=mac`)
+    if (!this.phone.token) return this.on.trouble('paired before room tokens: pair it again')
+    const ws = new WebSocket(roomUrl(this.phone.relay, this.phone.room, 'mac', this.phone.token))
     ws.binaryType = 'arraybuffer'
     this.ws = ws
     let answered = true
@@ -63,12 +77,18 @@ export class Link {
     }
     ws.onmessage = (e) =>
       this.receive(typeof e.data === 'string' ? e.data : (e.data as ArrayBuffer))
-    ws.onclose = () => {
+    ws.onclose = (e) => {
       if (this.pinger) clearInterval(this.pinger)
       this.pinger = null
       this.ws = null
       this.session.end()
       this.on.gone()
+      // Another token holds the room: trying again would be refused every time, and each try is
+      // a billed request. It stays off until Hopper opens again.
+      if (e.code === REFUSED) {
+        this.stopped = true
+        this.on.trouble('the relay refused its room: unpair it and pair again')
+      }
       if (this.stopped) return
       this.timer = setTimeout(() => this.start(), this.wait)
       this.wait = Math.min(MAX_WAIT, this.wait * 2)
@@ -91,6 +111,8 @@ export class Link {
       const reply = this.session.onHello(buf)
       if (!reply) return
       this.ws?.send(reply)
+      if (this.session.mismatch !== null) return this.on.trouble(versionNote(this.session.mismatch))
+      this.on.trouble(null)
       this.on.ready()
       return
     }

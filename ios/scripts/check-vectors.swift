@@ -1,9 +1,9 @@
 import CryptoKit
 import Foundation
 
-// Runs the app's Crypto.swift against the vectors the Mac's tests use, so the two sides can't
-// drift apart. From the repo root:
-//   swiftc -parse-as-library ios/Hopper/Remote/Crypto.swift ios/scripts/check-vectors.swift -o /tmp/check-vectors
+// Runs the app's Crypto.swift and Wire.swift against the vectors the Mac's tests use, so the two
+// sides can't drift apart. From the repo root:
+//   swiftc -parse-as-library ios/Hopper/Remote/Crypto.swift ios/Hopper/Remote/Wire.swift ios/scripts/check-vectors.swift -o /tmp/check-vectors
 //   /tmp/check-vectors test/fixtures/remote-vectors.json
 
 @main
@@ -54,6 +54,21 @@ struct CheckVectors {
         let tx = RemoteChannel(send: sk.macToPhone, receive: sk.phoneToMac)
         check("frame0", try tx.seal(i["plaintext"]!))
         check("nonce1", RemoteCrypto.counterNonce(1).withUnsafeBytes { Data($0) })
+
+        // The Mac's pairing link reads back to the same parts, its name's spaces included.
+        func expect(_ name: String, _ ok: Bool) {
+            if ok { print("ok   \(name)") } else { failed += 1; print("FAIL \(name)") }
+        }
+        let offer = try Offer(link: e["link"]!)
+        expect(
+            "link",
+            offer.relay == "wss://relay.example" && offer.room == i["room"]! && offer.token == i["token"]!
+                && offer.secret == i["secret"]! && offer.macPublic == mac.publicKey.rawRepresentation
+                && offer.name == "Test Mac")
+        // A Mac on other versions says so, and the phone knows which side to update.
+        let answer = Wire.readMacHello(Data(hex: e["versionAnswer"]!)!, pairKey: pk)
+        expect("version answer", answer == Wire.MacHello(v: 3, oldest: 3, id: "hello-1", eph: nil))
+        expect("version advice", Versions.advice(macNewest: 3, macOldest: 3).contains("Update the app"))
 
         if failed > 0 { print("\(failed) failed"); exit(1) }
         print("all match")

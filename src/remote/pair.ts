@@ -1,10 +1,20 @@
 import { randomBytes } from 'node:crypto'
 
 import { renderUnicodeCompact } from 'uqr'
+import WebSocket from 'ws'
 
 import { b64u } from './crypto.ts'
+import { PING_MS } from './link.ts'
 import { addPhone, loadIdentity, macName, relayUrl, remoteDir, type Phone } from './store.ts'
-import { Kind, offerLink, pairedReply, readPairRequest, type Offer, type PairAsk } from './wire.ts'
+import {
+  Kind,
+  offerLink,
+  pairedReply,
+  readPairRequest,
+  roomUrl,
+  type Offer,
+  type PairAsk,
+} from './wire.ts'
 
 // `hopper pair`: shows a QR code for the phone to scan, waits in a fresh room on the relay for the
 // phone's request, checks it proves it saw this code, asks whether to let it in, and records it.
@@ -28,6 +38,7 @@ export async function pairPhone(deps: PairDeps): Promise<Phone | null> {
   const offer: Offer = {
     relay,
     room: randomBytes(16),
+    token: randomBytes(32),
     macPublic: identity.publicKey,
     secret: randomBytes(32),
     name: await macName(),
@@ -36,14 +47,22 @@ export async function pairPhone(deps: PairDeps): Promise<Phone | null> {
   deps.print(renderUnicodeCompact(link, { border: 2 }))
   deps.print(`Scan this with Hopper on your iPhone. It works once, for five minutes.\n${link}\n`)
 
-  const ws = new WebSocket(`${relay}/v1/room/${b64u(offer.room)}?role=mac`)
+  // The Mac is first into the room, so the relay keeps its token as the room's.
+  const ws = new WebSocket(roomUrl(relay, b64u(offer.room), 'mac', b64u(offer.token)))
   ws.binaryType = 'arraybuffer'
+  // Cloudflare drops a silent socket after about three minutes, sooner than the code expires.
+  const pinger = setInterval(() => ws.readyState === WebSocket.OPEN && ws.ping(), PING_MS)
   try {
     const ask = await new Promise<PairAsk | null>((resolve, reject) => {
       const timer = setTimeout(() => resolve(null), deps.timeout ?? PAIR_TIMEOUT)
       ws.onerror = () => {
         clearTimeout(timer)
         reject(new Error(`couldn't reach the relay at ${relay}`))
+      }
+      // The relay let go of the room before a phone came (it refused it, or dropped it).
+      ws.onclose = (e) => {
+        clearTimeout(timer)
+        reject(new Error(`the relay closed the pairing room${e.reason ? ` (${e.reason})` : ''}`))
       }
       ws.onmessage = (e) => {
         if (typeof e.data === 'string') return
@@ -72,6 +91,7 @@ export async function pairPhone(deps: PairDeps): Promise<Phone | null> {
       name: ask.name,
       publicKey: b64u(ask.phonePublic),
       room: b64u(offer.room),
+      token: b64u(offer.token),
       relay,
       pairedAt: Date.now(),
     }
@@ -82,6 +102,8 @@ export async function pairPhone(deps: PairDeps): Promise<Phone | null> {
     deps.print(`Paired with ${ask.name}. It connects while Hopper is open.`)
     return phone
   } finally {
+    clearInterval(pinger)
+    ws.onclose = null
     ws.close()
   }
 }

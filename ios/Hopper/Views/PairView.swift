@@ -63,7 +63,7 @@ struct PairView: View {
 
     private var subtitle: String {
         switch model.pairStep {
-        case .idle, .failed: "Point the camera at the code in Hopper"
+        case .idle, .failed: model.pairAgain ?? "Point the camera at the code in Hopper"
         case .connecting: "Reaching the relay…"
         case .waitingForMac: "Say yes on your Mac"
         }

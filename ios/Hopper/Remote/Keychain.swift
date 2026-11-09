@@ -6,6 +6,9 @@ import Security
 nonisolated struct Pairing: Codable, Sendable {
     let relay: String
     let room: Data
+    /// The room's token. Pairings made before tokens (protocol 1) have none and must pair again:
+    /// the relay turns away a room without one.
+    var token: Data?
     let macPublic: Data
     let macName: String
     let phonePrivate: Data

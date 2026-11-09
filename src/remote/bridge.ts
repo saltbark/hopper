@@ -3,7 +3,7 @@ import { ACTIONS, type Answer } from './actions.ts'
 import type { KeyPair } from './crypto.ts'
 import { Link } from './link.ts'
 import { PhoneScreen, type Spawn, type Target } from './screen.ts'
-import { loadIdentity, loadPhones, remoteDir, type Phone } from './store.ts'
+import { loadIdentity, loadPhones, remoteDir, setStatus, type Phone } from './store.ts'
 import type { PhoneView } from './view.ts'
 
 // The open app's side of the phones: one link per paired phone, each sent the newest view when
@@ -91,6 +91,7 @@ export class Bridge {
         },
         message: (m) => this.receive(p.id, link, m),
         gone: () => this.closeScreen(p.id),
+        trouble: (note) => void setStatus(p.id, note, this.dir).catch(() => {}),
       })
       this.links.set(p.id, link)
       link.start()
