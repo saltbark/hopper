@@ -159,7 +159,10 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   release. Deploying from a laptop needs the deploy token in a gitignored `.env`, which only the
   main checkout has: from a worktree, wrangler falls back to its own login and can deploy to
   the wrong Cloudflare account. When the app's look changes, `pnpm site:capture` recaptures
-  the frames (`site/frames.json`, committed) from the made-up world in `src/demo.ts`.
+  the frames (`site/frames.json`, committed) from the made-up world in `src/demo.ts`. Plain pages
+  beside it are `site/pages/` (the iPhone app's `/iphone` and `/privacy`, which App Store Connect
+  links to; their words were approved by Travis, so change them only when asked); a new page
+  waits in `site/drafts/`, which isn't published.
 
 - **The iPhone app talks to the open app through a relay that can't read it** (`src/remote/`,
   `relay/`, `ios/`). `hopper pair` shows a QR code; the phone proves it saw it, you say yes, and
