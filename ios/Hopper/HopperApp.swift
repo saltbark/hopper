@@ -22,6 +22,11 @@ struct HopperApp: App {
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @State private var path = NavigationPath()
+    @State private var tab: TabID = .work
+    // Where the New tab goes back to.
+    @State private var back: TabID = .work
+
+    enum TabID: Hashable { case work, projects, accounts, new }
 
     var body: some View {
         @Bindable var model = model
@@ -30,11 +35,19 @@ struct RootView: View {
         } else {
             // Pages push above the tabs, so the tab bar slides away with the list and back with it.
             NavigationStack(path: $path) {
-                TabView {
-                    Tab("Work", systemImage: "tray") { WorkView() }
-                        .badge(waiting)
-                    Tab("Projects", systemImage: "folder") { ProjectsView() }
-                    Tab("Accounts", systemImage: "gauge.with.dots.needle.33percent") { AccountsView() }
+                // The system's bar is hidden: HopperTabBar draws the tabs and New beside them.
+                TabView(selection: $tab) {
+                    Tab("Work", systemImage: "tray", value: TabID.work) { WorkView().withTabBar($tab) }
+                    Tab("Projects", systemImage: "folder", value: TabID.projects) { ProjectsView().withTabBar($tab) }
+                    Tab("Accounts", systemImage: "gauge.with.dots.needle.33percent", value: TabID.accounts) {
+                        AccountsView().withTabBar($tab)
+                    }
+                    // New's page is the new conversation itself, so there's no sheet to wait for. It
+                    // has its own Cancel and buttons, so no bar.
+                    Tab("New", systemImage: "plus", value: TabID.new) {
+                        NewConversationView(start: model.newRequest?.project).id(model.newRequest?.id)
+                            .toolbarVisibility(.hidden, for: .tabBar)
+                    }
                 }
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: PhoneItem.self) { ConversationView(item: $0) }
@@ -44,8 +57,26 @@ struct RootView: View {
                 .navigationDestination(for: ReportRoute.self) { ReportView(route: $0) }
                 .navigationDestination(for: ProjectRoute.self) { ProjectView(key: $0.key) }
             }
-            .sheet(item: $model.newRequest) { NewConversationView(start: $0.project) }
             .overlay(alignment: .top) { ToastView() }
+            // The + tab chosen: a fresh form. Leaving it some other way lets it go.
+            .onChange(of: tab) { old, new in
+                if new == .new {
+                    if old != .new { back = old }
+                    if model.newRequest == nil { model.newConversation() }
+                } else if old == .new, model.newRequest != nil {
+                    model.closeNew(started: false)
+                }
+            }
+            // Asked for from elsewhere (a project's +): over to the New tab, from wherever.
+            .onChange(of: model.newRequest?.id) { _, id in
+                if id != nil, tab != .new {
+                    back = tab
+                    path = NavigationPath()
+                    tab = .new
+                } else if id == nil, tab == .new {
+                    tab = model.newStarted ? .work : back
+                }
+            }
             .onAppear {
                 model.start()
                 #if DEBUG
@@ -78,10 +109,6 @@ struct RootView: View {
         }
     #endif
 
-    // Waiting on you, as the Mac counts it: not what's on hold.
-    private var waiting: Int {
-        model.snapshot?.items.filter { $0.group == WorkGroup.waiting.rawValue }.count ?? 0
-    }
 }
 
 /// What the Mac said about the last thing asked of it.

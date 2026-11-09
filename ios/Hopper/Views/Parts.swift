@@ -198,6 +198,17 @@ struct LinkChip: View {
 }
 
 extension View {
+    /// A conversation's row opens it when tapped, with no chevron, as Hopper's rows have none: on
+    /// a small phone the title needs that width. Rows that lead to another list keep theirs.
+    @ViewBuilder
+    func opens(_ item: PhoneItem) -> some View {
+        if item.attach == true {
+            background { NavigationLink(value: item) { EmptyView() }.opacity(0) }
+        } else {
+            self
+        }
+    }
+
     /// A row in one of the lists' cards. One that opens something keeps its chevron off the edge.
     func cardRow(link: Bool = false) -> some View {
         listRowBackground(T.surface)

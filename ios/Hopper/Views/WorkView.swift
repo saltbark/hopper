@@ -9,7 +9,7 @@ struct WorkView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScreenTitle(title: "hopper", frog: true, newIn: .some(nil)).titleStrip()
+            ScreenTitle(title: "hopper", frog: true).titleStrip()
             list
         }
         .background(T.bg)
@@ -34,8 +34,9 @@ struct WorkView: View {
                 ForEach(groups, id: \.0) { g, items in
                     Section {
                         ForEach(items) { item in
-                            row(item, snap.accounts)
-                                .cardRow(link: item.attach == true)
+                            WorkRow(item: item, accounts: snap.accounts)
+                                .opens(item)
+                                .cardRow()
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) { doneSwipe(item) }
                                 .swipeActions(edge: .leading, allowsFullSwipe: true) { holdSwipe(item, g) }
                         }
@@ -64,15 +65,6 @@ struct WorkView: View {
         }
         .cardList()
         .listSectionSpacing(14)
-    }
-
-    @ViewBuilder
-    private func row(_ item: PhoneItem, _ accounts: [PhoneAccount]) -> some View {
-        if item.attach == true {
-            NavigationLink(value: item) { WorkRow(item: item, accounts: accounts) }
-        } else {
-            WorkRow(item: item, accounts: accounts)
-        }
     }
 
     // Swipe left: done, into Archived (e on the Mac).

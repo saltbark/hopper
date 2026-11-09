@@ -9,7 +9,7 @@ struct ProjectsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                ScreenTitle(title: "projects", newIn: .some(nil))
+                ScreenTitle(title: "projects")
                 if let snap = model.snapshot {
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass").foregroundStyle(T.dim)

@@ -50,8 +50,9 @@ struct ProjectView: View {
                     if !items.isEmpty {
                         Section {
                             ForEach(items) { item in
-                                link(item, snap.accounts)
-                                    .cardRow(link: item.attach == true)
+                                WorkRow(item: item, accounts: snap.accounts)
+                                    .opens(item)
+                                    .cardRow()
                             }
                         } header: {
                             GroupHeading(label: g.label, count: items.count, color: T.groupColor(g))
@@ -64,8 +65,9 @@ struct ProjectView: View {
                 if !archived.isEmpty {
                     Section {
                         ForEach(archived) { item in
-                            link(item, snap.accounts)
-                                .cardRow(link: item.attach == true)
+                            WorkRow(item: item, accounts: snap.accounts)
+                                .opens(item)
+                                .cardRow()
                                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                     Button { Task { await model.unarchive(item.id) } } label: {
                                         Label("Bring back", systemImage: "arrow.uturn.backward")
@@ -99,14 +101,5 @@ struct ProjectView: View {
         let waiting = items.filter { $0.group == WorkGroup.waiting.rawValue }.count
         return [open, running > 0 ? "\(running) running" : nil, waiting > 0 ? "\(waiting) waiting on you" : nil]
             .compactMap { $0 }.joined(separator: " · ")
-    }
-
-    @ViewBuilder
-    private func link(_ item: PhoneItem, _ accounts: [PhoneAccount]) -> some View {
-        if item.attach == true {
-            NavigationLink(value: item) { WorkRow(item: item, accounts: accounts) }
-        } else {
-            WorkRow(item: item, accounts: accounts)
-        }
     }
 }

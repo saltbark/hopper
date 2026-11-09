@@ -38,14 +38,9 @@ struct ArchivedView: View {
             } else {
                 Section {
                     ForEach(shown) { item in
-                        Group {
-                            if item.attach == true {
-                                NavigationLink(value: item) { ArchivedRow(item: item) }
-                            } else {
-                                ArchivedRow(item: item)
-                            }
-                        }
-                        .cardRow(link: item.attach == true)
+                        ArchivedRow(item: item)
+                        .opens(item)
+                        .cardRow()
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {
                             Button { Task { await model.unarchive(item.id) } } label: {
                                 Label("Bring back", systemImage: "arrow.uturn.backward")

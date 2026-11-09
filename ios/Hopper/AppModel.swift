@@ -284,8 +284,16 @@ final class AppModel {
     }
 
     var newRequest: NewRequest?
+    /// Whether the last new conversation was started, rather than saved, queued or let go:
+    /// starting one goes to Work, the rest back to where you were.
+    private(set) var newStarted = false
 
     func newConversation(in project: String? = nil) { newRequest = NewRequest(project: project) }
+
+    func closeNew(started: Bool) {
+        newStarted = started
+        newRequest = nil
+    }
 
     // MARK: The open conversation
 

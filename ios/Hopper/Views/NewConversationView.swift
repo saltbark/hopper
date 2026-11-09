@@ -1,11 +1,11 @@
 import SwiftUI
 
 /// A new conversation, as a draft on the Mac would be: a project, a prompt (or one of its open
-/// items to start from), and what it runs with, each shown with its default by name. Start now,
-/// queue it for when there's room, or queue it for tonight.
+/// items to start from), and what it runs with, each shown with its default by name. Save it as a
+/// draft, start it now, or queue it. It's what the + beside the tabs shows; leaving goes back to
+/// where you were (Work, after starting one).
 struct NewConversationView: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     /// The project it opened in, when it came from a project's page.
     let start: String?
     @AppStorage("newProject") private var lastProject = ""
@@ -23,7 +23,18 @@ struct NewConversationView: View {
     @FocusState private var writing: Bool
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            HStack {
+                Text("new").font(T.mono(26, .bold)).foregroundStyle(T.hi).tracking(-0.4)
+                Spacer()
+                LinkChip()
+                Button("Cancel") { model.closeNew(started: false) }
+                    .font(.system(size: 16)).foregroundStyle(T.focus)
+                    .padding(.leading, 8)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 2)
+            .padding(.bottom, 6)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     projectPicker
@@ -32,20 +43,13 @@ struct NewConversationView: View {
                     options
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 110)
+                .padding(.top, 4)
+                .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.interactively)
-            .background(T.surface)
-            .navigationTitle("New conversation")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-            }
-            .safeAreaInset(edge: .bottom) { actions }
+            actions
         }
-        .presentationDragIndicator(.visible)
-        .presentationBackground(T.surface)
+        .background(T.bg)
         .task(id: project) { await load() }
         .onAppear {
             let keys = model.snapshot?.projects.map(\.key) ?? []
@@ -248,10 +252,10 @@ struct NewConversationView: View {
         }
         .disabled(!canGo || busy)
         .padding(.horizontal, 16)
-        .padding(.top, 12)
+        .padding(.top, 10)
         .padding(.bottom, 8)
-        .background(T.surface)
-        .overlay(alignment: .top) { Rectangle().fill(T.surfaceLine).frame(height: 1) }
+        .background(T.bg)
+        .overlay(alignment: .top) { Rectangle().fill(T.rule).frame(height: 1) }
     }
 
     // MARK: Helpers
@@ -307,7 +311,9 @@ struct NewConversationView: View {
         Task {
             let ok = await model.perform(m)
             busy = false
-            if ok { dismiss() }
+            if ok {
+                if case .start = how { model.closeNew(started: true) } else { model.closeNew(started: false) }
+            }
         }
     }
 
