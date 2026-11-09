@@ -18,12 +18,18 @@ struct WorkView: View {
                         Frog()
                         Text("hopper").font(T.mono(24, .bold)).foregroundStyle(T.hi).tracking(-0.4)
                     }
+                    .padding(.leading, Self.windowControls)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityElement(children: .combine)
                     .accessibilityAddTraits(.isHeader)
                 }
             }
     }
+
+    /// On an iPad, iPadOS draws its window controls over the top left of an iPhone app's window.
+    /// The system's own titles move over for them (Accounts' does); this one, ours, is moved by
+    /// the same amount. App Review runs iPhone apps on iPads too.
+    private static let windowControls: CGFloat = UIDevice.current.model.hasPrefix("iPad") ? 60 : 0
 
     private var list: some View {
         List {
