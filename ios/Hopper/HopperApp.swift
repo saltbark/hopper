@@ -11,7 +11,7 @@ struct HopperApp: App {
         Chrome.apply()
         let model = AppModel()
         _model = State(initialValue: model)
-        _lock = State(initialValue: AppLock(paired: model.pairing != nil))
+        _lock = State(initialValue: AppLock(paired: model.pairing != nil && !model.demo))
     }
 
     var body: some Scene {
@@ -29,7 +29,7 @@ struct HopperApp: App {
                 .onChange(of: model.pairing == nil) { _, unpaired in if unpaired { lock.unpaired() } }
         }
         .onChange(of: phase, initial: true) { _, now in
-            lock.phase(now, paired: model.pairing != nil)
+            lock.phase(now, paired: model.pairing != nil && !model.demo)
             // Connected only while on screen: the Mac sends nothing to a phone in a pocket.
             if now == .active { model.start() } else if now == .background { model.stop() }
         }

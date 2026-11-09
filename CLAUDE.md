@@ -234,6 +234,16 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   phone, so the app opens on it while it connects. Build it with `DEVELOPER_DIR` set to Xcode
   (`xcodebuild -project ios/Hopper.xcodeproj -scheme Hopper -destination 'generic/platform=iOS
 Simulator' CODE_SIGNING_ALLOWED=NO build`).
+- **The app has a demo built in** ("Try it without a Mac" on the pairing screen), for anyone
+  without Hopper, App Review first: Apple turns down apps that need software from outside the
+  App Store to be tried (4.2.3(i), 2.1). `DemoMac` (`ios/Hopper/Demo/`) stands where
+  `Connection` does (both are `MacLink`s) and plays `demo.json`, which
+  `ios/scripts/demo-bundle.ts` writes from the made-up world through the Mac's own code
+  (`phoneView`, `act`); it answers actions by moving items in its snapshot, shifts every time in
+  it to now, and draws a made-up Claude. When what the Mac sends changes (a field in `view.ts`,
+  an answer in `actions.ts`), run `npx tsx ios/scripts/demo-bundle.ts` again, and teach `DemoMac`
+  any new action. Nothing of the demo is kept, and it doesn't lock. `HOPPER_DEMO=1` opens on it
+  (debug).
 - **To see a screen without a phone**, run `npx tsx ios/scripts/demo-mac.ts <link file>` (Hopper's
   made-up world from `src/demo.ts`, a real bridge on the relay, pairing that says yes by itself),
   then `ios/scripts/sim.sh <simulator> <link file> <screen> <out.png> [--fresh]`, which launches a

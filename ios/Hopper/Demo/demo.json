@@ -1,0 +1,608 @@
+{
+ "snapshot": {
+  "t": "snapshot",
+  "at": 1794234277825,
+  "mac": "Demo Mac",
+  "items": [
+   {
+    "id": "draft:demo-offline",
+    "kind": "draft",
+    "title": "Offline mode: cache the last viewed region",
+    "project": "bh/atlas",
+    "account": "bh",
+    "group": "draft",
+    "state": "draft",
+    "activeAt": 1794231277704,
+    "text": "Offline mode: cache the last viewed region\n\nKeep the tiles for the region on screen when the app goes to the background, up to 50 MB."
+   },
+   {
+    "id": "c3d81f22-demo",
+    "kind": "background",
+    "title": "Unsubscribe 404 on mobile",
+    "project": "bh/news/bulletin",
+    "account": "bh",
+    "group": "running",
+    "state": "working",
+    "activeAt": 1794233917704,
+    "model": "sonnet",
+    "effort": "low",
+    "attach": true
+   },
+   {
+    "id": "07d9c3b5-demo",
+    "kind": "background",
+    "title": "CSV import and quoted commas",
+    "project": "pm/lantern/apps/ledger",
+    "account": "pm",
+    "group": "running",
+    "state": "working",
+    "activeAt": 1794233617704,
+    "model": "sonnet",
+    "attach": true
+   },
+   {
+    "id": "e5c2a913-demo",
+    "kind": "background",
+    "title": "Magic link sign-in",
+    "project": "pm/tern",
+    "account": "pm",
+    "group": "running",
+    "state": "working",
+    "activeAt": 1794232777704,
+    "model": "opus",
+    "effort": "high",
+    "attach": true
+   },
+   {
+    "id": "a1f3c0de-demo",
+    "kind": "background",
+    "title": "Fix the blurry tiles at zoom 14",
+    "project": "bh/atlas",
+    "account": "bh",
+    "group": "waiting",
+    "state": "blocked",
+    "activeAt": 1794233197704,
+    "model": "opus",
+    "attach": true
+   },
+   {
+    "id": "b27e9d41-demo",
+    "kind": "background",
+    "title": "Write the spring issue lead story",
+    "project": "bh/news/bulletin",
+    "account": "bh",
+    "group": "waiting",
+    "state": "done",
+    "activeAt": 1794231757704,
+    "model": "sonnet",
+    "attach": true
+   },
+   {
+    "id": "f6b4e0a7-demo",
+    "kind": "background",
+    "title": "Rate limit the public API",
+    "project": "pm/tern",
+    "account": "pm",
+    "group": "waiting",
+    "state": "blocked",
+    "activeAt": 1794227077704,
+    "model": "sonnet",
+    "attach": true
+   },
+   {
+    "id": "draft:demo-search",
+    "kind": "draft",
+    "title": "Search across notebooks",
+    "project": "pm/lantern",
+    "account": "pm",
+    "group": "next",
+    "state": "queued",
+    "activeAt": 1794232477704,
+    "queue": "now",
+    "text": "Search across notebooks"
+   },
+   {
+    "id": "draft:demo-queue",
+    "kind": "draft",
+    "title": "Move the job queue off cron",
+    "project": "pm/tern",
+    "account": "pm",
+    "group": "next",
+    "state": "tonight",
+    "activeAt": 1794227077704,
+    "model": "opus",
+    "waiting": "starts in the night window (22:00-07:00)",
+    "queue": "night",
+    "text": "Move the job queue off cron\n\nUse the queue table we already have. Keep cron as a fallback for a week."
+   },
+   {
+    "id": "routine:branch-review",
+    "kind": "routine",
+    "title": "branch-review",
+    "project": "pm/tern",
+    "account": "pm",
+    "group": "routines",
+    "state": "scheduled",
+    "activeAt": 0,
+    "model": "sonnet",
+    "nextAt": 1794265200000
+   },
+   {
+    "id": "routine:daily-brief",
+    "kind": "routine",
+    "title": "daily-brief",
+    "project": "meta/inbox",
+    "account": "pm",
+    "group": "routines",
+    "state": "scheduled",
+    "activeAt": 1794227077704,
+    "model": "sonnet",
+    "nextAt": 1794312000000
+   },
+   {
+    "id": "routine:weekly-review",
+    "kind": "routine",
+    "title": "weekly-review",
+    "project": "meta/inbox",
+    "account": "pm",
+    "group": "routines",
+    "state": "paused",
+    "activeAt": 0,
+    "model": "opus"
+   }
+  ],
+  "archived": [
+   {
+    "id": "18e2f4c6-demo",
+    "kind": "background",
+    "title": "Billing page shows last month twice",
+    "project": "pm/tern",
+    "account": "pm",
+    "group": "archived",
+    "state": "done",
+    "activeAt": 1794223477704,
+    "model": "sonnet",
+    "attach": true
+   },
+   {
+    "id": "d4a0b7e9-demo",
+    "kind": "background",
+    "title": "Sort the archive page by date",
+    "project": "bh/news/site",
+    "account": "bh",
+    "group": "archived",
+    "state": "done",
+    "activeAt": 1794216277704,
+    "model": "haiku",
+    "attach": true
+   }
+  ],
+  "accounts": [
+   {
+    "name": "bh",
+    "label": "Blue Heron",
+    "color": "#7eaaea",
+    "email": "sam@blueheron.example",
+    "plan": "max",
+    "local": false,
+    "signedIn": true,
+    "session": {
+     "pct": 34,
+     "resetsAt": "2026-11-09T16:54:37.704Z"
+    },
+    "week": {
+     "pct": 52,
+     "resetsAt": "2026-11-12T12:24:37.704Z"
+    },
+    "usageAt": 1794234037704,
+    "running": 1,
+    "waiting": 2
+   },
+   {
+    "name": "pm",
+    "label": "Pinemoor",
+    "color": "#c69ce8",
+    "email": "sam@pinemoor.example",
+    "plan": "max",
+    "local": false,
+    "signedIn": true,
+    "session": {
+     "pct": 12,
+     "resetsAt": "2026-11-09T16:54:37.704Z"
+    },
+    "week": {
+     "pct": 27,
+     "resetsAt": "2026-11-12T12:24:37.704Z"
+    },
+    "usageAt": 1794234037704,
+    "running": 2,
+    "waiting": 1
+   }
+  ],
+  "projects": [
+   {
+    "key": "meta/inbox",
+    "open": 0,
+    "running": 0,
+    "waiting": 0
+   },
+   {
+    "key": "bh/atlas",
+    "open": 3,
+    "running": 0,
+    "waiting": 1
+   },
+   {
+    "key": "bh/news/bulletin",
+    "open": 2,
+    "running": 1,
+    "waiting": 1
+   },
+   {
+    "key": "bh/news/site",
+    "open": 1,
+    "running": 0,
+    "waiting": 0
+   },
+   {
+    "key": "pm/tern",
+    "open": 4,
+    "running": 1,
+    "waiting": 1
+   },
+   {
+    "key": "pm/lantern",
+    "open": 2,
+    "running": 0,
+    "waiting": 0
+   },
+   {
+    "key": "pm/lantern/apps/ledger",
+    "open": 1,
+    "running": 1,
+    "waiting": 0
+   }
+  ]
+ },
+ "newinfo": {
+  "meta/inbox": {
+   "t": "newinfo",
+   "ref": null,
+   "project": "meta/inbox",
+   "runIn": "~/hopper",
+   "items": [],
+   "defaults": {
+    "model": "opus[1m]",
+    "effort": "high",
+    "worktree": "yes"
+   },
+   "route": "pm",
+   "routeWhy": null,
+   "models": [
+    "haiku",
+    "sonnet",
+    "opus",
+    "opus[1m]",
+    "fable",
+    "local"
+   ],
+   "efforts": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "accounts": [
+    {
+     "name": "bh",
+     "label": "Blue Heron"
+    },
+    {
+     "name": "pm",
+     "label": "Pinemoor"
+    }
+   ]
+  },
+  "bh/atlas": {
+   "t": "newinfo",
+   "ref": null,
+   "project": "bh/atlas",
+   "runIn": "~/work/bh-atlas",
+   "items": [
+    "Map tiles blur at zoom 14: suspect the retina path in `tiles.ts`.",
+    "Offline mode: cache the last viewed region.",
+    "Export a route as GPX."
+   ],
+   "defaults": {
+    "model": "opus[1m]",
+    "effort": "high",
+    "worktree": "yes"
+   },
+   "route": "bh",
+   "routeWhy": null,
+   "models": [
+    "haiku",
+    "sonnet",
+    "opus",
+    "opus[1m]",
+    "fable",
+    "local"
+   ],
+   "efforts": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "accounts": [
+    {
+     "name": "bh",
+     "label": "Blue Heron"
+    },
+    {
+     "name": "pm",
+     "label": "Pinemoor"
+    }
+   ]
+  },
+  "bh/news/bulletin": {
+   "t": "newinfo",
+   "ref": null,
+   "project": "bh/news/bulletin",
+   "runIn": "~/work/bh-news-bulletin",
+   "items": [
+    "Spring issue: three stories picked, one still to write.",
+    "Unsubscribe link goes to a 404 on mobile."
+   ],
+   "defaults": {
+    "model": "opus[1m]",
+    "effort": "high",
+    "worktree": "yes"
+   },
+   "route": "bh",
+   "routeWhy": null,
+   "models": [
+    "haiku",
+    "sonnet",
+    "opus",
+    "opus[1m]",
+    "fable",
+    "local"
+   ],
+   "efforts": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "accounts": [
+    {
+     "name": "bh",
+     "label": "Blue Heron"
+    },
+    {
+     "name": "pm",
+     "label": "Pinemoor"
+    }
+   ]
+  },
+  "bh/news/site": {
+   "t": "newinfo",
+   "ref": null,
+   "project": "bh/news/site",
+   "runIn": "~/work/bh-news-site",
+   "items": [
+    "Archive page lists issues out of order."
+   ],
+   "defaults": {
+    "model": "opus[1m]",
+    "effort": "high",
+    "worktree": "yes"
+   },
+   "route": "bh",
+   "routeWhy": null,
+   "models": [
+    "haiku",
+    "sonnet",
+    "opus",
+    "opus[1m]",
+    "fable",
+    "local"
+   ],
+   "efforts": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "accounts": [
+    {
+     "name": "bh",
+     "label": "Blue Heron"
+    },
+    {
+     "name": "pm",
+     "label": "Pinemoor"
+    }
+   ]
+  },
+  "pm/tern": {
+   "t": "newinfo",
+   "ref": null,
+   "project": "pm/tern",
+   "runIn": "~/work/pm-tern",
+   "items": [
+    "Sign-in with a magic link.",
+    "Rate limit the public API.",
+    "Move the job queue off cron.",
+    "Billing page shows last month twice."
+   ],
+   "defaults": {
+    "model": "opus[1m]",
+    "effort": "high",
+    "worktree": "yes"
+   },
+   "route": "pm",
+   "routeWhy": null,
+   "models": [
+    "haiku",
+    "sonnet",
+    "opus",
+    "opus[1m]",
+    "fable",
+    "local"
+   ],
+   "efforts": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "accounts": [
+    {
+     "name": "bh",
+     "label": "Blue Heron"
+    },
+    {
+     "name": "pm",
+     "label": "Pinemoor"
+    }
+   ]
+  },
+  "pm/lantern": {
+   "t": "newinfo",
+   "ref": null,
+   "project": "pm/lantern",
+   "runIn": "~/work/pm-lantern",
+   "items": [
+    "Dark mode for the editor.",
+    "Search across notebooks."
+   ],
+   "defaults": {
+    "model": "opus[1m]",
+    "effort": "high",
+    "worktree": "yes"
+   },
+   "route": "pm",
+   "routeWhy": null,
+   "models": [
+    "haiku",
+    "sonnet",
+    "opus",
+    "opus[1m]",
+    "fable",
+    "local"
+   ],
+   "efforts": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "accounts": [
+    {
+     "name": "bh",
+     "label": "Blue Heron"
+    },
+    {
+     "name": "pm",
+     "label": "Pinemoor"
+    }
+   ]
+  },
+  "pm/lantern/apps/ledger": {
+   "t": "newinfo",
+   "ref": null,
+   "project": "pm/lantern/apps/ledger",
+   "runIn": "~/work/pm-lantern-apps-ledger",
+   "items": [
+    "CSV import drops rows with quoted commas."
+   ],
+   "defaults": {
+    "model": "opus[1m]",
+    "effort": "high",
+    "worktree": "yes"
+   },
+   "route": "pm",
+   "routeWhy": null,
+   "models": [
+    "haiku",
+    "sonnet",
+    "opus",
+    "opus[1m]",
+    "fable",
+    "local"
+   ],
+   "efforts": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "accounts": [
+    {
+     "name": "bh",
+     "label": "Blue Heron"
+    },
+    {
+     "name": "pm",
+     "label": "Pinemoor"
+    }
+   ]
+  }
+ },
+ "routineinfo": {
+  "routine:branch-review": {
+   "t": "routineinfo",
+   "ref": null,
+   "name": "branch-review",
+   "project": "pm/tern",
+   "schedule": "daily 18:00",
+   "enabled": true,
+   "prompt": "Look over branches with new commits today and note anything risky.",
+   "model": "sonnet",
+   "effort": "low",
+   "check": null,
+   "nextAt": 1794265200000,
+   "reports": []
+  },
+  "routine:daily-brief": {
+   "t": "routineinfo",
+   "ref": null,
+   "name": "daily-brief",
+   "project": "meta/inbox",
+   "schedule": "weekdays 7:00",
+   "enabled": true,
+   "prompt": "Read every open file and say what matters today.",
+   "model": "sonnet",
+   "effort": "high (default)",
+   "check": null,
+   "nextAt": 1794312000000,
+   "reports": [
+    {
+     "file": "2026-11-09-0724.md",
+     "at": 1794227040000,
+     "summary": "Two things waiting on you, both small.",
+     "unread": false,
+     "account": "pm"
+    }
+   ]
+  },
+  "routine:weekly-review": {
+   "t": "routineinfo",
+   "ref": null,
+   "name": "weekly-review",
+   "project": "meta/inbox",
+   "schedule": "weekly fri 16:00",
+   "enabled": false,
+   "prompt": "What moved this week, what stalled, and what to drop.",
+   "model": "opus",
+   "effort": "high (default)",
+   "check": null,
+   "nextAt": null,
+   "reports": []
+  }
+ },
+ "reports": {
+  "daily-brief/2026-11-09-0724.md": {
+   "t": "report",
+   "ref": null,
+   "routine": "daily-brief",
+   "at": 1794227040000,
+   "markdown": "Two things waiting on you, both small.\n\n## Waiting\n- **bh/atlas**: the tile fix needs a yes on dropping iOS 15.\n- **pm/tern**: rate limits, 60 or 120 a minute?\n\n## Running\n- Magic link sign-in, on Pinemoor.\n"
+  }
+ }
+}

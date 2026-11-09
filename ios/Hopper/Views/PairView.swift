@@ -40,7 +40,19 @@ struct PairView: View {
                 Steps(scanned: $scanned, name: $name)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                // No Mac to hand: the made-up one shows every screen.
+                HStack(spacing: 18) {
+                    Button("Try it without a Mac") { model.startDemo() }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(T.focus)
+                    Link("Privacy", destination: Links.privacy)
+                        .font(.system(size: 15))
+                        .foregroundStyle(T.soft)
+                }
+                .buttonStyle(.press)
+                .frame(height: 44)
+                .padding(.top, 6)
+                .padding(.bottom, 8)
             }
         }
         .onChange(of: model.pairStep) { _, step in if case .failed = step { scanned = false } }
@@ -134,7 +146,7 @@ private struct Steps: View {
             Rectangle().fill(Color(hex: 0x1F2A2F)).frame(height: 1)
             HStack(spacing: 10) {
                 Image(systemName: "lock").foregroundStyle(T.focus)
-                Text("End to end encrypted. The relay passes sealed messages it can't read.")
+                Text("End-to-end encrypted. The relay between your phone and Mac can't read what passes.")
                     .font(.system(size: 13)).foregroundStyle(T.soft)
             }
             Button {

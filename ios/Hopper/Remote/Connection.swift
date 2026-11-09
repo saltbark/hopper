@@ -130,6 +130,16 @@ nonisolated enum Inbound: Sendable {
     case lost(code: Int?)
 }
 
+/// What the app talks to: the Mac through the relay (`Connection`), or the made-up one the demo
+/// plays (`DemoMac`).
+protocol MacLink: AnyObject {
+    func run(_ deliver: @escaping @MainActor @Sendable (Inbound) -> Void)
+    @discardableResult func send(_ message: [String: Any]) -> Bool
+    func close()
+}
+
+extension Connection: MacLink {}
+
 /// A session with the Mac over one socket: hello, then sealed messages. Frames are opened and
 /// decoded where they arrive, and only what's ready to show goes to the main thread, in order.
 nonisolated final class Connection: Sendable {

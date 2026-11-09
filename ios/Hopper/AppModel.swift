@@ -32,6 +32,8 @@ final class AppModel {
     private(set) var pairing: Pairing?
     /// Why this phone has to pair again, said on the pairing screen.
     private(set) var pairAgain: String?
+    /// Showing the made-up Mac (`DemoMac`), not a paired one. Nothing of it is kept.
+    private(set) var demo = false
     private(set) var link: Link = .connecting {
         didSet { if link != oldValue { linkChanged() } }
     }
@@ -54,7 +56,7 @@ final class AppModel {
     private(set) var screen: Screen?
     private var screenCols = 0
 
-    private var connection: Connection?
+    private var connection: (any MacLink)?
     private var generation = 0
     private var peerUp = false
     /// In the foreground, so it should be connected.
@@ -83,7 +85,10 @@ final class AppModel {
         #if DEBUG
             // For the simulator, which has no camera (ios/scripts/sim.sh): pair from a link at launch.
             let env = ProcessInfo.processInfo.environment
-            if let link = env["HOPPER_PAIR_LINK"] {
+            // HOPPER_DEMO: open on the made-up Mac instead (the pairing, if any, is only set aside).
+            if env["HOPPER_DEMO"] != nil {
+                Task { self.startDemo() }
+            } else if let link = env["HOPPER_PAIR_LINK"] {
                 if env["HOPPER_UNPAIR"] != nil { Keychain.clear(); pairing = nil; snapshot = nil; Saved.clear() }
                 if pairing == nil { Task { self.pair(link: link, name: env["HOPPER_PHONE_NAME"] ?? "Simulator") } }
             }
@@ -154,12 +159,29 @@ final class AppModel {
         }
     }
 
+    /// The app without a Mac: Hopper's made-up world, played on the phone.
+    func startDemo() {
+        pairSocket?.close()
+        pairSocket = nil
+        demo = true
+        snapshot = nil
+        recompute()
+        withAnimation(.smooth) {
+            pairing = Pairing(relay: "", room: Data(), token: nil, macPublic: Data(), macName: "Demo Mac", phonePrivate: Data())
+            pairStep = .idle
+        }
+        start()
+        show(Toast(text: "A made-up Mac: try anything, nothing here is real.", ok: true))
+    }
+
+    /// Unpairs, or leaves the demo.
     func unpair() {
         stop()
         Keychain.clear()
         // After stop's write of the unsent text, on the same queue, so nothing is left behind.
         Saved.clear()
         unsent = [:]
+        demo = false
         withAnimation(.smooth) {
             pairing = nil
             snapshot = nil
@@ -200,7 +222,15 @@ final class AppModel {
     }
 
     private func connect() {
-        guard wanted, connection == nil, let pairing, let c = Connection(pairing: pairing) else { return }
+        guard wanted, connection == nil, let pairing else { return }
+        let c: any MacLink
+        if demo {
+            guard let d = DemoMac() else { return }
+            c = d
+        } else {
+            guard let real = Connection(pairing: pairing) else { return }
+            c = real
+        }
         retryTask?.cancel()
         generation += 1
         let mine = generation
@@ -253,7 +283,7 @@ final class AppModel {
                     settle()
                     recompute()
                 }
-                Saved.snapshot(raw)
+                if !demo { Saved.snapshot(raw) }
             }
         case .screen(let state):
             heardAt = .now
@@ -636,7 +666,7 @@ final class AppModel {
     /// locked, and the system may start the app before it's unlocked, so this runs again when the
     /// app comes to the front.
     private func loadSaved() {
-        guard pairing != nil else { return }
+        guard pairing != nil, !demo else { return }
         if !unsentRead, let kept = Saved.unsent() {
             // Typed while the file was still unread: that's newer.
             unsent = kept.merging(unsent) { _, typed in typed }

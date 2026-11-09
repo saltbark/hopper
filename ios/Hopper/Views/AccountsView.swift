@@ -39,15 +39,36 @@ struct AccountsView: View {
                                     .padding(.horizontal, 16).padding(.vertical, 12)
                             }
                             RowDivider()
-                            Button(role: .destructive) { confirmUnpair = true } label: {
-                                HStack { Text("Unpair this phone"); Spacer() }
-                                    .padding(.horizontal, 16).frame(height: 50)
+                            if model.demo {
+                                Button { model.unpair() } label: {
+                                    HStack { Text("Leave the demo"); Spacer() }
+                                        .padding(.horizontal, 16).frame(height: 50)
+                                }
+                                .foregroundStyle(T.focus)
+                            } else {
+                                Button(role: .destructive) { confirmUnpair = true } label: {
+                                    HStack { Text("Unpair this phone"); Spacer() }
+                                        .padding(.horizontal, 16).frame(height: 50)
+                                }
+                                .foregroundStyle(T.blocked)
                             }
-                            .foregroundStyle(T.blocked)
+                        }
+                        if model.demo {
+                            Text("A made-up Mac on this phone: nothing here is real, and nothing leaves the phone.")
+                                .font(.system(size: 13)).foregroundStyle(T.dim).padding(.horizontal, 4)
                         }
                     }
                     .padding(.top, 6)
                 }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("ABOUT").font(T.mono(11)).tracking(1.3).foregroundStyle(T.dim).padding(.horizontal, 4)
+                    Card {
+                        LinkRow(title: "Help", url: Links.help)
+                        RowDivider()
+                        LinkRow(title: "Privacy policy", url: Links.privacy)
+                    }
+                }
+                .padding(.top, 6)
             }
             .font(.system(size: 15))
             .padding(.horizontal, 16)
@@ -61,6 +82,31 @@ struct AccountsView: View {
         } message: {
             Text("You'll need a new code from the Mac to pair again. On the Mac, hopper unpair forgets this phone there too.")
         }
+    }
+}
+
+/// Hopper's pages for the app, on its site.
+enum Links {
+    static let help = URL(string: "https://hopper.saltbark.com/iphone")!
+    static let privacy = URL(string: "https://hopper.saltbark.com/privacy")!
+}
+
+/// A row that opens a page in the browser.
+private struct LinkRow: View {
+    let title: String
+    let url: URL
+
+    var body: some View {
+        Link(destination: url) {
+            HStack {
+                Text(title).foregroundStyle(T.hi)
+                Spacer()
+                Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(T.dim)
+            }
+            .padding(.horizontal, 16).frame(height: 50)
+            .contentShape(.rect)
+        }
+        .buttonStyle(RowPress())
     }
 }
 
