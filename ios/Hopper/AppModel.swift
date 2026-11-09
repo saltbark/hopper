@@ -157,7 +157,9 @@ final class AppModel {
     func unpair() {
         stop()
         Keychain.clear()
+        // After stop's write of the unsent text, on the same queue, so nothing is left behind.
         Saved.clear()
+        unsent = [:]
         withAnimation(.smooth) {
             pairing = nil
             snapshot = nil
@@ -173,6 +175,7 @@ final class AppModel {
     func start() {
         wanted = true
         retry = 0.5
+        loadSaved()
         connect()
     }
 
@@ -181,7 +184,7 @@ final class AppModel {
         wanted = false
         retryTask?.cancel()
         disconnect()
-        Saved.flushUnsent(unsent)
+        flushUnsent()
     }
 
     /// Tried again now, not after the wait (the status chip, a network that came back).
@@ -581,7 +584,7 @@ final class AppModel {
         guard let screen else { return }
         connection?.send(["t": "close", "id": screen.id])
         self.screen = nil
-        Saved.flushUnsent(unsent)
+        flushUnsent()
     }
 
     func resizeScreen(cols: Int) {
@@ -616,7 +619,10 @@ final class AppModel {
 
     /// What's typed in each conversation and not yet sent, so it's there when you come back, even
     /// after the app was quit.
-    @ObservationIgnored private var unsent: [String: String] = Saved.unsent()
+    @ObservationIgnored private var unsent: [String: String] = [:]
+    /// Whether `unsent` holds what's on the phone. Until it does (the file couldn't be read while
+    /// the phone was locked), nothing is written over it.
+    @ObservationIgnored private var unsentRead = false
 
     func unsentText(_ id: String) -> String { unsent[id] ?? "" }
 
@@ -626,45 +632,82 @@ final class AppModel {
 
     // MARK: Kept on the phone
 
+    /// Reads what was kept, if it hasn't been read yet. The files are protected while the phone is
+    /// locked, and the system may start the app before it's unlocked, so this runs again when the
+    /// app comes to the front.
     private func loadSaved() {
-        guard pairing != nil, let (snap, at) = Saved.lastSnapshot() else { return }
+        guard pairing != nil else { return }
+        if !unsentRead, let kept = Saved.unsent() {
+            // Typed while the file was still unread: that's newer.
+            unsent = kept.merging(unsent) { _, typed in typed }
+            unsentRead = true
+        }
+        guard snapshot == nil, let (snap, at) = Saved.lastSnapshot() else { return }
         snapshot = snap
         heardAt = at
         recompute()
     }
+
+    private func flushUnsent() {
+        if unsentRead { Saved.flushUnsent(unsent) }
+    }
 }
 
 /// The last snapshot and the unsent text, kept on the phone so the app opens on what it last
-/// showed rather than on an empty screen while it connects.
+/// showed rather than on an empty screen while it connects. Both are readable only while the
+/// phone is unlocked (complete file protection), sit in Caches (not backed up), and go when the
+/// phone unpairs.
 private enum Saved {
-    private static var file: URL {
-        URL.cachesDirectory.appending(path: "snapshot.json")
-    }
+    private static var snapshotFile: URL { URL.cachesDirectory.appending(path: "snapshot.json") }
+    private static var unsentFile: URL { URL.cachesDirectory.appending(path: "unsent.json") }
 
+    /// Writes and removals in order, off the main thread: an unpair can't be undone by a write
+    /// still on its way.
     private static let writes = DispatchQueue(label: "hopper.saved", qos: .utility)
 
     static func lastSnapshot() -> (PhoneSnapshot, Date)? {
-        guard let data = try? Data(contentsOf: file), let snap = try? JSONDecoder().decode(PhoneSnapshot.self, from: data)
+        guard let data = try? Data(contentsOf: snapshotFile),
+            let snap = try? JSONDecoder().decode(PhoneSnapshot.self, from: data)
         else { return nil }
-        let at = (try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+        let at =
+            (try? snapshotFile.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
         return (snap, at)
     }
 
     static func snapshot(_ raw: Data) {
-        let file = file
-        writes.async { try? raw.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]) }
+        let file = snapshotFile
+        writes.async { try? raw.write(to: file, options: [.atomic, .completeFileProtection]) }
     }
 
-    static func unsent() -> [String: String] {
-        UserDefaults.standard.dictionary(forKey: "unsent") as? [String: String] ?? [:]
+    /// What's unsent, or nil when the file is there but can't be read yet (the phone is locked).
+    static func unsent() -> [String: String]? {
+        // Kept in UserDefaults before 2026-11-09, which isn't protected: moved once, then gone.
+        let defaults = UserDefaults.standard
+        if let old = defaults.dictionary(forKey: "unsent") as? [String: String] {
+            defaults.removeObject(forKey: "unsent")
+            flushUnsent(old)
+            return old
+        }
+        let file = unsentFile
+        guard FileManager.default.fileExists(atPath: file.path()) else { return [:] }
+        guard let data = try? Data(contentsOf: file) else { return nil }
+        return (try? JSONDecoder().decode([String: String].self, from: data)) ?? [:]
     }
 
     static func flushUnsent(_ u: [String: String]) {
-        UserDefaults.standard.set(u, forKey: "unsent")
+        let file = unsentFile
+        writes.async {
+            if u.isEmpty {
+                try? FileManager.default.removeItem(at: file)
+            } else if let data = try? JSONEncoder().encode(u) {
+                try? data.write(to: file, options: [.atomic, .completeFileProtection])
+            }
+        }
     }
 
     static func clear() {
-        try? FileManager.default.removeItem(at: file)
         UserDefaults.standard.removeObject(forKey: "unsent")
+        let files = [snapshotFile, unsentFile]
+        writes.async { for f in files { try? FileManager.default.removeItem(at: f) } }
     }
 }
