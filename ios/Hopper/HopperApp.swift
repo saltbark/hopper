@@ -3,19 +3,33 @@ import UIKit
 
 @main
 struct HopperApp: App {
-    @State private var model = AppModel()
+    @State private var model: AppModel
+    @State private var lock: AppLock
     @Environment(\.scenePhase) private var phase
 
-    init() { Chrome.apply() }
+    init() {
+        Chrome.apply()
+        let model = AppModel()
+        _model = State(initialValue: model)
+        _lock = State(initialValue: AppLock(paired: model.pairing != nil))
+    }
 
     var body: some Scene {
         WindowGroup {
             RootView()
+                .accessibilityHidden(lock.covered)
+                .overlay {
+                    if lock.covered { LockCover() }
+                }
+                .animation(.smooth(duration: 0.2), value: lock.covered)
                 .environment(model)
+                .environment(lock)
                 .preferredColorScheme(.dark)
                 .tint(T.focus)
+                .onChange(of: model.pairing == nil) { _, unpaired in if unpaired { lock.unpaired() } }
         }
-        .onChange(of: phase) { _, now in
+        .onChange(of: phase, initial: true) { _, now in
+            lock.phase(now, paired: model.pairing != nil)
             // Connected only while on screen: the Mac sends nothing to a phone in a pocket.
             if now == .active { model.start() } else if now == .background { model.stop() }
         }
