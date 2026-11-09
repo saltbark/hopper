@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0 (2026-11-09)
+
+- Hopper on your iPhone: `hopper pair` shows a code for the iPhone app to scan, and while Hopper
+  is open the phone shows your conversations, answers them, starts and queues work, and holds or
+  archives it. Everything between them is end-to-end encrypted, through a relay that can't read
+  it. `hopper phones` lists paired phones; `hopper unpair` forgets one.
+- Each pairing now has its own room token, and the relay turns away rooms without one, so a phone
+  paired with an earlier build pairs again. `hopper phones` says when a phone needs pairing again
+  or an update.
+- A stopped Ollama shows quietly as disconnected.
+
 ## 0.7.0 (2026-10-31)
 
 - An account can be a model on your own machine, served by Ollama and driven by Claude Code:
