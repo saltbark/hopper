@@ -78,12 +78,24 @@ export const demoSpawn: Spawn = (_account, _id, _name, cols, rows) => {
     'Tiles now come from one zoom level up on a 2x screen, so zoom 14 is sharp. Shall I run the visual tests?',
   )
 
+  // Claude's status line while it works, redrawn ten times a second as the real one is: what the
+  // pacing in screen.ts has to keep from going to the relay frame by frame.
+  const started = Date.now()
+  const spin = '·✢✳✶✻✽'
+  let tick: ReturnType<typeof setInterval> | null = null
+
   const screen = (): Seg[][] => {
     const out: Seg[][] = Array.from({ length: rows }, () => [])
     said.forEach((r, i) => {
-      if (i < rows - 8) out[i] = r
+      if (i < rows - 9) out[i] = r
     })
     const bottom = rows - 7
+    const s = Math.floor((Date.now() - started) / 1000)
+    out[bottom - 2] = [
+      { text: spin[Math.floor(Date.now() / 100) % spin.length]! + ' ', fg: C.claude },
+      { text: 'Running the visual tests… ', fg: C.claude },
+      { text: `(${s}s · esc to interrupt)`, fg: C.dim },
+    ]
     out[bottom] = [{ text: '─'.repeat(width), fg: C.rule }]
     out[bottom + 1] = [{ text: ' Run the visual tests?', bold: true }]
     out[bottom + 2] = [{ text: ' ❯ 1. Yes', fg: C.ask }]
@@ -95,7 +107,10 @@ export const demoSpawn: Spawn = (_account, _id, _name, cols, rows) => {
   }
 
   return {
-    start: () => setTimeout(() => redraw(), 50),
+    start: () => {
+      setTimeout(() => redraw(), 50)
+      tick = setInterval(() => redraw(), 100)
+    },
     subscribe: (fn: () => void) => {
       redraw = fn
       return () => true
@@ -120,7 +135,9 @@ export const demoSpawn: Spawn = (_account, _id, _name, cols, rows) => {
       redraw()
     },
     wheel: () => {},
-    close: () => {},
+    close: () => {
+      if (tick) clearInterval(tick)
+    },
     reclaim: () => redraw(),
     hasSize: () => true,
   }

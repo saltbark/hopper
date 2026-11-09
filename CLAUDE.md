@@ -195,6 +195,16 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   `pnpm relay:dev` runs it on :8787 (`hopper pair --relay ws://<this mac>:8787`, or
   `HOPPER_RELAY`); `pnpm relay:deploy` ships it, only when asked, from the main checkout (its `.env`
   holds the token, as for the site).
+- **Every message into the relay is billed**: each 20 incoming WebSocket messages count as one
+  Durable Object request (1M a month on the $5 plan; the aim is under 1% of it), each connection
+  is one, and what the relay sends out, and protocol pings, are free. So: the Mac sends nothing
+  while no phone is there (`Link.send`) or to a phone not heard from in `LEASE_MS` (the phone says
+  `keep` after 30 s quiet); a snapshot whose only change is ages waits `AGES_EVERY_MS`; the screen
+  is paced by how lately the phone did something (`PACE` in `screen.ts`: 10 a second just after a
+  key, 2 for a minute, then 1); and both ends keep their socket open with protocol pings (the Mac
+  through `ws`; Cloudflare drops one silent for about three minutes, and a reconnect costs a
+  request). A new kind of message should say what it costs. The relay itself keeps nothing and
+  runs no timers, so its Durable Object hibernates between messages.
 - **The iOS app** is SwiftUI for iOS 27 with no packages; the project uses synchronized folders, so
   a file added under `ios/Hopper/` is in the target. Everything is on the main actor by default;
   the socket, crypto and decoding are `nonisolated` (`Connection.swift`, `Wire.swift`,

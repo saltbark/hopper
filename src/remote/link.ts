@@ -1,3 +1,5 @@
+import WebSocket from 'ws'
+
 import { fromB64u, pairingKey, type KeyPair } from './crypto.ts'
 import type { Phone } from './store.ts'
 import { Kind, MacSession } from './wire.ts'
@@ -16,12 +18,19 @@ export type LinkEvents = {
 
 const MAX_WAIT = 30_000
 
+// Cloudflare drops a WebSocket that says nothing for about three minutes (seen: 191 s), and every
+// reconnect is a billed request. A protocol ping is free, doesn't wake the relay's Durable Object,
+// and keeps it open; one not answered by the next means the line is dead, so it's dropped and
+// opened again rather than left hanging.
+export const PING_MS = 60_000
+
 export class Link {
   private ws: WebSocket | null = null
   private readonly session: MacSession
   private stopped = false
   private wait = 1000
   private timer: ReturnType<typeof setTimeout> | null = null
+  private pinger: ReturnType<typeof setInterval> | null = null
 
   constructor(
     readonly phone: Phone,
@@ -42,9 +51,21 @@ export class Link {
     const ws = new WebSocket(`${this.phone.relay}/v1/room/${this.phone.room}?role=mac`)
     ws.binaryType = 'arraybuffer'
     this.ws = ws
-    ws.onopen = () => (this.wait = 1000)
-    ws.onmessage = (e) => this.receive(e.data as string | ArrayBuffer)
+    let answered = true
+    ws.on('pong', () => (answered = true))
+    ws.onopen = () => {
+      this.wait = 1000
+      this.pinger = setInterval(() => {
+        if (!answered) return ws.terminate()
+        answered = false
+        ws.ping()
+      }, PING_MS)
+    }
+    ws.onmessage = (e) =>
+      this.receive(typeof e.data === 'string' ? e.data : (e.data as ArrayBuffer))
     ws.onclose = () => {
+      if (this.pinger) clearInterval(this.pinger)
+      this.pinger = null
       this.ws = null
       this.session.end()
       this.on.gone()

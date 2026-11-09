@@ -126,6 +126,11 @@ nonisolated enum Inbound: Sendable {
 nonisolated final class Connection: Sendable {
     private let socket: RelaySocket
     private let session: PhoneSession
+    /// When the phone last said anything to the Mac. The Mac stops sending to a phone it hasn't
+    /// heard from in 75 seconds (LEASE_MS in bridge.ts), so a quiet phone says `keep`.
+    private let lastSent = Mutex(ContinuousClock.now)
+    private let keeper = Mutex<Task<Void, Never>?>(nil)
+    static let keepAfter: Duration = .seconds(30)
 
     init?(pairing: Pairing) {
         guard let key = try? pairing.pairKey(), let socket = RelaySocket(relay: pairing.relay, room: pairing.roomID)
@@ -138,6 +143,15 @@ nonisolated final class Connection: Sendable {
 
     func run(_ deliver: @escaping @MainActor @Sendable (Inbound) -> Void) {
         socket.open()
+        let keep = Task.detached(priority: .utility) { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(10))
+                guard let self else { return }
+                guard self.session.ready else { continue }
+                if ContinuousClock.now - self.lastSent.withLock({ $0 }) >= Self.keepAfter { self.send(["t": "keep"]) }
+            }
+        }
+        keeper.withLock { $0 = keep }
         Task.detached(priority: .userInitiated) { [socket, session] in
             let screens = ScreenBuffer()
             let decoder = JSONDecoder()
@@ -194,10 +208,12 @@ nonisolated final class Connection: Sendable {
     func send(_ message: [String: Any]) -> Bool {
         guard let json = try? JSONSerialization.data(withJSONObject: message), let frame = session.seal(json) else { return false }
         socket.send(frame)
+        lastSent.withLock { $0 = .now }
         return true
     }
 
     func close() {
+        keeper.withLock { $0?.cancel() }
         session.end()
         socket.close()
     }

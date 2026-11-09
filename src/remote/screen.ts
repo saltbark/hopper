@@ -19,6 +19,15 @@ export const TALL = 400
 // (a new line in it), not as sending it.
 export const SUBMIT_GAP_MS = 120
 
+// How often the screen goes to the phone. Every frame is a message the relay is billed for, and
+// while Claude works its spinner redraws many times a second, so frames are paced by how lately
+// the phone did something (opened the conversation, pressed or sent anything): every `active` ms
+// for `activeFor` ms after, so a key pressed shows its answer straight away; every `recent` ms for
+// `recentFor` ms after, while you're likely reading what came back; every `idle` ms after that,
+// while it's only left open. The first change after a quiet spell goes at once, and the last
+// change always goes. Watching Claude work costs about one message a second once idle.
+export const PACE = { active: 100, activeFor: 3000, recent: 500, recentFor: 60_000, idle: 1000 }
+
 // A run of text: [text, fg, bg, flags]. fg is left out when it's Hopper's text colour, bg when
 // there is none, flags (1 bold, 2 dim, 4 italic, 8 underline, 16 inverse) when zero.
 export type Run =
@@ -93,12 +102,19 @@ export class PhoneScreen {
   private sentMine: boolean | null = null
   private cols: number
   private readonly rows = TALL
+  private lastFrame = 0
+  // When the phone last did something here; opening it counts.
+  private touchedAt = Date.now()
+  private timer: ReturnType<typeof setTimeout> | null = null
+  // The phone has gone quiet (bridge.ts, LEASE_MS): nothing goes until it's heard from again.
+  private paused = false
 
   constructor(
     readonly target: Target,
     cols: number,
     private readonly out: (frame: ScreenFrame | { t: 'closed'; id: string }) => void,
     spawn: Spawn = realSpawn,
+    private readonly pace = PACE,
   ) {
     this.cols = clamp(cols, 20, 200)
     this.embed = spawn(target.account, target.attachId, '', this.cols, this.rows, {
@@ -106,7 +122,7 @@ export class PhoneScreen {
       // Claude's agents screen means ← at an empty prompt; the embed puts the conversation back.
       onStepBack: () => {},
     })
-    this.embed.subscribe(() => this.frame(false))
+    this.embed.subscribe(() => this.changed())
     this.embed.start(target.cwd)
   }
 
@@ -114,7 +130,45 @@ export class PhoneScreen {
     return this.target.sessionId
   }
 
+  // The screen changed: a frame now, or once the pace allows, with every change since in it.
+  private changed() {
+    if (this.paused || this.timer) return
+    const now = Date.now()
+    const since = now - this.touchedAt
+    const p = this.pace
+    const gap = since < p.activeFor ? p.active : since < p.recentFor ? p.recent : p.idle
+    const wait = this.lastFrame + gap - now
+    if (wait <= 0) return this.frame(false)
+    this.timer = setTimeout(() => {
+      this.timer = null
+      this.frame(false)
+    }, wait)
+  }
+
+  // The phone did something: its answer should show quickly, so frames go faster for a while.
+  private touched() {
+    this.touchedAt = Date.now()
+    if (!this.timer) return
+    clearTimeout(this.timer)
+    this.timer = null
+    this.changed()
+  }
+
+  pause() {
+    this.paused = true
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = null
+  }
+
+  // Heard from again: all of it, since what it missed is unknown.
+  resume() {
+    if (!this.paused) return
+    this.paused = false
+    this.frame(true)
+  }
+
   frame(full: boolean) {
+    if (this.paused) return
     const rows = this.embed.screen().map((r) => JSON.stringify(runs(r)))
     const mine = this.embed.hasSize()
     const set: [number, Run[]][] = []
@@ -124,6 +178,7 @@ export class PhoneScreen {
     if (!set.length && mine === this.sentMine) return
     this.sent = rows
     this.sentMine = mine
+    this.lastFrame = Date.now()
     const c = this.embed.cursor()
     this.out({
       t: 'screen',
@@ -138,25 +193,30 @@ export class PhoneScreen {
   }
 
   keys(data: string) {
+    this.touched()
     this.embed.send(data)
   }
 
   paste(text: string) {
+    this.touched()
     this.embed.paste(text)
   }
 
   // What was typed, then Enter a moment later, so Claude sends it rather than adding a new line.
   submit(text: string, wait = SUBMIT_GAP_MS) {
+    this.touched()
     if (text) this.embed.paste(text)
     setTimeout(() => this.embed.send('\r'), text ? wait : 0)
   }
 
   wheel(up: boolean) {
+    this.touched()
     this.embed.wheel(up, Math.floor(this.cols / 2), Math.floor(this.rows / 2))
   }
 
   // Only the width follows the phone; the height stays TALL whatever the keyboard does.
   resize(cols: number) {
+    this.touched()
     this.cols = clamp(cols, 20, 200)
     this.embed.resize(this.cols, this.rows)
     this.sent = []
@@ -164,11 +224,14 @@ export class PhoneScreen {
 
   // Take the size back for the phone (it came back to the screen, or asked), and send it all.
   reclaim() {
+    this.touched()
     this.embed.reclaim()
     this.sent = []
   }
 
   close() {
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = null
     this.embed.close()
   }
 }

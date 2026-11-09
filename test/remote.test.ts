@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { Item, Snapshot } from '../src/model.ts'
-import { Bridge, targetsOf } from '../src/remote/bridge.ts'
+import { AGES_EVERY_MS, Bridge, LEASE_MS, targetsOf } from '../src/remote/bridge.ts'
 import {
   Channel,
   counterNonce,
@@ -18,7 +18,14 @@ import {
   sealBox,
   sessionKeys,
 } from '../src/remote/crypto.ts'
-import { runs, SUBMIT_GAP_MS, TALL, type ScreenFrame, type Spawn } from '../src/remote/screen.ts'
+import {
+  PACE,
+  runs,
+  SUBMIT_GAP_MS,
+  TALL,
+  type ScreenFrame,
+  type Spawn,
+} from '../src/remote/screen.ts'
 import { addPhone, loadIdentity, loadPhones, removePhone } from '../src/remote/store.ts'
 import { phoneView } from '../src/remote/view.ts'
 import {
@@ -398,21 +405,114 @@ describe('a conversation open on the phone', () => {
   })
 
   it('attaches at the phone size in its folder, and sends only what changed', () => {
-    const { state, out } = open()
-    // As tall as TALL whatever the phone's screen: Claude draws the whole conversation into it.
-    expect(state.size).toEqual([48, TALL])
-    expect(state.cwd).toBe('/work/atlas')
-    state.redraw()
-    const first = out.at(-1) as unknown as ScreenFrame
-    expect(first.set).toEqual([
-      [0, [['hello']]],
-      [1, [['❯ ', '#6fcac3', '', 1]]],
-    ])
-    expect(first.cursor).toEqual([2, 1])
-    expect(first.mine).toBe(true)
-    state.rows = [state.rows[0]!, [{ text: '❯ hi', fg: '#c7cfca' }]]
-    state.redraw()
-    expect((out.at(-1) as unknown as ScreenFrame).set).toEqual([[1, [['❯ hi']]]])
+    vi.useFakeTimers()
+    try {
+      const { state, out } = open()
+      // As tall as TALL whatever the phone's screen: Claude draws the whole conversation into it.
+      expect(state.size).toEqual([48, TALL])
+      expect(state.cwd).toBe('/work/atlas')
+      state.redraw()
+      const first = out.at(-1) as unknown as ScreenFrame
+      expect(first.set).toEqual([
+        [0, [['hello']]],
+        [1, [['❯ ', '#6fcac3', '', 1]]],
+      ])
+      expect(first.cursor).toEqual([2, 1])
+      expect(first.mine).toBe(true)
+      state.rows = [state.rows[0]!, [{ text: '❯ hi', fg: '#c7cfca' }]]
+      state.redraw()
+      vi.advanceTimersByTime(PACE.idle)
+      expect((out.at(-1) as unknown as ScreenFrame).set).toEqual([[1, [['❯ hi']]]])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('paces the screen: at once after quiet, then slowly while watching, quickly after a key', () => {
+    vi.useFakeTimers()
+    try {
+      const { bridge, state, out, link } = open()
+      const frames = () => out.filter((m) => m['t'] === 'screen').length
+      const change = (text: string) => {
+        state.rows = [[{ text }]]
+        state.redraw()
+      }
+      change('a')
+      expect(frames()).toBe(1)
+      // Left open a while, a spinner redrawing every 50 ms: one frame a second, the first at
+      // once and the last change always among them.
+      vi.advanceTimersByTime(PACE.recentFor)
+      const watching = frames()
+      for (let i = 0; i < 40; i++) {
+        vi.advanceTimersByTime(50)
+        change(`spin ${i}`)
+      }
+      vi.advanceTimersByTime(PACE.idle)
+      expect(frames() - watching).toBe(3)
+      expect((out.at(-1) as unknown as ScreenFrame).set).toEqual([[0, [['spin 39']]]])
+
+      // After a key from the phone, faster for a while.
+      vi.advanceTimersByTime(PACE.idle)
+      bridge.receive('p1', link, { t: 'keys', id: 'sess-1', data: '1' })
+      const before = frames()
+      for (let i = 0; i < 10; i++) {
+        vi.advanceTimersByTime(50)
+        change(`answer ${i}`)
+      }
+      vi.advanceTimersByTime(PACE.active)
+      expect(frames() - before).toBeGreaterThanOrEqual(5)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stops sending to a phone gone quiet, and catches it up when it speaks', () => {
+    vi.useFakeTimers()
+    try {
+      const { bridge, state, out, link } = open()
+      state.redraw()
+      const sent = out.length
+      vi.advanceTimersByTime(LEASE_MS + 1)
+      state.rows = [[{ text: 'while away' }]]
+      state.redraw()
+      vi.advanceTimersByTime(PACE.idle)
+      expect(out.length).toBe(sent)
+      // Its keep-alive brings it back: the view, and the whole screen.
+      bridge.receive('p1', link, { t: 'keep' })
+      expect(out.some((m) => m['t'] === 'snapshot')).toBe(true)
+      const full = out.at(-1) as unknown as ScreenFrame
+      expect(full.full).toBe(true)
+      expect(full.set[0]).toEqual([0, [['while away']]])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('sends a snapshot when what it shows changes, and one with only new ages now and then', () => {
+    let now = 1_000_000
+    const bridge = new Bridge(newKeyPair(), '/nonexistent', undefined, () => now)
+    const out: Record<string, unknown>[] = []
+    const link = { send: (m: unknown) => (out.push(m as Record<string, unknown>), true) }
+    bridge.receive('p1', link, { t: 'keep' })
+    const view = (activeAt: number, title = 'Fix the tiles') => {
+      const v = phoneView(snap, 'mac', () => '#7eaaea')
+      v.items = v.items.map((i) => (i.id === 'sess-1' ? { ...i, activeAt, title } : i))
+      return v
+    }
+    // Sent through `links` in the app; here the test's link stands in for the one phone.
+    const sends = () => out.filter((m) => m['t'] === 'snapshot').length
+    ;(bridge as unknown as { links: Map<string, unknown> }).links.set('p1', link)
+    bridge.update(view(1))
+    expect(sends()).toBe(1)
+    now += 5_000
+    bridge.update(view(2))
+    expect(sends()).toBe(1)
+    now += 5_000
+    bridge.update(view(3, 'Fix the tiles at zoom 14'))
+    expect(sends()).toBe(2)
+    now += AGES_EVERY_MS
+    bridge.update(view(4, 'Fix the tiles at zoom 14'))
+    expect(sends()).toBe(3)
   })
 
   it('passes keys, pastes, scrolling and size on to the conversation', () => {

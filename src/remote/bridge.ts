@@ -12,19 +12,42 @@ import type { PhoneView } from './view.ts'
 // unpaired one is let go.
 //
 // From the phone: open {id, cols}, close {id}, keys {id, data}, paste {id, text},
-// submit {id, text} (paste it, then Enter), resize {id, cols}, wheel {id, up}, reclaim {id}.
-// To it: snapshot, screen, closed.
+// submit {id, text} (paste it, then Enter), resize {id, cols}, wheel {id, up}, reclaim {id},
+// keep {} (still here). To it: snapshot, screen, closed.
 // Actions (new, start, hold, done, routine) go to `onAction` (actions.ts), and its answer back.
+//
+// Every message the Mac sends is one the relay is billed for (an incoming message to its Durable
+// Object; what it sends on to the phone is free), so the Mac sends only what the phone will show:
+// nothing while no phone is there (`Link.send`), a snapshot when something on it changed but the
+// ages alone at most every AGES_EVERY_MS, the screen paced (PACE in screen.ts), and nothing to a
+// phone not heard from in LEASE_MS, whose connection died without closing.
+
+// How long a phone may go without a word before the Mac stops sending to it. The phone says
+// `keep` every 30 seconds when it has said nothing else.
+export const LEASE_MS = 75_000
+
+// Items' ages change on every poll while work runs; the phone shows them to the minute, so a
+// snapshot that differs only in ages waits this long after the last one.
+export const AGES_EVERY_MS = 30_000
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const num = (v: unknown) => (typeof v === 'number' ? v : NaN)
+
+// A view as text, leaving out its time and, for `loose`, the items' ages.
+const viewKey = (view: PhoneView, loose: boolean) =>
+  JSON.stringify(view, (k, v: unknown) =>
+    k === 'at' || (loose && k === 'activeAt') ? undefined : v,
+  )
 
 export class Bridge {
   private readonly links = new Map<string, Link>()
   private readonly screens = new Map<string, PhoneScreen>()
   private targets = new Map<string, Target>()
   private view: PhoneView | null = null
-  private sent = ''
+  private sent = { exact: '', loose: '', at: 0 }
+  // When each phone was last heard from, and those that went quiet.
+  private readonly heard = new Map<string, number>()
+  private readonly quiet = new Set<string>()
   // Set by the app: does what the phone asked and says how it went.
   onAction: ((m: Record<string, unknown>) => Promise<Answer>) | null = null
 
@@ -32,6 +55,7 @@ export class Bridge {
     private readonly identity: KeyPair,
     private readonly dir = remoteDir(),
     private readonly spawn?: Spawn,
+    private readonly now = () => Date.now(),
   ) {}
 
   static async open(dir = remoteDir()): Promise<Bridge> {
@@ -61,6 +85,8 @@ export class Bridge {
         ready: () => {
           // A new session: whatever the phone had open is gone with the old one.
           this.closeScreen(p.id)
+          this.heard.set(p.id, this.now())
+          this.quiet.delete(p.id)
           if (this.view) link.send(this.view)
         },
         message: (m) => this.receive(p.id, link, m),
@@ -71,28 +97,52 @@ export class Bridge {
     }
   }
 
-  // A new snapshot. Sent only when what the phone sees has changed; the time alone doesn't count.
+  // A new snapshot. Sent only when what the phone sees has changed; the time alone doesn't
+  // count, and the ages alone only every so often.
   update(view: PhoneView, snap?: Snapshot) {
     if (snap) this.targets = targetsOf(snap)
     this.view = view
-    const key = JSON.stringify({ ...view, at: 0 })
-    if (key === this.sent) return
-    this.sent = key
-    for (const link of this.links.values()) link.send(view)
+    const exact = viewKey(view, false)
+    if (exact === this.sent.exact) return
+    const loose = viewKey(view, true)
+    const at = this.now()
+    if (loose === this.sent.loose && at - this.sent.at < AGES_EVERY_MS) return
+    this.sent = { exact, loose, at }
+    for (const [id, link] of this.links) this.sendTo(id, link, view)
+  }
+
+  // Sends to a phone that's still there. One not heard from in LEASE_MS has likely gone without
+  // closing (out of signal, or asleep): its conversation stops sending until it speaks again.
+  private sendTo(phone: string, link: Pick<Link, 'send'>, m: unknown): boolean {
+    if (this.quiet.has(phone)) return false
+    if (this.now() - (this.heard.get(phone) ?? 0) > LEASE_MS) {
+      this.quiet.add(phone)
+      this.screens.get(phone)?.pause()
+      return false
+    }
+    return link.send(m)
   }
 
   receive(phone: string, link: Pick<Link, 'send'>, m: Record<string, unknown>) {
+    this.heard.set(phone, this.now())
+    if (this.quiet.delete(phone)) {
+      // Back from quiet: it missed what changed meanwhile.
+      if (this.view) link.send(this.view)
+      this.screens.get(phone)?.resume()
+    }
     const id = str(m['id'])
     const screen = this.screens.get(phone)
     const mine = screen && screen.id === id ? screen : null
     switch (m['t']) {
+      case 'keep':
+        return
       case 'open': {
         this.closeScreen(phone)
         const target = this.targets.get(id)
         if (!target) return void link.send({ t: 'closed', id, why: 'not open on the Mac' })
         this.screens.set(
           phone,
-          new PhoneScreen(target, num(m['cols']), (f) => link.send(f), this.spawn),
+          new PhoneScreen(target, num(m['cols']), (f) => this.sendTo(phone, link, f), this.spawn),
         )
         return
       }
