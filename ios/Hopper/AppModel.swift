@@ -38,7 +38,7 @@ final class AppModel {
 
     // MARK: Pairing
 
-    func pair(link text: String) {
+    func pair(link text: String, name: String) {
         let offer: Offer
         do { offer = try Offer(link: text) } catch {
             pairStep = .failed(error.localizedDescription)
@@ -46,7 +46,8 @@ final class AppModel {
         }
         let phone = Curve25519.KeyAgreement.PrivateKey()
         let request: (frame: Data, pairKey: SymmetricKey)
-        do { request = try Wire.pairRequest(offer: offer, phone: phone, name: UIDevice.current.name) } catch {
+        let named = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        do { request = try Wire.pairRequest(offer: offer, phone: phone, name: named.isEmpty ? UIDevice.current.name : named) } catch {
             pairStep = .failed(error.localizedDescription)
             return
         }
@@ -239,6 +240,7 @@ final class AppModel {
 
     func hold(_ id: String) async { await perform(["t": "hold", "id": id]) }
     func archive(_ id: String) async { await perform(["t": "done", "id": id]) }
+    func unarchive(_ id: String) async { await perform(["t": "done", "id": id, "undo": true]) }
     func routine(_ id: String, _ action: String) async { await perform(["t": "routine", "id": id, "do": action]) }
 
     /// What a new conversation in this project would start with.

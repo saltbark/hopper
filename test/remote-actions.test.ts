@@ -138,6 +138,11 @@ describe("the phone's actions", () => {
     expect(await act({ t: 'hold', id: 'sess-run' }, deps)).toMatchObject({ ok: false })
     expect(await act({ t: 'done', id: 'sess-wait' }, deps)).toMatchObject({ ok: true })
     expect((await loadDone(home)).has('sess-wait')).toBe(true)
+    expect(await act({ t: 'done', id: 'sess-wait', undo: true }, deps)).toMatchObject({
+      ok: true,
+      text: 'Back in conversations: Rate limit the public API',
+    })
+    expect((await loadDone(home)).has('sess-wait')).toBe(false)
   })
 
   it('resumes, pauses and runs a routine', async () => {

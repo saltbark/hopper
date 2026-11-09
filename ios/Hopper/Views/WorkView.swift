@@ -1,18 +1,13 @@
 import SwiftUI
 
 /// Everything not done, in the Mac's groups and order: what you're writing, what's running, what
-/// waits on you, what's on hold, what's up next. Routines have their own tab. Swipe a
-/// conversation for Done, or Hold one that waits on you; tap one to open it.
+/// waits on you, what's on hold, what's up next. Routines have their own tab. Tap a conversation
+/// to open it; swipe left for Done, right to put one that waits on you on hold. Archived is at
+/// the bottom.
 struct WorkView: View {
     @Environment(AppModel.self) private var model
 
-    var body: some View {
-        NavigationStack {
-            list
-                .navigationDestination(for: PhoneItem.self) { ConversationView(item: $0) }
-                .toolbar(.hidden, for: .navigationBar)
-        }
-    }
+    var body: some View { list }
 
     private var groups: [(WorkGroup, [PhoneItem])] {
         guard let snap = model.snapshot else { return [] }
@@ -41,13 +36,26 @@ struct WorkView: View {
                                 .listRowBackground(T.surface)
                                 .listRowInsets(EdgeInsets())
                                 .listRowSeparatorTint(T.rowLine)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) { swipes(item, g) }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) { doneSwipe(item) }
+                                .swipeActions(edge: .leading, allowsFullSwipe: true) { holdSwipe(item, g) }
                         }
                     } header: {
                         GroupHeading(label: g.label, count: items.count, color: T.groupColor(g))
                             .textCase(nil)
                             .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 6, trailing: 0))
                     }
+                }
+                Section {
+                    NavigationLink(value: ArchivedRoute()) {
+                        HStack {
+                            Text("Archived").font(.system(size: 15)).foregroundStyle(T.soft)
+                            Spacer()
+                            Text("\(snap.archived?.count ?? 0)").font(T.mono(13)).foregroundStyle(T.dim)
+                        }
+                        .padding(.horizontal, 14).frame(height: 46)
+                    }
+                    .listRowBackground(T.surface)
+                    .listRowInsets(EdgeInsets())
                 }
             } else {
                 Waiting().listRowBackground(Color.clear)
@@ -69,18 +77,25 @@ struct WorkView: View {
         }
     }
 
-    // What the Mac lets you do from its list: archive a conversation, hold one that waits.
+    // Swipe left: done, into Archived (e on the Mac).
     @ViewBuilder
-    private func swipes(_ item: PhoneItem, _ g: WorkGroup) -> some View {
+    private func doneSwipe(_ item: PhoneItem) -> some View {
         if item.kind == "background" || item.kind == "interactive" {
             Button { Task { await model.archive(item.id) } } label: { Label("Done", systemImage: "checkmark") }
                 .tint(T.focus)
         }
-        if g == .waiting || g == .held {
-            Button { Task { await model.hold(item.id) } } label: {
-                Label(g == .held ? "Unhold" : "Hold", systemImage: "clock")
-            }
-            .tint(Color(hex: 0x6B5A2E))
+    }
+
+    // Swipe right: on hold, still waiting but counted nowhere until it moves (h on the Mac). Only
+    // a conversation that waits on you can go on hold; one on hold comes back the same way.
+    @ViewBuilder
+    private func holdSwipe(_ item: PhoneItem, _ g: WorkGroup) -> some View {
+        if g == .waiting {
+            Button { Task { await model.hold(item.id) } } label: { Label("Later", systemImage: "clock") }
+                .tint(Color(hex: 0x8C7A4F))
+        } else if g == .held {
+            Button { Task { await model.hold(item.id) } } label: { Label("Back", systemImage: "arrow.uturn.backward") }
+                .tint(Color(hex: 0x8C7A4F))
         }
     }
 }

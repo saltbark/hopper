@@ -30,6 +30,7 @@ struct RootView: View {
         if model.pairing == nil {
             PairView()
         } else {
+            NavigationStack {
             TabView(selection: selection) {
                 Tab("Work", systemImage: "tray", value: TabID.work) { WorkView() }
                     .badge(waiting)
@@ -38,6 +39,10 @@ struct RootView: View {
                 Tab("Routines", systemImage: "arrow.trianglehead.2.clockwise", value: TabID.routines) { RoutinesView() }
                 // Drawn apart from the others, at the end of the bar: it opens a sheet rather than a tab.
                 Tab("New", systemImage: "plus", value: TabID.new, role: .search) { Color.clear }
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: PhoneItem.self) { ConversationView(item: $0) }
+            .navigationDestination(for: ArchivedRoute.self) { _ in ArchivedView() }
             }
             .sheet(isPresented: $newOpen) { NewConversationView() }
             .overlay(alignment: .top) { ToastView() }

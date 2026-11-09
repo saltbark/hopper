@@ -1,0 +1,104 @@
+import SwiftUI
+
+/// Where Archived opens from the bottom of Work.
+struct ArchivedRoute: Hashable {}
+
+/// Conversations marked done, newest first, as Archived on the Mac. Tap one to open it while
+/// Claude still has it; swipe right to bring it back into Work.
+struct ArchivedView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    var body: some View {
+        let all = model.snapshot?.archived ?? []
+        let shown = query.isEmpty
+            ? all : all.filter { $0.title.localizedCaseInsensitiveContains(query) || $0.project.localizedCaseInsensitiveContains(query) }
+        List {
+            HStack(spacing: 4) {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left").font(.system(size: 19, weight: .semibold)).frame(width: 36, height: 44)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(T.focus)
+                .accessibilityLabel("Back to Work")
+                Text("archived").font(T.mono(28, .bold)).foregroundStyle(T.hi).tracking(-0.4)
+                Spacer()
+            }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 0, trailing: 16))
+            .listRowSeparator(.hidden)
+
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(T.dim)
+                TextField("", text: $query, prompt: Text("Find one").foregroundStyle(T.dim))
+                    .foregroundStyle(T.hi)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(T.chip, in: .rect(cornerRadius: 12))
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+            .listRowSeparator(.hidden)
+
+            if shown.isEmpty {
+                Text(all.isEmpty ? "Nothing archived." : "Nothing matches.")
+                    .font(.system(size: 15)).foregroundStyle(T.soft).padding(.top, 30)
+                    .listRowBackground(Color.clear)
+            } else {
+                Section {
+                    ForEach(shown) { item in
+                        Group {
+                            if item.attach == true {
+                                NavigationLink(value: item) { ArchivedRow(item: item) }
+                            } else {
+                                ArchivedRow(item: item)
+                            }
+                        }
+                        .listRowBackground(T.surface)
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparatorTint(T.rowLine)
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            Button { Task { await model.unarchive(item.id) } } label: {
+                                Label("Bring back", systemImage: "arrow.uturn.backward")
+                            }
+                            .tint(T.focus)
+                        }
+                    }
+                } footer: {
+                    if all.count >= 60 {
+                        Text("The latest 60. The rest are in Archived on the Mac.").font(.system(size: 12)).foregroundStyle(T.dim)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .scrollDismissesKeyboard(.immediately)
+        .background(T.bg)
+        .contentMargins(.horizontal, 16, for: .scrollContent)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+private struct ArchivedRow: View {
+    let item: PhoneItem
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("✓").font(T.mono(15)).foregroundStyle(T.dim).frame(width: 18)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.title).font(.system(size: 15.5, weight: .semibold)).foregroundStyle(T.soft).lineLimit(1)
+                Text("\(item.project) · \(item.account)").font(T.mono(12)).foregroundStyle(T.dim).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Text(Ago.short(item.activeAt)).font(T.mono(12)).foregroundStyle(T.dim)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+    }
+}

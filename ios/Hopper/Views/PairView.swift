@@ -6,6 +6,7 @@ import VisionKit
 struct PairView: View {
     @Environment(AppModel.self) private var model
     @State private var scanned = false
+    @AppStorage("phoneName") private var name = ""
 
     var body: some View {
         ZStack {
@@ -14,7 +15,7 @@ struct PairView: View {
                 QRScanner { link in
                     guard !scanned else { return }
                     scanned = true
-                    model.pair(link: link)
+                    model.pair(link: link, name: name)
                 }
                 .ignoresSafeArea()
                 .overlay(Color.black.opacity(0.35).ignoresSafeArea())
@@ -28,7 +29,7 @@ struct PairView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             .padding(.top, 60)
 
-            VStack { Spacer(); Steps(scanned: $scanned) }
+            VStack { Spacer(); Steps(scanned: $scanned, name: $name) }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
         }
@@ -58,9 +59,25 @@ private struct Brackets: View {
 private struct Steps: View {
     @Environment(AppModel.self) private var model
     @Binding var scanned: Bool
+    @Binding var name: String
+    @FocusState private var naming: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("THIS PHONE'S NAME").font(T.mono(11)).tracking(1.3).foregroundStyle(T.dim)
+                TextField("", text: $name, prompt: Text("Sam's iPhone").foregroundStyle(T.dim))
+                    .font(.system(size: 16))
+                    .foregroundStyle(T.hi)
+                    .focused($naming)
+                    .submitLabel(.done)
+                    .padding(.horizontal, 12)
+                    .frame(height: 44)
+                    .background(Color(hex: 0x0A0E10), in: .rect(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(hex: 0x243036), lineWidth: 1))
+                Text("The Mac asks whether to let this name in, and lists it in hopper phones.")
+                    .font(.system(size: 12)).foregroundStyle(T.dim)
+            }
             let command = Text("hopper pair").font(T.mono(13)).foregroundStyle(Color(hex: 0x96D8D3))
             step(1, Text("On your Mac, run \(command)."))
             step(2, Text("Scan the code, then say yes on the Mac."))
@@ -76,7 +93,8 @@ private struct Steps: View {
             Button {
                 if let link = UIPasteboard.general.string {
                     scanned = true
-                    model.pair(link: link)
+                    naming = false
+                    model.pair(link: link, name: name)
                 }
             } label: {
                 Text("Paste the link instead").font(.system(size: 15, weight: .semibold))

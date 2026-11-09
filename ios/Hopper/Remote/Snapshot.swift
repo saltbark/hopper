@@ -7,6 +7,8 @@ struct PhoneSnapshot: Decodable, Equatable {
     let at: Double
     let mac: String
     let items: [PhoneItem]
+    /// Marked done, newest first (Archived on the Mac). Missing from an older Mac.
+    let archived: [PhoneItem]?
     let accounts: [PhoneAccount]
     let projects: [PhoneProject]
 }

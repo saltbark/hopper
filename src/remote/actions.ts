@@ -22,7 +22,7 @@ import { groupOf } from '../tui/state.ts'
 //   new      {project}                                   → newinfo: open items, defaults, route
 //   start    {project, text, model?, effort?, worktree?, account?, queue?: 'now' | 'night'}
 //   hold     {id}   toggles a waiting conversation on and off hold
-//   done     {id}   archives it
+//   done     {id, undo?}   archives it, or brings it back from Archived
 //   routine  {id, do: 'resume' | 'pause' | 'run'}
 
 export type ActDeps = {
@@ -146,9 +146,10 @@ export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<An
       case 'done': {
         const item = snap.items.find((i) => i.sessionId === m['id'])
         if (!item) return no('That conversation is gone.')
-        await setDone(config.home, item.sessionId, true)
+        const undo = m['undo'] === true
+        await setDone(config.home, item.sessionId, !undo)
         await deps.refresh()
-        return ok(`Archived: ${item.name}`)
+        return ok(undo ? `Back in conversations: ${item.name}` : `Archived: ${item.name}`)
       }
 
       case 'routine': {

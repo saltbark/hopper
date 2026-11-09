@@ -12,7 +12,8 @@ export type PhoneItem = {
   title: string
   project: string
   account: string
-  group: ReturnType<typeof groupOf>
+  // The Mac's list group, or 'archived' for one marked done.
+  group: ReturnType<typeof groupOf> | 'archived'
   state: string
   activeAt: number
   model?: string
@@ -47,9 +48,13 @@ export type PhoneView = {
   at: number
   mac: string
   items: PhoneItem[]
+  // Marked done (Archived on the Mac), newest first, the latest ARCHIVED_SENT of them.
+  archived: PhoneItem[]
   accounts: PhoneAccount[]
   projects: PhoneProject[]
 }
+
+export const ARCHIVED_SENT = 60
 
 const LISTED = new Set<Item['where']>(['queue', 'needs', 'routine'])
 
@@ -69,14 +74,14 @@ export function phoneView(
   color: (account: string) => string,
 ): PhoneView {
   const listed = snap.items.filter((i) => LISTED.has(i.where)).sort(order)
-  const items = listed.map((i) =>
+  const phoneItem = (i: Item, group: PhoneItem['group']) =>
     pick<PhoneItem>({
       id: i.sessionId,
       kind: i.kind,
       title: i.name,
       project: i.key,
       account: i.account,
-      group: groupOf(i),
+      group,
       state: i.state,
       activeAt: i.activeAt,
       model: i.model,
@@ -86,8 +91,13 @@ export function phoneView(
       waiting: i.waiting,
       queue: i.queue,
       attach: i.kind === 'background' && !!i.id ? true : undefined,
-    }),
-  )
+    })
+  const items = listed.map((i) => phoneItem(i, groupOf(i)))
+  const archived = snap.items
+    .filter((i) => i.where === 'done')
+    .sort((a, b) => b.activeAt - a.activeAt)
+    .slice(0, ARCHIVED_SENT)
+    .map((i) => phoneItem(i, 'archived'))
   const count = (pred: (i: Item) => boolean) => listed.filter(pred).length
   const accounts = snap.accounts.map((a) =>
     pick<PhoneAccount>({
@@ -111,5 +121,5 @@ export function phoneView(
     running: count((i) => i.key === p.key && groupOf(i) === 'running'),
     waiting: count((i) => i.key === p.key && groupOf(i) === 'waiting'),
   }))
-  return { t: 'snapshot', at: snap.at, mac, items, accounts, projects }
+  return { t: 'snapshot', at: snap.at, mac, items, archived, accounts, projects }
 }

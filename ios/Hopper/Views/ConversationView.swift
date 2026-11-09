@@ -13,16 +13,11 @@ struct ConversationView: View {
         VStack(spacing: 0) {
             header
             Rectangle().fill(T.rowLine).frame(height: 1)
-            if let screen = model.screen, screen.id == item.id {
-                TerminalView(screen: screen)
-            } else {
-                Spacer()
-            }
+            TerminalView(id: item.id)
             InputBar()
         }
         .background(T.bg)
         .toolbar(.hidden, for: .navigationBar)
-        .toolbar(.hidden, for: .tabBar)
         .onDisappear { model.closeScreen() }
     }
 
@@ -70,7 +65,9 @@ struct ConversationView: View {
     }
 
     /// The item as the latest snapshot has it, so its glyph follows its state.
-    private var live: PhoneItem { model.snapshot?.items.first { $0.id == item.id } ?? item }
+    private var live: PhoneItem {
+        model.snapshot?.items.first { $0.id == item.id } ?? model.snapshot?.archived?.first { $0.id == item.id } ?? item
+    }
 
     private var meta: String {
         ([live.project, live.account] + [[live.model, live.effort].compactMap { $0 }.joined(separator: " ")]
@@ -92,7 +89,7 @@ private struct MacDot: View {
 /// Claude's screen. Its size in cells follows the space it has, and the Mac redraws to match.
 struct TerminalView: View {
     @Environment(AppModel.self) private var model
-    let screen: Screen
+    let id: String
     @State private var dragged: CGFloat = 0
     @State private var pending: Task<Void, Never>?
 
@@ -105,22 +102,23 @@ struct TerminalView: View {
     var body: some View {
         GeometryReader { geo in
             let cell = Self.cell
+            let screen = model.screen?.id == id ? model.screen : nil
             ZStack(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(screen.rows.enumerated()), id: \.offset) { _, runs in
+                    ForEach(Array((screen?.rows ?? []).enumerated()), id: \.offset) { _, runs in
                         TermRow(runs: runs).equatable().frame(height: cell.height, alignment: .leading)
                     }
                 }
-                if let c = screen.cursor {
+                if let c = screen?.cursor {
                     Rectangle().fill(T.focus.opacity(0.55))
                         .frame(width: cell.width, height: cell.height)
                         .offset(x: CGFloat(c.col) * cell.width, y: CGFloat(c.row) * cell.height)
                         .accessibilityHidden(true)
                 }
-                if let why = screen.closed {
-                    Text(why).font(.system(size: 14)).foregroundStyle(T.soft)
-                        .padding(12).background(T.surface, in: .rect(cornerRadius: 12))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if let why = screen?.closed {
+                    note(why)
+                } else if screen?.rows.allSatisfy(\.isEmpty) ?? true {
+                    note(model.link == .live ? "Opening…" : "Waiting for the Mac…")
                 }
             }
             .padding(.horizontal, 8)
@@ -132,6 +130,12 @@ struct TerminalView: View {
             .onAppear { size(geo.size, open: true) }
             .onChange(of: geo.size) { _, s in size(s, open: false) }
         }
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text).font(.system(size: 14)).foregroundStyle(T.soft)
+            .padding(12).background(T.surface, in: .rect(cornerRadius: 12))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // A swipe scrolls Claude's view a page per stretch, as the wheel does on the Mac.
@@ -151,7 +155,7 @@ struct TerminalView: View {
     private func size(_ s: CGSize, open: Bool) {
         let cols = Int((s.width - 16) / Self.cell.width)
         let rows = Int((s.height - 8) / Self.cell.height)
-        if open { return model.open(screen.id, cols: cols, rows: rows) }
+        if open { return model.open(id, cols: cols, rows: rows) }
         // The keyboard comes and goes: wait for it to settle before Claude redraws.
         pending?.cancel()
         pending = Task {

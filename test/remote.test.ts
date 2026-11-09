@@ -227,6 +227,8 @@ describe('the phone view and the key store', () => {
     ])
     expect(v.projects).toEqual([{ key: 'bh/atlas', open: 3, running: 1, waiting: 1 }])
     expect(v.mac).toBe('test mac')
+    // Archived goes separately, so the phone can show it apart.
+    expect(v.archived.map((i) => [i.id, i.group])).toEqual([['old', 'archived']])
   })
 
   it('keeps the Mac key private and remembers phones', async () => {
