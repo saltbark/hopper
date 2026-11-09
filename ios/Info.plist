@@ -2,9 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- The rest of the Info.plist is generated from the build settings. This adds what they
+	<!-- Debug builds only (Release has no INFOPLIST_FILE, nor the local network usage string).
+	     The rest of the Info.plist is generated from the build settings. This adds what they
 	     can't say: a relay on the local network (pnpm relay:dev) may be plain ws:// while
-	     developing; the real one is wss://. -->
+	     developing; the real one, and the only one a store build reaches, is wss://. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

@@ -72,7 +72,13 @@ nonisolated struct Offer: Sendable {
             guard let d = Data(base64url: q[k] ?? ""), d.count == n else { throw WireError.badField(k) }
             return d
         }
-        guard let r = q["r"], r.hasPrefix("ws") else { throw WireError.badField("r") }
+        // Plain ws:// is for a relay on the local network while developing (Debug builds allow it).
+        #if DEBUG
+            let schemes = ["wss://", "ws://"]
+        #else
+            let schemes = ["wss://"]
+        #endif
+        guard let r = q["r"], schemes.contains(where: { r.hasPrefix($0) }) else { throw WireError.badField("r") }
         relay = r
         room = try bytes("room", 16)
         token = try bytes("t", 32)
