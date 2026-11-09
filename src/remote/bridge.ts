@@ -165,7 +165,9 @@ export class Bridge {
     }
     if (typeof m['t'] === 'string' && ACTIONS.has(m['t']) && this.onAction) {
       void this.onAction(m).then(
-        (a) => link.send(a),
+        (a) =>
+          link.send(a) ||
+          link.send({ t: 'result', ref: m['ref'] ?? null, ok: false, text: 'Too big to send.' }),
         (e: Error) => link.send({ t: 'result', ref: m['ref'] ?? null, ok: false, text: e.message }),
       )
     }

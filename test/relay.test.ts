@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import relay, { Room, type Socket, type State } from '../relay/src/index.ts'
 import { MAX_BYTES, PER_MINUTE, REFUSED, TOO_BIG, TOO_MANY } from '../relay/src/limits.ts'
 import {
+  MAX_FRAME,
   REFUSED as LINK_REFUSED,
   TOO_BIG as LINK_TOO_BIG,
   TOO_MANY as LINK_TOO_MANY,
@@ -113,7 +114,8 @@ describe('the relay', () => {
     expect(reached).toBe(true)
   })
 
-  it('closes with the codes the Mac reads', () => {
+  it('closes with the codes the Mac reads, at the size the Mac keeps under', () => {
     expect([REFUSED, TOO_BIG, TOO_MANY]).toEqual([LINK_REFUSED, LINK_TOO_BIG, LINK_TOO_MANY])
+    expect(MAX_FRAME).toBe(MAX_BYTES)
   })
 })

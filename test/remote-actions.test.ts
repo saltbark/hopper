@@ -9,7 +9,7 @@ import { loadDone } from '../src/done.ts'
 import { listDrafts } from '../src/drafts.ts'
 import { loadHeld } from '../src/held.ts'
 import type { Item, Snapshot } from '../src/model.ts'
-import { act } from '../src/remote/actions.ts'
+import { act, PROMPT_MAX, REPORT_MAX } from '../src/remote/actions.ts'
 import { listRoutines, saveRoutine, type Routine } from '../src/routines/index.ts'
 
 // The phone's actions against a made-up home: they must do what the keys on the Mac do.
@@ -133,6 +133,47 @@ describe("the phone's actions", () => {
     expect(await act({ t: 'start', project: 'zz/none', text: 'x' }, deps)).toMatchObject({
       ok: false,
     })
+  })
+
+  it('takes only the choices Hopper offers, and a prompt it can carry', async () => {
+    const { home, deps, started } = await world()
+    const start = (fields: Record<string, unknown>) =>
+      act({ t: 'start', project: 'pm/tern', text: 'Go', draft: true, ...fields }, deps)
+    expect(await start({ model: '--dangerously-skip-permissions' })).toMatchObject({
+      ok: false,
+      text: 'Hopper has no model "--dangerously-skip-permissions".',
+    })
+    expect(await start({ effort: 'max' })).toMatchObject({ ok: false })
+    expect(await start({ worktree: '/tmp' })).toMatchObject({ ok: false })
+    expect(await start({ account: 'someone-else' })).toMatchObject({ ok: false })
+    expect(
+      await act({ t: 'start', project: 'pm/tern', text: 'x'.repeat(PROMPT_MAX + 1) }, deps),
+    ).toMatchObject({ ok: false })
+    expect(started).toEqual([])
+    expect(await listDrafts(home)).toEqual([])
+
+    expect(
+      await start({ model: 'opus[1m]', effort: 'low', worktree: 'no', account: 'pm' }),
+    ).toMatchObject({ ok: true })
+    expect((await listDrafts(home))[0]).toMatchObject({
+      model: 'opus[1m]',
+      effort: 'low',
+      worktree: 'no',
+      account: 'pm',
+    })
+  })
+
+  it('sends a long report cut short, so it fits through the relay', async () => {
+    const { home, deps } = await world()
+    const path = join(home, 'brief.md')
+    await writeFile(path, '# Brief\n' + 'word '.repeat(REPORT_MAX))
+    deps.snap.reports['daily-brief'] = [{ path, at: 1, summary: 'Brief' } as never]
+    const r = await act({ t: 'report', id: 'daily-brief', file: 'brief.md' }, deps)
+    expect(String(r['markdown']).length).toBeLessThan(REPORT_MAX + 100)
+    expect(r['markdown']).toMatch(/the whole report is on the Mac/)
+    // Only a report Hopper lists: never a path the phone names.
+    const other = await act({ t: 'report', id: 'daily-brief', file: '../config.toml' }, deps)
+    expect(other).toMatchObject({ ok: false })
   })
 
   it('edits, queues, starts and throws away a draft that is there', async () => {

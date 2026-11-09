@@ -20,7 +20,10 @@ export type LinkEvents = {
 
 const MAX_WAIT = 30_000
 
-// The relay's own close codes (relay/src/index.ts).
+// The largest message the relay carries (MAX_BYTES in relay/src/limits.ts).
+export const MAX_FRAME = 1 << 20
+
+// The relay's own close codes (relay/src/limits.ts).
 export const REFUSED = 4001
 export const TOO_BIG = 4009
 export const TOO_MANY = 4029
@@ -122,9 +125,13 @@ export class Link {
     else if (!this.session.ready) this.on.gone()
   }
 
+  // False when there's no session, or the message is more than the relay carries: sent anyway,
+  // the relay would close the Mac's socket.
   send(message: unknown): boolean {
     if (!this.ready) return false
-    this.ws!.send(this.session.seal(message))
+    const frame = this.session.seal(message)
+    if (frame.length > MAX_FRAME) return false
+    this.ws!.send(frame)
     return true
   }
 

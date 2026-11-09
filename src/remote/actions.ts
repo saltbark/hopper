@@ -3,7 +3,7 @@ import { basename } from 'node:path'
 import { UntrustedError } from '../claude.ts'
 import { dispatchOnce } from '../commands.ts'
 import { chosen, defaultsFor, type Config } from '../config.ts'
-import { EFFORTS, MODELS } from '../conversations.ts'
+import { EFFORTS, MODELS, WORKTREE_CHOICES } from '../conversations.ts'
 import { setDone } from '../done.ts'
 import { deleteDraft, newDraftId, saveDraft, type Draft } from '../drafts.ts'
 import { readIfThere } from '../fsutil.ts'
@@ -66,6 +66,20 @@ const draftId = (v: unknown) => str(v)?.replace(/^draft:/, '')
 // How many of a routine's reports the phone is told about.
 export const REPORTS_SENT = 30
 
+// The longest prompt taken from the phone, and the most of a report sent to it: both well under
+// what the relay carries in one message (MAX_FRAME in link.ts).
+export const PROMPT_MAX = 100_000
+export const REPORT_MAX = 200_000
+
+// A choice from the phone, checked against the ones the Mac offers: undefined when it sent none,
+// null when it sent one Hopper doesn't have. Nothing the phone sends reaches claude's arguments
+// unchecked.
+function choice(v: unknown, allowed: readonly (string | undefined)[]): string | undefined | null {
+  const s = str(v)
+  if (s === undefined) return undefined
+  return allowed.includes(s) ? s : null
+}
+
 export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<Answer> {
   const ref = m['ref'] ?? null
   const ok = (text: string, extra: Record<string, unknown> = {}) => ({
@@ -104,8 +118,20 @@ export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<An
       case 'start': {
         const text = str(m['text'])?.trim()
         if (!text) return no('Nothing to start: the prompt is empty.')
+        if (text.length > PROMPT_MAX) return no('That prompt is too long to send from the phone.')
         const project = snap.projects.find((p) => p.key === m['project'])
         if (!project) return no(`No project ${String(m['project'])}.`)
+        const picked = {
+          model: choice(m['model'], MODELS),
+          effort: choice(m['effort'], EFFORTS),
+          worktree: choice(m['worktree'], WORKTREE_CHOICES),
+          account: choice(
+            m['account'],
+            config.accounts.map((a) => a.name),
+          ),
+        }
+        for (const [what, v] of Object.entries(picked))
+          if (v === null) return no(`Hopper has no ${what} "${String(m[what])}".`)
         const now = Date.now()
         const queue = m['queue'] === 'now' || m['queue'] === 'night' ? m['queue'] : undefined
         // Editing one that's there keeps what the phone doesn't show (after, done, depth) and
@@ -124,10 +150,10 @@ export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<An
           ...(was?.depth ? { depth: was.depth } : {}),
           // Proposed by an agent until it's queued, as on the Mac.
           ...(was?.proposed && !queue ? { proposed: was.proposed } : {}),
-          ...(str(m['model']) ? { model: str(m['model']) } : {}),
-          ...(str(m['effort']) ? { effort: str(m['effort']) } : {}),
-          ...(str(m['worktree']) ? { worktree: str(m['worktree']) } : {}),
-          ...(str(m['account']) ? { account: str(m['account']) } : {}),
+          ...(picked.model ? { model: picked.model } : {}),
+          ...(picked.effort ? { effort: picked.effort } : {}),
+          ...(picked.worktree ? { worktree: picked.worktree } : {}),
+          ...(picked.account ? { account: picked.account } : {}),
           ...(queue ? { queue } : {}),
         }
         // Kept as a draft, to start later from either side: what Hopper's editor saves on esc.
@@ -269,7 +295,11 @@ export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<An
         // Only a report Hopper lists for this routine: the phone names it, never a path.
         const rep = reports.find((x) => basename(x.path) === m['file'])
         if (!r || !rep) return no('That report is gone.')
-        const markdown = (await readIfThere(rep.path)) ?? ''
+        const whole = (await readIfThere(rep.path)) ?? ''
+        const markdown =
+          whole.length > REPORT_MAX
+            ? `${whole.slice(0, REPORT_MAX)}\n\n*Cut here: the whole report is on the Mac.*`
+            : whole
         if (rep.unread) {
           await markRead(config.home, r.name, [rep.path], reports)
           await deps.refresh()

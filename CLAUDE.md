@@ -193,7 +193,11 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   `new`, `start` (now, or queued for when there's room or tonight), `hold`, `done` and `routine`
   (resume, pause, run) with `startDraft`, `saveDraft` and dispatch, `setHeld`, `setDone`,
   `saveRoutine` and `runRoutine`, as the keys in `src/tui/actions.ts` do; a change to what a key
-  does on the Mac changes it here too. Each answer echoes the action's `ref`.
+  does on the Mac changes it here too. Each answer echoes the action's `ref`. Nothing the phone
+  sends becomes a path or an argument unchecked: items, routines and reports are looked up in
+  the snapshot by id, and a model, effort, worktree or account must be one Hopper offers
+  (`choice`). What goes back is kept under the relay's 1 MB (`REPORT_MAX`; `Link.send` drops
+  anything bigger rather than have the relay close the Mac's socket).
 - **The relay** (`relay/`, a Worker with one Durable Object per pairing) forwards binary frames
   between a room's `mac` and `phone` sockets and says only `{"peer":"up"|"down"}` itself. Each
   pairing has a room token (in the QR link, `t`; `phones.json` and the phone's Keychain); both
