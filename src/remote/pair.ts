@@ -4,7 +4,7 @@ import { renderUnicodeCompact } from 'uqr'
 
 import { b64u } from './crypto.ts'
 import { addPhone, loadIdentity, macName, relayUrl, remoteDir, type Phone } from './store.ts'
-import { offerLink, pairedReply, readPairRequest, type Offer, type PairAsk } from './wire.ts'
+import { Kind, offerLink, pairedReply, readPairRequest, type Offer, type PairAsk } from './wire.ts'
 
 // `hopper pair`: shows a QR code for the phone to scan, waits in a fresh room on the relay for the
 // phone's request, checks it proves it saw this code, asks whether to let it in, and records it.
@@ -47,9 +47,15 @@ export async function pairPhone(deps: PairDeps): Promise<Phone | null> {
       }
       ws.onmessage = (e) => {
         if (typeof e.data === 'string') return
-        const got = readPairRequest(Buffer.from(e.data as ArrayBuffer), offer, identity.privateKey)
+        const data = Buffer.from(e.data as ArrayBuffer)
+        // Only pairing requests matter here, and only until one is taken. A phone just paired
+        // reconnects to this room at once and says hello, while this socket is still open; that
+        // hello is for the app's bridge, not for us.
+        if (data[0] !== Kind.pair) return
+        const got = readPairRequest(data, offer, identity.privateKey)
         if (!got) return deps.print("A request came that didn't prove it saw this code; ignored.")
         clearTimeout(timer)
+        ws.onmessage = null
         resolve(got)
       }
     })
