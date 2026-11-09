@@ -12,3 +12,7 @@ site/dist/
 .env
 # What scripts/pack.sh makes.
 release/
+
+# Xcode per-user state
+ios/Hopper.xcodeproj/project.xcworkspace/
+xcuserdata/
