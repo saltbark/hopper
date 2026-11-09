@@ -9,19 +9,7 @@ struct ProjectsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                ScreenTitle(title: "projects")
                 if let snap = model.snapshot {
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(T.dim)
-                        TextField("", text: $query, prompt: Text("Find a project").foregroundStyle(T.dim))
-                            .foregroundStyle(T.hi)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                    }
-                    .padding(.horizontal, 12)
-                    .frame(height: 40)
-                    .background(T.chip, in: .rect(cornerRadius: 12))
-
                     HStack(spacing: 0) {
                         Spacer()
                         ForEach(["open", "run", "you"], id: \.self) { Text($0).frame(width: 40, alignment: .trailing) }
@@ -48,6 +36,10 @@ struct ProjectsView: View {
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.immediately)
         .background(T.bg)
+        .bar("projects", large: true)
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Find a project")
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
     }
 }
 

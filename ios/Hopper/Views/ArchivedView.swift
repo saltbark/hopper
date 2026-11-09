@@ -7,46 +7,30 @@ struct ArchivedRoute: Hashable {}
 /// Claude still has it; swipe right to bring it back into Work.
 struct ArchivedView: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     @State private var query = ""
 
     var body: some View {
         let all = model.archived
         let shown = query.isEmpty
             ? all : all.filter { $0.title.localizedCaseInsensitiveContains(query) || $0.project.localizedCaseInsensitiveContains(query) }
-        VStack(spacing: 0) {
-        PageHeader(title: "archived").titleStrip(page: true)
         List {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(T.dim)
-                TextField("", text: $query, prompt: Text("Find one").foregroundStyle(T.dim))
-                    .foregroundStyle(T.hi)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 40)
-            .background(T.chip, in: .rect(cornerRadius: 12))
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
-            .listRowSeparator(.hidden)
-
             if shown.isEmpty {
                 Text(all.isEmpty ? "Nothing archived." : "Nothing matches.")
                     .font(.system(size: 15)).foregroundStyle(T.soft).padding(.top, 30)
+                    .frame(maxWidth: .infinity)
                     .listRowBackground(Color.clear)
             } else {
                 Section {
                     ForEach(shown) { item in
                         ArchivedRow(item: item)
-                        .opens(item)
-                        .cardRow()
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            Button { Task { await model.unarchive(item) } } label: {
-                                Label("Bring back", systemImage: "arrow.uturn.backward")
+                            .opens(item)
+                            .cardRow()
+                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                Button { Task { await model.unarchive(item) } } label: {
+                                    Label("Bring back", systemImage: "arrow.uturn.backward")
+                                }
+                                .tint(T.focus)
                             }
-                            .tint(T.focus)
-                        }
                     }
                 } footer: {
                     if all.count >= 60 {
@@ -58,9 +42,11 @@ struct ArchivedView: View {
         .cardList()
         .listSectionSpacing(8)
         .scrollDismissesKeyboard(.immediately)
-        }
         .background(T.bg)
-        .toolbar(.hidden, for: .navigationBar)
+        .bar("archived")
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Find one")
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
     }
 }
 

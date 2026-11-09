@@ -9,12 +9,9 @@ struct ProjectView: View {
     let key: String
 
     var body: some View {
-        VStack(spacing: 0) {
-            PageHeader(title: key) { NewButton(project: key) }.titleStrip(page: true)
-            list
-        }
-        .background(T.bg)
-        .toolbar(.hidden, for: .navigationBar)
+        list
+            .background(T.bg)
+            .bar(key) { NewButton(project: key) }
     }
 
     private var list: some View {

@@ -122,82 +122,49 @@ struct RowDivider: View {
     var body: some View { Rectangle().fill(T.rowLine).frame(height: 1) }
 }
 
-/// Top of a tab: its name in Hopper's mono; the Mac's state only when it isn't connected (a phone
-/// this size has no room to say "connected" all day); and a + where a new conversation fits.
-struct ScreenTitle: View {
+/// The bar every page shares: its title in the system's bar (in Hopper's mono, `Chrome`), the
+/// Mac's state on the right only when it isn't connected (a phone this size has no room to say
+/// "connected" all day), and whatever the page adds there.
+struct Bar<Trailing: View>: ViewModifier {
     let title: String
-    var frog = false
-    var newIn: String?? = nil
-
-    var body: some View {
-        HStack(spacing: 10) {
-            if frog { Frog() }
-            Text(title).font(T.mono(frog ? 19 : 26, .bold)).foregroundStyle(T.hi).tracking(-0.4)
-            Spacer()
-            LinkChip()
-            if let project = newIn { NewButton(project: project) }
-        }
-        .padding(.horizontal, 4)
-    }
-}
-
-/// A page pushed from a tab: back, then its title, then whatever it adds on the right.
-struct PageHeader<Trailing: View>: View {
-    @Environment(\.dismiss) private var dismiss
-    let title: String
-    var mono = true
+    var large = false
     @ViewBuilder var trailing: Trailing
 
-    var body: some View {
-        HStack(spacing: 4) {
-            BackButton()
-            Text(title)
-                .font(mono ? T.mono(22, .bold) : .system(size: 20, weight: .bold))
-                .foregroundStyle(T.hi).tracking(mono ? -0.4 : 0).lineLimit(1).truncationMode(.head)
-            Spacer(minLength: 8)
-            LinkChip()
-            trailing
-        }
-        .frame(minHeight: 44)
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle(title)
+            .toolbarTitleDisplayMode(large ? .inlineLarge : .inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { LinkChip() }
+                    .sharedBackgroundVisibility(.hidden)
+                ToolbarItem(placement: .topBarTrailing) { trailing }
+            }
     }
 }
 
-extension PageHeader where Trailing == EmptyView {
-    init(title: String, mono: Bool = true) {
-        self.init(title: title, mono: mono) { EmptyView() }
+extension View {
+    /// A page with its title and the Mac's state in the bar.
+    func bar(_ title: String, large: Bool = false) -> some View {
+        modifier(Bar(title: title, large: large) { EmptyView() })
+    }
+
+    /// The same, with something of the page's own at the right.
+    func bar<T: View>(_ title: String, large: Bool = false, @ViewBuilder trailing: () -> T) -> some View {
+        modifier(Bar(title: title, large: large, trailing: trailing))
     }
 }
 
-/// The chevron that pops a page, sized for a thumb.
-struct BackButton: View {
-    @Environment(\.dismiss) private var dismiss
-    var action: (() -> Void)?
-
-    var body: some View {
-        Button { (action ?? { dismiss() })() } label: {
-            Image(systemName: "chevron.left").font(.system(size: 19, weight: .semibold))
-                .frame(width: 36, height: 44)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.press)
-        .foregroundStyle(T.focus)
-        .accessibilityLabel("Back")
-    }
-}
-
-/// The round + that opens a new conversation, in a project when it knows which.
+/// The + that opens a new conversation, in a project when it knows which: the bar's prominent
+/// glass button.
 struct NewButton: View {
     @Environment(AppModel.self) private var model
     let project: String?
 
     var body: some View {
         Button { model.newConversation(in: project) } label: {
-            Image(systemName: "plus").font(.system(size: 17, weight: .bold))
-                .frame(width: 36, height: 36)
-                .background(T.focus, in: .circle)
+            Image(systemName: "plus").fontWeight(.bold)
         }
-        .buttonStyle(.press)
-        .foregroundStyle(T.ink)
+        .buttonStyle(.glassProminent)
         .accessibilityLabel(project.map { "New conversation in \($0)" } ?? "New conversation")
     }
 }
@@ -212,17 +179,15 @@ struct LinkChip: View {
                 Button { model.reconnectNow() } label: {
                     HStack(spacing: 6) {
                         Circle().fill(color).frame(width: 6, height: 6)
-                            .symbolEffect(.pulse, isActive: model.shownLink == .connecting)
                         Text(text).lineLimit(1).contentTransition(.interpolate)
                     }
                     .font(T.mono(11))
                     .foregroundStyle(T.soft)
-                    .padding(.horizontal, 9)
-                    .frame(height: 26)
-                    .background(T.surface, in: .capsule)
-                    .overlay(Capsule().stroke(T.surfaceLine, lineWidth: 1))
+                    .padding(.horizontal, 10)
+                    .frame(height: 30)
+                    .glassEffect(.regular.interactive(), in: .capsule)
                 }
-                .buttonStyle(.press)
+                .buttonStyle(.plain)
                 .accessibilityElement(children: .combine)
                 .accessibilityHint("Tries again now")
                 .transition(.scale(scale: 0.85, anchor: .trailing).combined(with: .opacity))
@@ -264,18 +229,12 @@ extension View {
             .listRowSeparatorTint(T.rowLine)
     }
 
-    /// The look every list screen shares. Its title sits above it, not in it: a title as a row
-    /// takes the list's own top spacing and its row indent.
+    /// The look every list screen shares.
     func cardList() -> some View {
         listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .contentMargins(.horizontal, 16, for: .scrollContent)
             .contentMargins(.top, 2, for: .scrollContent)
-    }
-
-    /// A title strip above a list, in line with its section headings.
-    func titleStrip(page: Bool = false) -> some View {
-        padding(.leading, page ? 8 : 16).padding(.trailing, 16).padding(.top, 2).padding(.bottom, 2)
     }
 
     /// A heading over a list section, as the Mac heads its groups.

@@ -57,7 +57,6 @@ struct ComposeView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     if let draft, let note = queuedNote(draft) { queuedBanner(note) }
@@ -77,7 +76,21 @@ struct ComposeView: View {
             actions
         }
         .background(T.bg)
-        .toolbar(.hidden, for: .navigationBar)
+        .bar(draft == nil ? "new" : draft?.queue == nil ? "draft" : "queued") {
+            if draft != nil {
+                Button { confirmDiscard = true } label: { Image(systemName: "trash") }
+                    .accessibilityLabel("Throw away")
+            }
+        }
+        .toolbar {
+            if draft == nil {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { model.closeNew(started: false) }
+                }
+            }
+        }
+        // The form's own buttons are where the tab bar would be.
+        .toolbarVisibility(.hidden, for: .tabBar)
         .task(id: form.project) {
             guard !form.project.isEmpty else { return }
             await model.newInfo(form.project)
@@ -93,38 +106,6 @@ struct ComposeView: View {
     }
 
     // MARK: Parts
-
-    @ViewBuilder
-    private var header: some View {
-        HStack(spacing: 4) {
-            if let draft {
-                BackButton()
-                Text(draft.queue == nil ? "draft" : "queued").font(T.mono(22, .bold)).foregroundStyle(T.hi).tracking(-0.4)
-                Spacer()
-                LinkChip()
-                Button { confirmDiscard = true } label: {
-                    Image(systemName: "trash").font(.system(size: 16, weight: .medium))
-                        .frame(width: 40, height: 40).contentShape(.rect)
-                }
-                .buttonStyle(.press)
-                .foregroundStyle(T.soft)
-                .accessibilityLabel("Throw away")
-            } else {
-                Text("new").font(T.mono(26, .bold)).foregroundStyle(T.hi).tracking(-0.4)
-                Spacer()
-                LinkChip()
-                Button("Cancel") { model.closeNew(started: false) }
-                    .font(.system(size: 16)).foregroundStyle(T.focus)
-                    .buttonStyle(.press)
-                    .padding(.leading, 8)
-            }
-        }
-        .frame(height: 44)
-        .padding(.leading, draft == nil ? 20 : 8)
-        .padding(.trailing, draft == nil ? 20 : 12)
-        .padding(.top, 2)
-        .padding(.bottom, 6)
-    }
 
     private func queuedNote(_ d: PhoneItem) -> String? {
         guard let q = d.queue else { return nil }
@@ -515,14 +496,14 @@ struct DraftView: View {
                 ComposeView(mode: .draft(item))
             } else {
                 VStack(spacing: 0) {
-                    PageHeader(title: "draft").titleStrip(page: true)
                     Text("That draft is gone: started or thrown away on the Mac.")
                         .font(.system(size: 15)).foregroundStyle(T.soft).multilineTextAlignment(.center)
                         .padding(.top, 60).padding(.horizontal, 32)
                     Spacer()
                 }
+                .frame(maxWidth: .infinity)
                 .background(T.bg)
-                .toolbar(.hidden, for: .navigationBar)
+                .bar("draft")
             }
         }
         // The draft as it was when it opened: the form owns it from there.

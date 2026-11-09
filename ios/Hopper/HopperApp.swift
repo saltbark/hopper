@@ -1,9 +1,12 @@
 import SwiftUI
+import UIKit
 
 @main
 struct HopperApp: App {
     @State private var model = AppModel()
     @Environment(\.scenePhase) private var phase
+
+    init() { Chrome.apply() }
 
     var body: some Scene {
         WindowGroup {
@@ -19,16 +22,41 @@ struct HopperApp: App {
     }
 }
 
+/// The system's bars in Hopper's type: titles in its mono, the waiting count in its yellow. Only
+/// text and colour are set, so the bars keep their glass and scroll-edge effects.
+enum Chrome {
+    static func apply() {
+        let mono = { (size: CGFloat, weight: UIFont.Weight) in UIFont.monospacedSystemFont(ofSize: size, weight: weight) }
+        let hi = UIColor(T.hi)
+        let bar = UINavigationBar.appearance()
+        bar.largeTitleTextAttributes = [.font: mono(28, .bold), .foregroundColor: hi, .kern: -0.4]
+        bar.titleTextAttributes = [.font: mono(17, .bold), .foregroundColor: hi]
+        // The badge in the waiting yellow, set on the bar's own item appearance; the rest of the bar
+        // is the system's.
+        let tabs = UITabBarAppearance()
+        tabs.configureWithDefaultBackground()
+        for layout in [tabs.stackedLayoutAppearance, tabs.inlineLayoutAppearance, tabs.compactInlineLayoutAppearance] {
+            layout.normal.badgeBackgroundColor = UIColor(T.waiting)
+            layout.normal.badgeTextAttributes = [.foregroundColor: UIColor(T.ink), .font: UIFont.systemFont(ofSize: 11, weight: .bold)]
+        }
+        UITabBar.appearance().standardAppearance = tabs
+        UITabBar.appearance().scrollEdgeAppearance = tabs
+    }
+}
+
 /// Where a row leads: a conversation to watch, or a draft to edit.
 struct ConversationRoute: Hashable { let id: String }
 struct DraftRoute: Hashable { let id: String }
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
-    @State private var path = NavigationPath()
     @State private var tab: TabID = .work
     // Where the New tab goes back to.
     @State private var back: TabID = .work
+    // Each tab keeps its own pages, as system tabs do.
+    @State private var workPath = NavigationPath()
+    @State private var projectsPath = NavigationPath()
+    @State private var accountsPath = NavigationPath()
 
     enum TabID: Hashable { case work, projects, accounts, new }
 
@@ -43,40 +71,35 @@ struct RootView: View {
         .animation(.smooth(duration: 0.35), value: model.pairing == nil)
     }
 
+    // The system's tab bar, its glass pill holding Work, Projects, Accounts and New. (A tab in the
+    // search role, which the system once drew apart from the pill, stays inside it on iOS 27, so
+    // New is an ordinary tab.)
     private var tabs: some View {
-        // Pages push above the tabs, so the tab bar slides away with the list and back with it.
-        NavigationStack(path: $path) {
-            // The system's bar is hidden: HopperTabBar draws the tabs and New beside them.
-            TabView(selection: $tab) {
-                Tab("Work", systemImage: "tray", value: TabID.work) { WorkView().toolbarVisibility(.hidden, for: .tabBar) }
-                Tab("Projects", systemImage: "folder", value: TabID.projects) { ProjectsView().toolbarVisibility(.hidden, for: .tabBar) }
-                Tab("Accounts", systemImage: "gauge.with.dots.needle.33percent", value: TabID.accounts) {
-                    AccountsView().toolbarVisibility(.hidden, for: .tabBar)
-                }
-                // New's page is the new conversation itself, so there's no sheet to wait for. It
-                // has its own Cancel and buttons, so no bar.
-                Tab("New", systemImage: "plus", value: TabID.new) {
+        TabView(selection: $tab) {
+            Tab("Work", systemImage: "tray", value: TabID.work) {
+                NavigationStack(path: $workPath) { WorkView().pages() }
+            }
+            .badge(model.waitingCount)
+            .accessibilityLabel(model.waitingCount > 0 ? "Work, \(model.waitingCount) waiting" : "Work")
+            Tab("Projects", systemImage: "folder", value: TabID.projects) {
+                NavigationStack(path: $projectsPath) { ProjectsView().pages() }
+            }
+            Tab("Accounts", systemImage: "gauge.with.dots.needle.33percent", value: TabID.accounts) {
+                NavigationStack(path: $accountsPath) { AccountsView().pages() }
+            }
+            // New's page is the new conversation itself, so there's no sheet to wait for. It has its
+            // own Cancel and buttons where the bar would be.
+            Tab("New", systemImage: "plus", value: TabID.new) {
+                NavigationStack {
                     ComposeView(mode: .new(model.newRequest?.project)).id(model.newRequest?.id)
-                        .toolbarVisibility(.hidden, for: .tabBar)
                 }
+                .toolbarVisibility(.hidden, for: .tabBar)
             }
-            .toolbar(.hidden, for: .navigationBar)
-            // One bar for every tab, so the lit tab's backing slides between them. New has its
-            // own buttons where the bar would be.
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if tab != .new {
-                    HopperTabBar(tab: $tab).transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .navigationDestination(for: ConversationRoute.self) { ConversationView(id: $0.id) }
-            .navigationDestination(for: DraftRoute.self) { DraftView(id: $0.id) }
-            .navigationDestination(for: ArchivedRoute.self) { _ in ArchivedView() }
-            .navigationDestination(for: RoutinesRoute.self) { _ in RoutinesView() }
-            .navigationDestination(for: RoutineRoute.self) { RoutineView(id: $0.id) }
-            .navigationDestination(for: ReportRoute.self) { ReportView(route: $0) }
-            .navigationDestination(for: ProjectRoute.self) { ProjectView(key: $0.key) }
+            .accessibilityLabel("New conversation")
         }
+        .tabBarMinimizeBehavior(.onScrollDown)
         .overlay(alignment: .top) { ToastView() }
+        .sensoryFeedback(.selection, trigger: tab)
         // The + tab chosen: a fresh form. Leaving it some other way lets it go.
         .onChange(of: tab) { old, new in
             if new == .new {
@@ -86,11 +109,11 @@ struct RootView: View {
                 model.closeNew(started: false)
             }
         }
-        // Asked for from elsewhere (a project's +): over to the New tab, from wherever.
+        // Asked for from elsewhere (a project's +): over to the New tab, from wherever; the page it
+        // came from is still there to go back to.
         .onChange(of: model.newRequest?.id) { _, id in
             if id != nil, tab != .new {
                 back = tab
-                path = NavigationPath()
                 tab = .new
             } else if id == nil, tab == .new {
                 tab = model.newStarted ? .work : back
@@ -113,22 +136,43 @@ struct RootView: View {
                 for _ in 0..<40 where model.link != .live { try? await Task.sleep(for: .milliseconds(250)) }
                 switch show {
                 case "new": model.newConversation()
-                case "routines": path.append(RoutinesRoute())
-                case "archived": path.append(ArchivedRoute())
+                case "routines": workPath.append(RoutinesRoute())
+                case "archived": workPath.append(ArchivedRoute())
                 case "accounts": tab = .accounts
                 case "projects": tab = .projects
-                case "draft": if let d = model.items.first(where: \.isDraft) { path.append(DraftRoute(id: d.id)) }
-                case "queued": if let d = model.items.first(where: { $0.isDraft && $0.queue != nil }) { path.append(DraftRoute(id: d.id)) }
+                case "draft": if let d = model.items.first(where: \.isDraft) { workPath.append(DraftRoute(id: d.id)) }
+                case "queued": if let d = model.items.first(where: { $0.isDraft && $0.queue != nil }) { workPath.append(DraftRoute(id: d.id)) }
                 case let s where s.hasPrefix("new:"): model.newConversation(in: String(s.dropFirst(4)))
-                case let s where s.hasPrefix("project:"): path.append(ProjectRoute(key: String(s.dropFirst(8))))
-                case let s where s.hasPrefix("routine:"): path.append(RoutineRoute(id: s))
+                case let s where s.hasPrefix("project:"):
+                    tab = .projects
+                    projectsPath.append(ProjectRoute(key: String(s.dropFirst(8))))
+                case let s where s.hasPrefix("routine:"): workPath.append(RoutineRoute(id: s))
+                case let s where s.hasPrefix("report:"):
+                    if let r = model.routines.first(where: { $0.title == String(s.dropFirst(7)) }),
+                        let info = await model.routineInfo(r.id), let rep = info.reports.first
+                    {
+                        workPath.append(ReportRoute(routine: info.name, file: rep.file, at: rep.at))
+                    }
                 case "conversation":
-                    if let item = model.items.first(where: { $0.attach == true }) { path.append(ConversationRoute(id: item.id)) }
+                    if let item = model.items.first(where: { $0.attach == true }) { workPath.append(ConversationRoute(id: item.id)) }
                 default: break
                 }
             }
         }
     #endif
+}
+
+extension View {
+    /// Every page a tab can push, and the Mac's state in its bar.
+    func pages() -> some View {
+        navigationDestination(for: ConversationRoute.self) { ConversationView(id: $0.id) }
+            .navigationDestination(for: DraftRoute.self) { DraftView(id: $0.id) }
+            .navigationDestination(for: ArchivedRoute.self) { _ in ArchivedView() }
+            .navigationDestination(for: RoutinesRoute.self) { _ in RoutinesView() }
+            .navigationDestination(for: RoutineRoute.self) { RoutineView(id: $0.id) }
+            .navigationDestination(for: ReportRoute.self) { ReportView(route: $0) }
+            .navigationDestination(for: ProjectRoute.self) { ProjectView(key: $0.key) }
+    }
 }
 
 /// What the Mac said about the last thing asked of it, dropping in from the top; with Undo when

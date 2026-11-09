@@ -8,11 +8,21 @@ struct WorkView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScreenTitle(title: "hopper", frog: true).titleStrip()
-            list
-        }
-        .background(T.bg)
+        list
+            .background(T.bg)
+            .bar("hopper", large: true)
+            .toolbar {
+                // The frog beside the name, as on the Mac.
+                ToolbarItem(placement: .largeTitle) {
+                    HStack(spacing: 10) {
+                        Frog()
+                        Text("hopper").font(T.mono(24, .bold)).foregroundStyle(T.hi).tracking(-0.4)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isHeader)
+                }
+            }
     }
 
     private var list: some View {

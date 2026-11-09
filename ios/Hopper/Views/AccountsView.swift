@@ -8,7 +8,6 @@ struct AccountsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                ScreenTitle(title: "accounts")
                 if let snap = model.snapshot {
                     if let at = snap.accounts.compactMap(\.usageAt).max() {
                         HStack(spacing: 0) {
@@ -50,6 +49,7 @@ struct AccountsView: View {
         }
         .scrollIndicators(.hidden)
         .background(T.bg)
+        .bar("accounts", large: true)
         .confirmationDialog("Unpair this phone?", isPresented: $confirmUnpair, titleVisibility: .visible) {
             Button("Unpair", role: .destructive) { model.unpair() }
         } message: {

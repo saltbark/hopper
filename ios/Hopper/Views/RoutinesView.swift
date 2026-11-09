@@ -14,12 +14,9 @@ struct RoutinesView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        VStack(spacing: 0) {
-            PageHeader(title: "routines").titleStrip(page: true)
-            list
-        }
-        .background(T.bg)
-        .toolbar(.hidden, for: .navigationBar)
+        list
+            .background(T.bg)
+            .bar("routines")
     }
 
     private var list: some View {
@@ -98,12 +95,9 @@ struct RoutineView: View {
     private var info: RoutineInfo? { model.routineInfos[id] }
 
     var body: some View {
-        VStack(spacing: 0) {
-            PageHeader(title: item?.title ?? info?.name ?? "routine").titleStrip(page: true)
-            list
-        }
-        .background(T.bg)
-        .toolbar(.hidden, for: .navigationBar)
+        list
+            .background(T.bg)
+            .bar(item?.title ?? info?.name ?? "routine")
         // Again when the routine changes on the Mac: a run, a report read.
         .task(id: item) { await load() }
     }
@@ -219,8 +213,6 @@ struct ReportView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                PageHeader(title: Date(timeIntervalSince1970: route.at / 1000).formatted(.dateTime.weekday(.abbreviated).day().month().hour().minute()), mono: false)
-                Text(route.routine).font(T.mono(12)).foregroundStyle(T.dim).padding(.leading, 40).padding(.top, -10)
                 if let text {
                     Markdown(text: text.markdown).padding(.horizontal, 4)
                         .transition(.opacity)
@@ -233,7 +225,8 @@ struct ReportView: View {
             .padding(.bottom, 30)
         }
         .background(T.bg)
-        .toolbar(.hidden, for: .navigationBar)
+        .bar(Date(timeIntervalSince1970: route.at / 1000).formatted(.dateTime.weekday(.abbreviated).day().month().hour().minute()))
+        .navigationSubtitle(route.routine)
         .task {
             await model.report(route.routine, route.file)
             loaded = true

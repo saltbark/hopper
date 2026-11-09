@@ -11,35 +11,36 @@ struct ConversationView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Rectangle().fill(T.rowLine).frame(height: 1)
             TerminalView(id: id)
             InputBar(id: id)
         }
         .background(T.bg)
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationTitle(model.item(id)?.title ?? "")
+        .toolbarTitleDisplayMode(.inline)
+        .toolbar {
+            // Its glyph follows its state, as the row's does.
+            ToolbarItem(placement: .principal) { title }
+            ToolbarItem(placement: .topBarTrailing) { MacDot().padding(.horizontal, 8) }
+                .sharedBackgroundVisibility(.hidden)
+        }
+        .toolbarVisibility(.hidden, for: .tabBar)
         .onDisappear { model.closeScreen() }
     }
 
-    private var header: some View {
-        HStack(spacing: 4) {
-            BackButton().frame(width: 44)
-            if let live = model.item(id) {
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(alignment: .firstTextBaseline, spacing: 7) {
-                        Mark(mark: StateMark(live), size: 15)
-                        Text(live.title).font(.system(size: 16, weight: .semibold)).foregroundStyle(T.hi).lineLimit(1)
-                    }
-                    Text(meta(live)).font(T.mono(11.5)).foregroundStyle(T.dim).lineLimit(1)
+    @ViewBuilder
+    private var title: some View {
+        if let live = model.item(id) {
+            VStack(spacing: 1) {
+                HStack(alignment: .firstTextBaseline, spacing: 7) {
+                    Mark(mark: StateMark(live), size: 14)
+                    Text(live.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(T.hi).lineLimit(1)
                 }
-                .animation(.snappy, value: live.state)
+                Text(meta(live)).font(T.mono(11)).foregroundStyle(T.dim).lineLimit(1)
             }
-            Spacer(minLength: 4)
-            MacDot()
+            .animation(.snappy, value: live.state)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
         }
-        .padding(.leading, 4)
-        .padding(.trailing, 16)
-        .padding(.bottom, 8)
     }
 
     private func meta(_ live: PhoneItem) -> String {
