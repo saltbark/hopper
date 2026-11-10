@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { describe, expect, it } from 'vitest'
 
 import {
+  accountColorName,
   addAccount,
   chosen,
   ConfigError,
@@ -156,6 +157,32 @@ describe('edits', () => {
   it('setPrefixes takes an account off routes it no longer lists, and drops empty routes', () => {
     const c = setPrefixes(two(), 'bh', ['bh/'])
     expect(c.routes).toEqual([{ prefix: 'bh/', accounts: ['bh', 'bh2'] }])
+  })
+  it('gives an added account a colour nobody shows, so the others keep theirs', () => {
+    // Written by hand: bh and tn name no colour, so they take blue and purple in name order.
+    const c: Config = {
+      ...base(),
+      accounts: [
+        { name: 'bh', label: 'BH', configDir: '/x/.claude-bh' },
+        { name: 'pm', label: 'PM', configDir: '/x/.claude-pm', color: 'green' },
+        { name: 'tn', label: 'TN', configDir: '/x/.claude-tn' },
+      ],
+    }
+    const before = c.accounts.map((a) => accountColorName(c, a.name))
+    expect(before).toEqual(['blue', 'green', 'purple'])
+    const next = addAccount(c, { name: 'aa', label: 'AA', configDir: '/x/.claude-aa' })
+    expect(next.accounts.map((a) => a.name)).toEqual(['aa', 'bh', 'pm', 'tn'])
+    expect(next.accounts.map((a) => accountColorName(next, a.name))).toEqual([
+      'teal',
+      ...before,
+    ])
+    expect(serializeAccounts(next)).toContain('name = "aa"')
+    expect(parseAccounts(serializeAccounts(next), '/c/accounts.toml').accounts[0]?.color).toBe(
+      'teal',
+    )
+    // One it was given is kept.
+    const own = addAccount(c, { name: 'ab', label: 'AB', configDir: '/y', color: 'yellow' })
+    expect(accountColorName(own, 'ab')).toBe('yellow')
   })
   it('removing an account takes it off every route', () => {
     const c = removeAccount(two(), 'bh')

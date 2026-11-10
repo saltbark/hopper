@@ -3,7 +3,7 @@ import { basename } from 'node:path'
 import { Box, Text } from 'ink'
 import { createElement, useEffect, useState, type ReactNode } from 'react'
 
-import { ACCOUNT_COLOR_NAMES, type Config } from '../../config.ts'
+import { ACCOUNT_COLOR_NAMES, accountColorName, type Config } from '../../config.ts'
 import { OTHER, type Item } from '../../model.ts'
 import { ACCOUNT_COLORS, dimLine, SPIN_FRAMES, SPIN_MS, stateMark, T } from '../theme.ts'
 
@@ -88,22 +88,10 @@ export function windowed<T>(items: T[], sel: number, n: number): { start: number
   return { start, slice: items.slice(start, start + n) }
 }
 
-// An account's own colour when it names one; the others take the colours nobody named, in
-// account order, so naming one doesn't shift the rest.
+// An account's colour (accountColorName), as the terminal draws it.
 export function accountColor(config: Config, name: string): string {
-  const own = config.accounts.find((a) => a.name === name)?.color
-  if (own) return ACCOUNT_COLORS[ACCOUNT_COLOR_NAMES.indexOf(own)] ?? T.text
-  const named = new Set(config.accounts.map((a) => a.color).filter(Boolean))
-  const free = ACCOUNT_COLOR_NAMES.flatMap((c, i) => (named.has(c) ? [] : [ACCOUNT_COLORS[i]]))
-  const unnamed = config.accounts.filter((a) => !a.color)
-  return (
-    free[
-      Math.max(
-        0,
-        unnamed.findIndex((a) => a.name === name),
-      ) % free.length
-    ] ?? T.text
-  )
+  const color = accountColorName(config, name)
+  return (color && ACCOUNT_COLORS[ACCOUNT_COLOR_NAMES.indexOf(color)]) || T.text
 }
 
 export const where = (i: Item) => (i.key === OTHER ? '~/' + basename(i.cwd) : i.key)

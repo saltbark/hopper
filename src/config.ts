@@ -13,9 +13,21 @@ export const PROVIDERS = ['claude-code', 'ollama'] as const
 export type Provider = (typeof PROVIDERS)[number]
 
 // How an account is told apart in the app. Unset, it takes the next of these that no account has
-// asked for, in account order.
+// asked for, in account order. An account added from Hopper is given one nobody shows (addAccount),
+// so a new name sorting ahead of the others doesn't recolour them.
 export const ACCOUNT_COLOR_NAMES = ['blue', 'purple', 'teal', 'yellow', 'green'] as const
 export type AccountColor = (typeof ACCOUNT_COLOR_NAMES)[number]
+
+// The colour an account is drawn in: its own when it names one; the others take the colours
+// nobody named, in account order, so naming one doesn't shift the rest.
+export function accountColorName(config: Config, name: string): AccountColor | undefined {
+  const own = config.accounts.find((a) => a.name === name)?.color
+  if (own) return own
+  const named = new Set(config.accounts.map((a) => a.color).filter(Boolean))
+  const free = ACCOUNT_COLOR_NAMES.filter((c) => !named.has(c))
+  const unnamed = config.accounts.filter((a) => !a.color)
+  return free[Math.max(0, unnamed.findIndex((a) => a.name === name)) % free.length]
+}
 
 // A model served locally: where, which, and how much of it Claude Code may use.
 export type Local = {
@@ -479,7 +491,13 @@ export function addAccount(config: Config, account: Account): Config {
     throw new ConfigError(
       `${clash.name} already uses ${account.configDir === null ? 'the default login' : tildify(account.configDir)}.`,
     )
-  return { ...config, accounts: [...config.accounts, account].sort(byName) }
+  // A colour nobody shows yet, written down, so the accounts already there keep theirs.
+  const shown = new Set(config.accounts.map((a) => accountColorName(config, a.name)))
+  const color = account.color ?? ACCOUNT_COLOR_NAMES.find((c) => !shown.has(c))
+  return {
+    ...config,
+    accounts: [...config.accounts, { ...account, ...(color ? { color } : {}) }].sort(byName),
+  }
 }
 
 export function removeAccount(config: Config, name: string): Config {
