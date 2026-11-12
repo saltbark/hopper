@@ -30,6 +30,9 @@ export type Draft = {
   proposed?: string
   // Links from the first draft of a chain of follow-ups; 0 for one I wrote.
   depth?: number
+  // The project's open items it was started for, by title (items.ts). The conversation it
+  // becomes keeps them, which is how an item shows as in progress.
+  items?: string[]
 }
 
 export const QUEUES = ['now', 'night'] as const
@@ -58,6 +61,8 @@ export const serializeDraft = (d: Draft): string =>
       done: d.done,
       proposed: d.proposed,
       depth: d.depth ? String(d.depth) : undefined,
+      // Titles can hold commas and colons: one JSON list on its line.
+      items: d.items?.length ? JSON.stringify(d.items) : undefined,
     },
     d.text,
   )
@@ -89,7 +94,20 @@ export function parseDraft(id: string, text: string, fileTime = 0): Draft | null
   if (f['proposed']) draft.proposed = f['proposed']
   const depth = Number(f['depth'])
   if (Number.isInteger(depth) && depth > 0) draft.depth = depth
+  const items = titleList(f['items'])
+  if (items.length) draft.items = items
   return draft
+}
+
+// A JSON list of titles, or nothing when it isn't one.
+function titleList(s: string | undefined): string[] {
+  if (!s) return []
+  try {
+    const v = JSON.parse(s) as unknown
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x) : []
+  } catch {
+    return []
+  }
 }
 
 export async function listDrafts(home: string): Promise<Draft[]> {

@@ -17,6 +17,8 @@ export type Here = {
   row?: ProjectRow | undefined
   item?: Item | undefined
   scope: string | null
+  // The account the list is narrowed to, instead of a project.
+  accountScope?: string | null | undefined
   // The selected item's conversation is the one showing on the right.
   embedOpen: boolean
   // The right panel shows the summary of what's selected, which lists its own keys.
@@ -32,6 +34,8 @@ export type Here = {
   reports?: { reading: boolean; onPrompt?: boolean; conversation: boolean } | undefined
   // Archived's search, while there is one.
   search?: Search | null | undefined
+  // Set while a project's open items have the keyboard: how many are picked.
+  items?: { picked: number } | undefined
 }
 
 export const ANYWHERE: Hint[] = [
@@ -42,6 +46,7 @@ export const ANYWHERE: Hint[] = [
   ['c', 'conversations'],
   ['v', 'archived'],
   ['a', 'accounts'],
+  ['O', "the project's open items, in full"],
   ['→ ←', 'into a conversation and back'],
   [',', 'settings'],
   ...(canKeepAwake ? [['z', 'keep this Mac awake, or let it sleep'] as Hint] : []),
@@ -60,6 +65,7 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
       ['↑↓', 'move'],
       ['⏎', 'narrow the list to it'],
       ['tab', 'new conversation there'],
+      ['O', 'its open items, in full'],
       ['esc →', 'back to the list'],
     ],
   ],
@@ -75,7 +81,7 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
       ['u', 'a draft: up next, tonight, off'],
       ['U', 'queue every proposal tonight'],
       ['g', 'dispatch up next now'],
-      ['esc', 'every project again'],
+      ['esc', 'every project (or account) again'],
     ],
   ],
   [
@@ -89,7 +95,8 @@ export const PANEL_KEYS: [label: string, hints: Hint[]][] = [
   [
     'accounts',
     [
-      ['⏎', 'sign in'],
+      ['⏎', 'narrow the list to it (signed out: sign in)'],
+      ['s', 'sign in again'],
       ['a', 'add one'],
       ['e', 'prefixes it runs'],
       ['1', 'first on its prefixes'],
@@ -122,6 +129,16 @@ function settingKeys(row: Row | null): Hint[] {
   hints.push(['a', 'add'], ['J K', 'sections'], ['o', 'open the file'], ['esc', 'close'])
   return hints
 }
+
+// A project's open items, in full (O).
+export const ITEMS_KEYS: Hint[] = [
+  ['j k', 'move'],
+  ['J K', 'sections'],
+  ['space', 'pick, or unpick'],
+  ['tab ⏎', 'new draft with the picked (or this one)'],
+  ['y', 'copy the item'],
+  ['esc ←', 'close'],
+]
 
 export const CONVERSATION_KEYS: Hint[] = [
   ['← ctrl+]', 'back to Hopper (it stays open)'],
@@ -260,6 +277,7 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   if (h.setting !== undefined) return { label: 'settings', hints: settingKeys(h.setting) }
   // The editor, opened from a routine's list, comes before the list it goes back to.
   if (h.editing) return { label: 'writing', hints: WRITING_KEYS }
+  if (h.items) return { label: 'open items', hints: ITEMS_KEYS }
   if (h.reports) {
     // c only when Claude still has the conversation that wrote it.
     const keep = ([k]: Hint) => k !== 'c' || h.reports!.conversation
@@ -272,7 +290,7 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   if (h.focus === 'session') return { label: 'a conversation', hints: CONVERSATION_KEYS }
   if (h.focus === 'projects') {
     const hints: Hint[] = [['⏎', 'focus']]
-    if (!h.row || h.row.isProject) hints.push(['tab', 'new here'])
+    if (!h.row || h.row.isProject) hints.push(['tab', 'new here'], ['O', 'open items'])
     hints.push(['↑↓', 'move'], ['esc', 'back'])
     return { label: 'projects', hints }
   }
@@ -293,6 +311,7 @@ export function hereKeys(h: Here): { label: string; hints: Hint[] } {
   if (it && !done) hints.push(...holdKey(it))
   if (!done) hints.push(['J K', 'groups'])
   if (!done && h.scope) hints.push(['esc', 'every project'])
+  else if (!done && h.accountScope) hints.push(['esc', 'every account'])
   return { label: done ? 'archived' : 'the list', hints: [...trust, ...hints] }
 }
 
@@ -304,7 +323,7 @@ export function holdKey(it: Item): Hint[] {
 }
 
 function summaryKeys(h: Here): Set<string> {
-  if (h.focus === 'projects') return new Set(['⏎', 'tab'])
+  if (h.focus === 'projects') return new Set(['⏎', 'tab', 'O'])
   if (h.focus === 'accounts') return new Set(PANEL_KEYS[3]![1].map(([k]) => k))
   if (h.item?.kind === 'routine') return new Set(routineKeys(h).flatMap(([k]) => k.split(' ')))
   if (h.item?.kind === 'draft') return new Set(draftKeys(h).flatMap(([k]) => k.split(' ')))
@@ -316,7 +335,8 @@ function summaryKeys(h: Here): Set<string> {
 // right lists its own.
 export function barKeys(h: Here): Hint[] {
   const { hints } = hereKeys(h)
-  if (h.editing || h.focus === 'session' || h.setting !== undefined || h.reports) return hints
+  if (h.editing || h.focus === 'session' || h.setting !== undefined || h.reports || h.items)
+    return hints
   const shown = h.summaryShown ? summaryKeys(h) : new Set<string>()
   // "⏎ →" with ⏎ already on the summary is just "→".
   return hints

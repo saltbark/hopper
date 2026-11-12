@@ -32,7 +32,7 @@ describe('hereKeys', () => {
   })
   it('offers tab in Projects only on a project, and esc on the list only when it is narrowed', () => {
     const row = (isProject: boolean) => ({ key: 'pm', isProject }) as Here['row']
-    expect(keysOf({ focus: 'projects', row: row(true) })).toEqual(['⏎', 'tab', '↑↓', 'esc'])
+    expect(keysOf({ focus: 'projects', row: row(true) })).toEqual(['⏎', 'tab', 'O', '↑↓', 'esc'])
     expect(keysOf({ focus: 'projects', row: row(false) })).toEqual(['⏎', '↑↓', 'esc'])
     expect(keysOf({ item: conversation, scope: 'pm' })).toEqual(['⏎ →', 'e', 'h', 'J K', 'esc'])
     expect(keysOf({ item: conversation })).not.toContain('esc')

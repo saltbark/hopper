@@ -981,6 +981,30 @@ describe('conversations', () => {
     unmount()
   })
 
+  it('a draft for open items starts a conversation that knows them and is linked to them', async () => {
+    const { home, cfg, log, live } = await setup()
+    const { saveDraft } = await import('../src/drafts.ts')
+    await saveDraft(home, {
+      id: 'it1',
+      project: 'bh/atlas',
+      text: 'Chart the shoals\n\n',
+      created: now,
+      updated: now,
+      items: ['Chart the shoals'],
+    })
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
+    await until(() => (lastFrame() ?? '').includes('Chart the shoals'))
+    await press(stdin, 's')
+    await until(() => (lastFrame() ?? '').includes('Started on'))
+    expect(await readFile(log, 'utf8')).toContain('started for this open item')
+    const { loadConversations } = await import('../src/conversations.ts')
+    expect((await loadConversations(home))['abc12345']).toMatchObject({
+      items: ['Chart the shoals'],
+    })
+    done()
+    unmount()
+  })
+
   it('a paste goes into a draft whole, line breaks and all; a one-line field takes it on one line', async () => {
     const { home, cfg, live } = await setup()
     const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)

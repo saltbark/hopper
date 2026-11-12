@@ -61,6 +61,8 @@ export const AccountRow = memo(function AccountRow(props: {
   nameW: number
   color: string
   selected: boolean
+  // The list is narrowed to this account.
+  scoped?: boolean
   // Under the pointer: a lighter background than the selection's.
   hovered: boolean
   focused: boolean
@@ -183,9 +185,10 @@ export const AccountRow = memo(function AccountRow(props: {
       <Text wrap="truncate-end">
         <Rail on={on} bg={bg} />
         <Text backgroundColor={bg}>
-          <Text bold color={color}>
-            {cell(a.account.name, nameW)}
+          <Text bold color={color} underline={!!props.scoped}>
+            {a.account.name}
           </Text>
+          <Text>{cell('', nameW - a.account.name.length)}</Text>
           {rest}
           {a.sessionError ? (
             <Text color={T.blocked}>

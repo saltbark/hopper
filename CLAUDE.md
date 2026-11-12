@@ -128,6 +128,13 @@ auto`, except for Haiku, which has no auto mode (Claude falls back to asking, an
   The project Hopper recorded when it started it (`conversations.json`) wins; cwd matching is the
   fallback, for sessions Hopper didn't start. `extraDirs` adds the project's own folder when it
   resolves outside the run folder (it does, through the meta repo's `projects/` symlink).
+- **Open items link to conversations by title.** `O` shows a project's `_open.md` in full
+  (`ItemsPane`, `parseItems` in `src/items.ts` keeps each item's section); space picks items and
+  tab starts a draft with `items:` (a JSON list of titles in its front matter). `startDraft`
+  records them in `conversations.json` and `hopperPrompt` names them, so an item reads as in
+  progress (`workingOn`) while a draft or conversation that isn't archived has its title. A title
+  changed in the file no longer matches. The list can be narrowed to an account (⏎ on it) as it
+  is to a project; one or the other, esc clears both.
 - **Keys are letters and esc.** Inside an embedded conversation every key is Claude's, esc
   included; the way back to Hopper is Claude's own ← at the empty prompt, or ctrl+] (one of two
   Ctrl bindings), and both leave it live. Claude's interrupt is ctrl+c (passed through) or `i` from

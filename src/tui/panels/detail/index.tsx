@@ -21,6 +21,8 @@ export function Detail(props: {
   account: AccountView | undefined
   // The open items of the selected conversation's project.
   openItems?: OpenItem[] | null | undefined
+  // The titles of those items that a draft or conversation is working on.
+  taken?: ReadonlySet<string> | undefined
   routine?: RoutineView | undefined
   // The selected report, while a routine's reports have the keyboard.
   reportSel?: number | undefined
@@ -40,5 +42,5 @@ export function Detail(props: {
     )
   if (item.kind === 'draft')
     return <DraftDetail item={item} draft={draft} defaults={props.defaults} width={w} />
-  return <ConversationDetail item={item} openItems={openItems} width={w} />
+  return <ConversationDetail item={item} openItems={openItems} taken={props.taken} width={w} />
 }

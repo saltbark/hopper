@@ -21,6 +21,8 @@ export function Band(props: {
   // What's typed in Projects: only while it has the keys.
   query: string
   scope: string | null
+  // The account the list is narrowed to, if any: its name is underlined.
+  accountScope: string | null
   hover: Hover
   // Where the keys are, for the blue edge; null while the editor has them.
   focus: Focus | null
@@ -61,6 +63,7 @@ export function Band(props: {
                 nameW={nameW}
                 color={color(a.account.name)}
                 selected={accountStates.indexOf(a) === accountSel}
+                scoped={a.account.name === props.accountScope}
                 hovered={hover?.panel === 'accounts' && accountStates.indexOf(a) === hover.index}
                 focused={focus === 'accounts'}
                 now={snap?.at ?? 0}

@@ -54,6 +54,7 @@ export function DraftDetail({
       {draft?.after?.length ? row('after', draft.after.join(', ')) : null}
       {draft?.done ? row('done when', draft.done) : null}
       {draft?.proposed ? row('from', draft.proposed) : null}
+      {draft?.items?.length ? row('for', draft.items.join(' · ')) : null}
       {draft ? row('id', draft.id) : null}
       <Text> </Text>
       <Keys
@@ -74,9 +75,18 @@ export function DraftDetail({
 export function ConversationDetail(props: {
   item: Item
   openItems?: OpenItem[] | null | undefined
+  taken?: ReadonlySet<string> | undefined
   width: number
 }) {
-  const { item, openItems, width } = props
+  const { item, openItems, taken, width } = props
+  // Its own items first, the rest after.
+  const mine = item.items ?? []
+  const ordered = openItems
+    ? [
+        ...openItems.filter((i) => mine.includes(i.title)),
+        ...openItems.filter((i) => !mine.includes(i.title)),
+      ]
+    : openItems
   const state = item.held ? 'held' : item.state
   const { color } = stateMark(state, item.kind)
   const inList = item.where !== 'done'
@@ -105,6 +115,7 @@ export function ConversationDetail(props: {
       {item.ranOn ? row('ran on', item.ranOn) : null}
       {item.routine ? row('routine', item.routine) : null}
       {item.result?.summary ? row('result', item.result.summary) : null}
+      {mine.length ? row('for', mine.join(' · ')) : null}
       {item.id ? row('id', item.id) : null}
       <Text> </Text>
       {item.id ? (
@@ -121,11 +132,11 @@ export function ConversationDetail(props: {
       ) : (
         <Text color={T.dim}>Interactive session: switch to its terminal.</Text>
       )}
-      {openItems?.length ? (
+      {ordered?.length ? (
         <>
           <Text> </Text>
-          <Heading label={`open in ${item.key}`} width={width} />
-          <OpenItems items={openItems} max={8} width={width} />
+          <Heading label={`open in ${item.key} · O for all`} width={width} />
+          <OpenItems items={ordered} max={8} width={width} taken={taken} mine={mine} />
         </>
       ) : null}
     </>

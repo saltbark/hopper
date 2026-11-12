@@ -34,6 +34,7 @@ import { reportRows } from './panels/detail/RoutineDetail.tsx'
 import { itemLines } from './panels/ItemRows.tsx'
 import { projectLines } from './panels/ProjectRows.tsx'
 import { draftRoom } from './panes/DraftPane.tsx'
+import { follow, itemAt, itemsRoom, openItemLines } from './panes/ItemsPane.tsx'
 import { reportMaxScroll, reportRoom } from './panes/ReportPane.tsx'
 import { workItemAt } from './panes/WorkRows.tsx'
 import {
@@ -115,6 +116,28 @@ export function makeInput(
     return offsetAt(lines, start + row, x - (leftW + midW) - 3)
   }
 
+  // The open items as the panel lays them out, and moving its selection with the view following.
+  const itemsLayout = () => openItemLines(ctx.openItems ?? [], ctx.itemLinks, ctx.layout.rightW)
+  const itemTo = (sel: number) => {
+    const v = ctx.itemsView
+    const n = ctx.openItems?.length ?? 0
+    if (!v || !n) return
+    const at = Math.max(0, Math.min(n - 1, sel))
+    const top = follow(itemsLayout(), at, v.top, itemsRoom(ctx.layout.bodyH))
+    ctx.setItemsView({ ...v, sel: at, top })
+  }
+  const pickItem = (index: number) => {
+    const v = ctx.itemsView
+    const it = ctx.openItems?.[index]
+    if (!v || !it) return
+    const has = v.picked.includes(it.title)
+    ctx.setItemsView({
+      ...v,
+      sel: index,
+      picked: has ? v.picked.filter((t) => t !== it.title) : [...v.picked, it.title],
+    })
+  }
+
   const onMouse = (events: MouseEvent[]) => {
     const { leftW, midW, bandH, workH, doneH, sessionCols, sessionRows } = ctx.layout
     const { embed, pick, focus } = ctx
@@ -139,6 +162,23 @@ export function makeInput(
       // A routine's reports hand the keyboard back when the wheel or a click is anywhere else.
       if (ctx.reports && panel !== 'right' && (ev.kind === 'press' || ev.kind.startsWith('wheel')))
         ctx.setReports(null)
+      // So do the open items; on them the wheel moves the selection, a click selects an item and
+      // a second click picks it.
+      if (ctx.itemsView && !ctx.editing) {
+        if (panel !== 'right') {
+          if (ev.kind === 'press' || ev.kind.startsWith('wheel')) ctx.setItemsView(null)
+        } else {
+          const v = ctx.itemsView
+          if (ev.kind === 'wheel-up' || ev.kind === 'wheel-down')
+            itemTo(v.sel + (ev.kind === 'wheel-up' ? -1 : 1))
+          else if (ev.kind === 'press') {
+            const i = itemAt(itemsLayout(), v.top, ev.y - 2)
+            if (i === v.sel) pickItem(i)
+            else if (i !== null) ctx.setItemsView({ ...v, sel: i })
+          }
+          continue
+        }
+      }
       // The editor has the right panel: a click puts the cursor there, a drag selects from where
       // it was pressed. Nothing goes on to a conversation the editor is drawn over.
       if (ctx.editing && panel === 'right') {
@@ -253,9 +293,9 @@ export function makeInput(
           if (focus === h.panel && ctx.at(h.panel) === h.index) {
             if (project) act.focusProject(project.key)
             else if (h.panel === 'accounts') {
-              // Only an account that isn't signed in: signing in takes over the terminal.
+              // As ⏎: one that isn't signed in signs in, any other narrows the list to it.
               const a = ctx.accountStates[h.index]
-              if (a && a.auth && !a.auth.loggedIn) void act.signIn(a.account)
+              if (a) act.accountEnter(a.account)
             } else act.open((h.panel === 'work' ? ctx.work : ctx.done)[h.index])
           } else {
             if (ctx.at(h.panel) !== h.index) ctx.setEmbedShown(false)
@@ -274,6 +314,9 @@ export function makeInput(
           } else if (rep) void act.readReport(rep.routine, rep.index)
           else if (!ctx.reports) act.open(ctx.selectedItem)
         }
+        // A project's details: a click shows its open items in full.
+        else if (!ctx.showingEmbed && ctx.listFocus !== 'accounts' && ctx.itemsKey)
+          act.openItemsView()
       }
     }
   }
@@ -382,6 +425,12 @@ export function makeInput(
       return setSel((s) => ({ ...s, projects: Math.max(0, Math.min(ctx.lists.projects - 1, to)) }))
     }
     if (key.backspace || key.delete) return findProject(ctx.query.slice(0, -1))
+    // Project keys are lower case, so a capital O is never part of one: it shows the highlighted
+    // project's open items, as it does from the list.
+    if (input === 'O') {
+      if (!row?.isProject) return setMessage('Pick a project, not a folder.')
+      return act.openItemsView()
+    }
     if (typed(input, key)) findProject(ctx.query + input.replace(/\s/g, ''))
   }
   const findProject = (query: string) => {
@@ -489,6 +538,38 @@ export function makeInput(
     if (input === 'y') {
       copyToClipboard(open.text)
       return setMessage('Report copied.')
+    }
+  }
+
+  // ---- a project's open items, in full ----
+  // j k move, J K go to the next section, space picks, tab or ⏎ starts a draft with the picked
+  // ones (or the selected one), y copies it, esc or ← closes.
+  const onItems: Handler = (input, key) => {
+    const v = ctx.itemsView!
+    const list = ctx.openItems ?? []
+    if (key.escape || key.leftArrow) return ctx.setItemsView(null)
+    if (input === '?') return ctx.setHelp({ scroll: 0 })
+    if (key.tab || key.return) return act.draftFromItems()
+    const section = (d: 1 | -1) => {
+      const from = list[v.sel]?.section
+      let i = v.sel + d
+      while (i >= 0 && i < list.length && list[i]!.section === from) i += d
+      // Up goes to the first item of the section above, not its last.
+      if (d < 0) {
+        const s = list[i]?.section
+        while (i > 0 && list[i - 1]!.section === s) i -= 1
+      }
+      return i
+    }
+    if (input === 'J' || (key.shift && key.downArrow)) return itemTo(section(1))
+    if (input === 'K' || (key.shift && key.upArrow)) return itemTo(section(-1))
+    if (input === 'j' || key.downArrow) return itemTo(v.sel + 1)
+    if (input === 'k' || key.upArrow) return itemTo(v.sel - 1)
+    if (input === ' ') return pickItem(v.sel)
+    const it = list[v.sel]
+    if (input === 'y' && it) {
+      copyToClipboard(it.body ? `**${it.title}**: ${it.body}` : it.title)
+      return setMessage('Item copied.')
     }
   }
 
@@ -608,7 +689,8 @@ export function makeInput(
       })
     }
     if (!a) return
-    if (key.return) return void act.signIn(a)
+    if (key.return) return act.accountEnter(a)
+    if (input === 's') return void act.signIn(a)
     if (input === 'e') {
       const current = prefixesOf(config, a.name)
         .map((r) => showPrefix(r.prefix))
@@ -645,7 +727,8 @@ export function makeInput(
     // esc comes back to the list, then shows every project again. It never goes up to Projects.
     if (key.escape) {
       if (focus !== 'work') return act.go('work')
-      if (ctx.scope) ctx.setScope(null)
+      ctx.setScope(null)
+      ctx.setAccountScope(null)
       return
     }
     if (key.tab) return act.newConversation()
@@ -660,6 +743,7 @@ export function makeInput(
       return setSel((s) => ({ ...s, work: first }))
     }
     if (input === '?') return ctx.setHelp({ scroll: 0 })
+    if (input === 'O') return act.openItemsView()
     if (input === ',') return ctx.setSettings({ sel: 0 })
     if (input === 'z' && ctx.toggleAwake) {
       ctx.toggleAwake()
@@ -736,7 +820,7 @@ export function makeInput(
         ...e,
         ...insert({ text: e.text, cursor: e.cursor, anchor: e.anchor }, text),
       })
-    if (ctx.reports) return
+    if (ctx.reports || ctx.itemsView) return
     if (ctx.focus === 'projects') return findProject(ctx.query + text.replace(/\s/g, ''))
     if (ctx.focus === 'done' && ctx.search?.typing) findDone(ctx.search.query + line)
   }
@@ -753,6 +837,7 @@ export function makeInput(
     if (ctx.form) return onForm(input, key)
     if (ctx.settings) return onSettings(input, key)
     if (ctx.editing) return onEditing(input, key)
+    if (ctx.itemsView) return onItems(input, key)
     if (ctx.reports) return onReports(input, key)
     onBoard(input, key)
   }

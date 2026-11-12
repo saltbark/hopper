@@ -5,6 +5,7 @@ import { activeRows, rollUp, type ProjectStat } from '../active.ts'
 import { caffeinate, canKeepAwake, type KeepAwake } from '../awake.ts'
 import { playChime, type Chime } from '../chime.ts'
 import { defaultsFor, DIM_DEFAULT, prefixesOf, saveAccounts, type Config } from '../config.ts'
+import { takenTitles, workingOn } from '../items.ts'
 import {
   draftSessionId,
   gather,
@@ -42,6 +43,7 @@ import { accountColor, Frame } from './panels/primitives.tsx'
 import { Band, ListColumn } from './panes/Columns.tsx'
 import { DraftPane } from './panes/DraftPane.tsx'
 import { HelpPane, helpMaxScroll } from './panes/HelpPane.tsx'
+import { ItemsPane } from './panes/ItemsPane.tsx'
 import { KeyBar } from './panes/KeyBar.tsx'
 import { PickPane } from './panes/PickPane.tsx'
 import { ReportPane } from './panes/ReportPane.tsx'
@@ -55,6 +57,7 @@ import {
   type Focus,
   type Hover,
   type Form,
+  type ItemsView,
   type Panel,
   type Reports,
   type Search,
@@ -136,6 +139,8 @@ export function App({
   >({ work: null, done: null })
   const [hover, setHover] = useState<Hover>(null)
   const [scope, setScope] = useState<string | null>(null)
+  const [accountScope, setAccountScope] = useState<string | null>(null)
+  const [itemsView, setItemsView] = useState<ItemsView | null>(null)
   const [help, setHelp] = useState<{ scroll: number } | null>(null)
   const [settings, setSettings] = useState<{ sel: number } | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -169,12 +174,14 @@ export function App({
   const color = useCallback((name: string) => accountColor(config, name), [config])
   useRemote(config, snap, color, refresh, remote)
   const { work, archived } = useMemo(() => {
-    const scoped = (snap?.items ?? []).filter((i) => inScope(i.key, scope))
+    const scoped = (snap?.items ?? []).filter(
+      (i) => inScope(i.key, scope) && (!accountScope || i.account === accountScope),
+    )
     return {
       work: scoped.filter((i) => LISTED.has(i.where)).sort(byGroup),
       archived: scoped.filter((i) => i.where === 'done'),
     }
-  }, [snap, scope])
+  }, [snap, scope, accountScope])
   // Archived as shown: what the search finds, in the same order.
   const q = search?.query.trim() ?? ''
   const done = useMemo(
@@ -290,7 +297,7 @@ export function App({
       : (embeds.find((e) => !!selectedItem?.id && e.id === selectedItem.id) ?? null)
   const showingEmbed = !!embed
   // The blue edge is where the keys go: nowhere on the left while the editor has them.
-  const keysAt = editing || reports ? null : focus
+  const keysAt = editing || reports || itemsView ? null : focus
   useEffect(() => onFocus?.(focus === 'work' ? 'conversations' : focus), [focus, onFocus])
   // The list whose selected row the right panel is showing, which keeps its highlight while the
   // keys are over there.
@@ -300,7 +307,7 @@ export function App({
   const held: Panel | null =
     focus === 'session'
       ? returnTo
-      : reports || (editingId && selectedItem?.sessionId === editingId)
+      : reports || itemsView || (editingId && selectedItem?.sessionId === editingId)
         ? listFocus
         : null
   // The model and effort a draft or routine in a project gets when it picks none.
@@ -315,6 +322,7 @@ export function App({
     row: selectedRow,
     item: selectedItem,
     scope,
+    accountScope,
     embedOpen: !!embed && !!selectedItem?.id && selectedItem.id === embed.id,
     summaryShown: !showingEmbed,
     untrusted: !!untrusted,
@@ -330,12 +338,14 @@ export function App({
             !!selectedReport?.id && !!snap?.items.some((i) => i.id === selectedReport.id),
         }
       : undefined,
+    items: itemsView ? { picked: itemsView.picked.length } : undefined,
   }
 
-  // The project whose open items show on the right: the highlighted one, else the selected
-  // conversation's, else the scope.
-  const itemsKey =
-    focus === 'projects' && selectedRow && projectKeys.includes(selectedRow.key)
+  // The project whose open items show on the right: the one open in full, else the highlighted
+  // one, else the selected conversation's, else the scope.
+  const itemsKey = itemsView
+    ? itemsView.project
+    : focus === 'projects' && selectedRow && projectKeys.includes(selectedRow.key)
       ? selectedRow.key
       : selectedItem
         ? projectKeys.includes(selectedItem.key)
@@ -343,6 +353,18 @@ export function App({
           : null
         : scopeProject
   const openItems = useProjectItems(snap, itemsKey)
+  // What works on each of them, and the titles taken, for the marks beside them.
+  const itemLinks = useMemo(
+    () =>
+      itemsKey && openItems
+        ? openItems.map((it) => workingOn(snap?.items ?? [], itemsKey, it.title))
+        : [],
+    [snap, itemsKey, openItems],
+  )
+  const taken = useMemo(
+    () => (itemsKey ? takenTitles(snap?.items ?? [], itemsKey) : new Set<string>()),
+    [snap, itemsKey],
+  )
 
   // ---- layout ----
   // A band on top of the left two columns: accounts beside projects, as tall as they need up to
@@ -412,6 +434,8 @@ export function App({
     setHover,
     scope,
     setScope,
+    accountScope,
+    setAccountScope,
     help,
     setHelp,
     helpMax: helpMaxScroll(W, bodyH),
@@ -435,6 +459,11 @@ export function App({
     reports,
     setReports: setReportsFocus,
     routineReports,
+    itemsView,
+    setItemsView,
+    itemsKey,
+    openItems,
+    itemLinks,
     work,
     done,
     archived,
@@ -457,6 +486,18 @@ export function App({
 
   // ---- the right panel ----
   const right = (() => {
+    if (itemsView && !editing) {
+      return (
+        <ItemsPane
+          view={itemsView}
+          items={openItems}
+          links={itemLinks}
+          color={color}
+          width={rightW}
+          height={bodyH}
+        />
+      )
+    }
     if (editing) {
       return editing.stage === 'pick' ? (
         <PickPane
@@ -501,6 +542,7 @@ export function App({
             key: projectKey,
             ...(found ? { path: found.path, open: snap?.openCounts.get(projectKey) ?? null } : {}),
             items: openItems,
+            taken,
           }
         : undefined
     const draft =
@@ -547,6 +589,7 @@ export function App({
           project={project}
           account={account}
           openItems={selectedItem ? openItems : undefined}
+          taken={taken}
           routine={routine}
           reportSel={reports?.sel}
           defaults={here.defaults}
@@ -581,6 +624,7 @@ export function App({
               projectSel={at('projects')}
               query={finding}
               scope={scope}
+              accountScope={accountScope}
               hover={hover}
               focus={keysAt}
               color={color}
@@ -597,7 +641,7 @@ export function App({
               workSel={at('work')}
               doneSel={at('done')}
               hover={hover}
-              scope={scope}
+              scope={scope ?? (accountScope ? `on ${accountScope}` : null)}
               focus={keysAt}
               held={held}
               color={color}

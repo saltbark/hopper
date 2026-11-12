@@ -8,9 +8,17 @@ import type { Project } from './home.ts'
 // CLAUDE.md, so only one running elsewhere is pointed at it.
 export function hopperPrompt(
   project: Project,
-  opts: { unattended?: boolean; guide?: string | undefined } = {},
+  opts: { unattended?: boolean; guide?: string | undefined; items?: string[] | undefined } = {},
 ): string {
   const { key, openFile, meta } = project
+  // Picked in Hopper's list of open items: the conversation is for these.
+  const items = opts.items?.length
+    ? [
+        `It was started for ${opts.items.length === 1 ? 'this open item' : 'these open items'} in that file:`,
+        opts.items.map((t) => `"${t}"`).join(', ') + '.',
+        'Keep each title as it is: Hopper links the conversation to them by title.',
+      ]
+    : []
   const talk = opts.unattended
     ? []
     : ['Start by talking it through. Do not start on the work itself unless they ask.']
@@ -41,6 +49,7 @@ export function hopperPrompt(
       '(which sections items go under, moving finished items to _done.md, dates, the planning check).',
       'When the person asks you to file, add or capture something, add it there and say what you added.',
       "If the open file doesn't exist yet, ask before creating it.",
+      ...items,
       ...guide,
       ...talk,
     ].join(' ')
@@ -51,6 +60,7 @@ export function hopperPrompt(
     `Its open items live in ${openFile}, one per line as "- [ ] **Title** — detail", under the file's first "## " heading.`,
     'When the person asks you to file, add or capture something, add it to that file',
     `(create it with "# ${key}" and "## Open" if it is missing) and say what you added.`,
+    ...items,
     ...guide,
     ...talk,
   ].join(' ')

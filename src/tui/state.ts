@@ -77,7 +77,7 @@ export type Editing = {
   extra?: DraftExtra | undefined
 }
 
-export type DraftExtra = Pick<Draft, 'queue' | 'after' | 'done' | 'proposed' | 'depth'>
+export type DraftExtra = Pick<Draft, 'queue' | 'after' | 'done' | 'proposed' | 'depth' | 'items'>
 
 // One line of input at a time, in the key bar. Removing is a yes/no.
 export type Form =
@@ -123,6 +123,10 @@ export type Reports = {
   sel: number
   open: { path: string; text: string; scroll: number } | null
 }
+
+// A project's open items in full, with the keyboard, in the right panel (O): which is selected,
+// the titles picked for a draft, and the first line shown.
+export type ItemsView = { project: string; sel: number; picked: string[]; top: number }
 
 // A blank editor for a new draft.
 export const newEditing = (

@@ -11,6 +11,8 @@ export type ProjectView = {
   path?: string
   open?: number | null
   items?: OpenItem[] | null
+  // Titles of items a draft or conversation is working on.
+  taken?: ReadonlySet<string>
 }
 
 export function ProjectDetail({ project, width }: { project: ProjectView; width: number }) {
@@ -23,13 +25,15 @@ export function ProjectDetail({ project, width }: { project: ProjectView; width:
         keys={[
           ['⏎', 'focus it'],
           ...(project.path ? [['tab', 'new conversation here'] as [string, string]] : []),
+          ...(project.items?.length ? [['O', 'all open items'] as [string, string]] : []),
         ]}
+        width={width}
       />
       <Text> </Text>
       {project.items?.length ? (
         <>
           <Heading label="open" width={width} />
-          <OpenItems items={project.items} max={12} width={width} />
+          <OpenItems items={project.items} max={12} width={width} taken={project.taken} />
         </>
       ) : (
         <Text color={T.dim}>{project.path ? 'No open items.' : ''}</Text>

@@ -41,7 +41,7 @@ export async function startDraft(opts: {
   const worktree = unattended || picked.worktree === 'yes'
   const perms = result ? unattendedPermissions(model, [resultsDir(home)], account) : undefined
   const systemPrompt = [
-    hopperPrompt(project, { unattended, guide: guidePath(home) }),
+    hopperPrompt(project, { unattended, guide: guidePath(home), items: d.items }),
     result
       ? unattendedPrompt({
           result,
@@ -76,6 +76,7 @@ export async function startDraft(opts: {
     ...(result ? { unattended: true, result } : {}),
     ...(d.depth ? { depth: d.depth } : {}),
     ...(d.queue ? { queue: d.queue } : {}),
+    ...(d.items?.length ? { items: d.items } : {}),
   })
   await deleteDraft(home, d.id)
   return { id, name, ...(result ? { result } : {}) }
