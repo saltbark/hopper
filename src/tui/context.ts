@@ -3,12 +3,23 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { ProjectRow } from '../active.ts'
 import type { Chime } from '../chime.ts'
 import type { Account, Config } from '../config.ts'
+import type { OpenItem } from '../items.ts'
 import type { AccountState, Item, Snapshot } from '../model.ts'
 import type { Report } from '../routines/index.ts'
 import type { Row } from '../settings.ts'
 import type { Update } from '../update.ts'
 import type { EmbeddedSession } from './embed.ts'
-import type { Editing, Focus, Form, Hover, Panel, Reports, Search, Sel } from './state.ts'
+import type {
+  Editing,
+  Focus,
+  Form,
+  Hover,
+  ItemsView,
+  Panel,
+  Reports,
+  Search,
+  Sel,
+} from './state.ts'
 
 type Set<T> = Dispatch<SetStateAction<T>>
 
@@ -58,6 +69,9 @@ export type AppCtx = {
   setSel: Set<Record<Panel, number>>
   scope: string | null
   setScope: Set<string | null>
+  // The list narrowed to one account's conversations instead of a project's; one or the other.
+  accountScope: string | null
+  setAccountScope: Set<string | null>
   // The help screen (?), and how far it is scrolled.
   help: { scroll: number } | null
   setHelp: Set<{ scroll: number } | null>
@@ -85,6 +99,14 @@ export type AppCtx = {
   reports: Reports | null
   setReports: Set<Reports | null>
   routineReports: Report[]
+  // A project's open items in full, while they have the keyboard; the project whose items the
+  // right panel shows (or would, for O), and those items as last read.
+  itemsView: ItemsView | null
+  setItemsView: Set<ItemsView | null>
+  itemsKey: string | null
+  openItems: OpenItem[] | null | undefined
+  // For each of openItems, the drafts and conversations working on it.
+  itemLinks: Item[][]
   // A row to select on the list once it shows up there: a draft or routine just saved.
   setFollow: Set<string | null>
 

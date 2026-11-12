@@ -21,26 +21,38 @@ export const title = (t: string) => (
   </Text>
 )
 
+// A few of a project's open items, one line each. ◆ marks one something is working on, ● one
+// the selected conversation is for.
 export function OpenItems({
   items,
   max,
   width,
+  taken,
+  mine,
 }: {
   items: OpenItem[]
   max: number
   width: number
+  taken?: ReadonlySet<string> | undefined
+  mine?: readonly string[] | undefined
 }) {
   return (
     <>
       {items.slice(0, max).map((it, i) => (
         <Text key={i} wrap="truncate-end">
-          <Text color={T.faint}>{'□ '}</Text>
+          {mine?.includes(it.title) ? (
+            <Text color={T.focus}>{'● '}</Text>
+          ) : taken?.has(it.title) ? (
+            <Text color={T.running}>{'◆ '}</Text>
+          ) : (
+            <Text color={T.faint}>{'□ '}</Text>
+          )}
           <Text color={T.text}>{it.title}</Text>
           {it.body ? <Text color={T.dim}>{' · ' + it.body}</Text> : null}
         </Text>
       ))}
       {items.length > max ? (
-        <Text color={T.dim}>{cell(`… ${items.length - max} more`, width)}</Text>
+        <Text color={T.dim}>{cell(`… ${items.length - max} more · O shows them all`, width)}</Text>
       ) : null}
     </>
   )

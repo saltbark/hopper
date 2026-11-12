@@ -96,8 +96,68 @@ export function makeActions(ctx: AppCtx) {
 
   const focusProject = (key: string) => {
     ctx.setScope(key)
+    ctx.setAccountScope(null)
     setSel((s) => ({ ...s, work: 0, done: 0 }))
     go('work')
+  }
+
+  // The list narrowed to one account's conversations, as a project narrows it; again, every one.
+  const focusAccount = (name: string) => {
+    const off = ctx.accountScope === name
+    ctx.setAccountScope(off ? null : name)
+    ctx.setScope(null)
+    setSel((s) => ({ ...s, work: 0, done: 0 }))
+    go('work')
+    if (off) setMessage('Every account again.')
+  }
+
+  // ⏎ on an account: one that isn't signed in signs in (that takes over the terminal); any other
+  // narrows the list to it.
+  const accountEnter = (a: Account) => {
+    const state = ctx.accountStates.find((s) => s.account.name === a.name)
+    if (!isLocal(a) && state?.auth && !state.auth.loggedIn) return void signIn(a)
+    focusAccount(a.name)
+  }
+
+  // O: every open item of the project the right panel is about, with the keyboard.
+  const openItemsView = () => {
+    const key = ctx.itemsKey
+    if (!key) return setMessage('Pick a project first: p, or a conversation in one.')
+    ctx.setEmbedShown(false)
+    ctx.setReports(null)
+    ctx.setItemsView({ project: key, sel: 0, picked: [], top: 0 })
+  }
+
+  // tab on the open items: a new draft in their project for the picked ones (else the selected
+  // one), named after them, and linked to them by title.
+  const draftFromItems = () => {
+    const v = ctx.itemsView
+    const list = ctx.openItems ?? []
+    if (!v) return
+    const titles = v.picked.length
+      ? list.filter((i) => v.picked.includes(i.title)).map((i) => i.title)
+      : list[v.sel]
+        ? [list[v.sel]!.title]
+        : []
+    if (!titles.length) return setMessage('No open items to start from.')
+    const project = snap?.projects.find((p) => p.key === v.project)
+    // The titles are its first line, which names the draft and the conversation; the prompt
+    // Hopper adds says they are open items in the project's file.
+    const text = titles.join(' · ') + '\n\n'
+    ctx.setItemsView(null)
+    if (ctx.focus === 'projects') go('work')
+    write(
+      newEditing({
+        id: newDraftId(),
+        project: v.project,
+        text,
+        created: now(),
+        model: project?.model,
+        effort: project?.effort,
+        extra: { items: titles },
+      }),
+      true,
+    )
   }
 
   // Where a new conversation goes: the project it's asked for (from Projects), else the scope,
@@ -135,6 +195,7 @@ export function makeActions(ctx: AppCtx) {
         ...(d.done ? { done: d.done } : {}),
         ...(d.proposed ? { proposed: d.proposed } : {}),
         ...(d.depth ? { depth: d.depth } : {}),
+        ...(d.items ? { items: d.items } : {}),
       },
     })
 
@@ -760,6 +821,10 @@ export function makeActions(ctx: AppCtx) {
     runNow,
     commit,
     signIn,
+    focusAccount,
+    accountEnter,
+    openItemsView,
+    draftFromItems,
     submitForm,
     ...settings,
   }

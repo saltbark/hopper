@@ -8,6 +8,7 @@ import {
   CONVERSATION_KEYS,
   draftKeys,
   hereKeys,
+  ITEMS_KEYS,
   MOUSE_KEYS,
   PANEL_KEYS,
   REPORTS_HELP,
@@ -34,6 +35,7 @@ const sections = (defaults: Choice): [label: string, hints: Hint[]][] => [
   ['writing', WRITING_KEYS],
   ['a conversation', CONVERSATION_KEYS],
   ['routine reports', REPORTS_HELP],
+  ['open items', ITEMS_KEYS],
   ['settings', SETTINGS_KEYS],
   ['mouse', MOUSE_KEYS],
 ]

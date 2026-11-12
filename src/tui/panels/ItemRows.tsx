@@ -58,6 +58,9 @@ export const ItemRows = memo(function ItemRows(props: {
         const lit = isSel && focused
         const bg = lit ? T.sel : start + i === hover ? T.hover : undefined
         const next = showNext && it.kind === 'routine'
+        // How many of its project's open items it was started for: ◆2, taken from its name.
+        const n = it.items?.length ?? 0
+        const forItems = n ? '◆' + (n > 9 ? '+' : n) + ' ' : ''
         return (
           <Text key={it.account + it.sessionId} wrap="truncate-end">
             <Rail on={lit} bg={bg} />
@@ -75,8 +78,9 @@ export const ItemRows = memo(function ItemRows(props: {
             <Text backgroundColor={bg}>
               {' '}
               <Text color={lit ? T.hi : done ? T.dim : T.text} bold={lit}>
-                {cell(shortName(it), next ? nameW - NEXT_W : nameW)}
+                {cell(shortName(it), (next ? nameW - NEXT_W : nameW) - forItems.length)}
               </Text>
+              {forItems ? <Text color={done ? T.faint : T.running}>{forItems}</Text> : null}
               {next ? (
                 <Text color={T.faint}>
                   {cell(it.nextAt ? 'in ' + until(it.nextAt) : '', NEXT_W - 1, 'right') + ' '}

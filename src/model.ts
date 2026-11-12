@@ -97,6 +97,9 @@ export type Item = Session & {
   nextAt?: number
   // The draft a conversation started from; for a draft, its own id.
   draft?: string
+  // The project's open items it was started for, by title (items.ts): a draft's own, or what
+  // Hopper recorded when it started the conversation.
+  items?: string[]
   // A draft's overnight fields (drafts.ts).
   queue?: Draft['queue']
   after?: string[]
@@ -308,6 +311,7 @@ export async function gather(
     if (m?.draft) it.draft = m.draft
     if (m?.unattended) it.unattended = true
     if (m?.result) it.resultPath = m.result
+    if (m?.items?.length) it.items = m.items
     // Several projects can run from one folder (a meta repo), so the folder alone can't say
     // which a conversation is for; the project Hopper started it in can.
     if (m?.project && projectKeys.has(m.project)) it.key = m.project
@@ -387,6 +391,7 @@ export async function gather(
     if (d.after) it.after = d.after
     if (d.done) it.done = d.done
     if (d.proposed) it.proposed = d.proposed
+    if (d.items) it.items = d.items
   }
   // A draft's project comes from the draft, not from matching its folder.
   const draftOf = new Map(drafts.map((d) => [draftSessionId(d.id), d]))

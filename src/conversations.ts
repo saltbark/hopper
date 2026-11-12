@@ -20,6 +20,8 @@ export type ConversationMeta = {
   depth?: number
   // The queue it started from, which its follow-ups inherit.
   queue?: 'now' | 'night'
+  // The project's open items it was started for, by title (items.ts).
+  items?: string[]
 }
 
 const file = (home: string) => join(home, 'state', 'conversations.json')

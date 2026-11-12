@@ -191,7 +191,10 @@ export function KeyBar(props: BarProps & { awake: boolean; update: Update | null
         {chip('find')}
         <Text color={T.hi}>{'  ' + query}</Text>
         <Text inverse> </Text>
-        {note(message, '  ⏎ focuses it · tab new conversation there · ↑↓ choose · esc back')}
+        {note(
+          message,
+          '  ⏎ focuses it · tab new conversation there · O its open items · ↑↓ choose · esc back',
+        )}
       </Text>,
     )
   }
@@ -220,10 +223,12 @@ export function KeyBar(props: BarProps & { awake: boolean; update: Update | null
     )
   }
   // The focused panel's keys for what is selected, then the global ones it doesn't already name.
-  // A routine's reports keep the keyboard to themselves, so none of the global keys apply.
+  // A routine's reports, and the open items, keep the keyboard to themselves, so none of the
+  // global keys apply.
   // A key the global ones already show (→) is left off the local hint.
   const bar = barKeys(here)
-  const global = here.reports ? [] : GLOBAL.filter(([k]) => !bar.some(([l]) => l === k))
+  const global =
+    here.reports || here.items ? [] : GLOBAL.filter(([k]) => !bar.some(([l]) => l === k))
   const shown = new Set(global.flatMap(([k]) => k.split(' ')))
   const local = bar
     .map(([k, d]): Hint => [
