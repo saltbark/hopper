@@ -136,6 +136,12 @@ export async function setDraftText(
   })
 }
 
+export const draftExists = (home: string, id: string): Promise<boolean> =>
+  stat(file(home, id)).then(
+    () => true,
+    () => false,
+  )
+
 export async function deleteDraft(home: string, id: string): Promise<void> {
   await rm(file(home, id), { force: true })
 }

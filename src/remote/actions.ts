@@ -15,7 +15,7 @@ import { hopperPrompt } from '../prompts.ts'
 import { runRoutine, saveRoutine } from '../routines/index.ts'
 import { pickAccount } from '../routing.ts'
 import { markRead } from '../seen.ts'
-import { startDraft } from '../start.ts'
+import { isStarting, startDraft } from '../start.ts'
 import { groupOf } from '../tui/state.ts'
 
 // What the phone can do besides look and type: start or queue a conversation, hold or archive
@@ -139,6 +139,7 @@ export async function act(m: Record<string, unknown>, deps: ActDeps): Promise<An
         const id = draftId(m['id'])
         const was = id ? snap.drafts.find((d) => d.id === id) : undefined
         if (id && !was) return no('That draft is gone: started or thrown away on the Mac.')
+        if (id && isStarting(id)) return no('That draft is starting already.')
         const draft: Draft = {
           id: was?.id ?? newDraftId(now),
           project: project.key,

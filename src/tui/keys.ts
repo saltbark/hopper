@@ -496,6 +496,7 @@ export function makeInput(
   // A draft's and a routine's keys work on its row, without opening it: ⏎ is the only way into
   // the editor. They come before the board's letters, so none of them may be a jump (p c v a).
   const rowKeys = (it: Item | undefined): Record<string, () => unknown> => {
+    if (act.startingNow(it)) return { s: () => setMessage('Already starting.') }
     const e = act.editingOf(it)
     if (!it || !e) return {}
     const r = e.routine

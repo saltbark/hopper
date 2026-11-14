@@ -70,6 +70,8 @@ export function stateMark(
   state: string,
   kind?: string,
 ): { mark: string; color: string; bold?: boolean } {
+  // A draft on its way to running: s was pressed and claude --bg hasn't answered yet.
+  if (state === 'starting') return { mark: 'spin', color: T.running }
   // Queued drafts: ○ to start when there's room, ☾ tonight.
   if (state === 'queued') return { mark: '○', color: T.dim }
   if (state === 'tonight') return { mark: '☾', color: T.dim }

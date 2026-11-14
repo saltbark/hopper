@@ -24,6 +24,7 @@ import {
   useChime,
   useDraftAutosave,
   useOpenConversations,
+  useStarting,
   useSettingsDoc,
   useProjectItems,
   useAutopilot,
@@ -149,6 +150,7 @@ export function App({
   const [reportsFocus, setReportsFocus] = useState<Reports | null>(null)
 
   const { snap, snapRef, error, refresh, patch } = useSnapshot(config, load)
+  const { starting, startingRef, setStarting } = useStarting(snap)
   const { usageText, askUsage } = useUsage(config.home, snapRef, refresh)
   useDraftAutosave(editing, config.home)
   useAutopilot(config, snap, refresh, setMessage, autopilot)
@@ -171,10 +173,15 @@ export function App({
   const { work, archived } = useMemo(() => {
     const scoped = (snap?.items ?? []).filter((i) => inScope(i.key, scope))
     return {
-      work: scoped.filter((i) => LISTED.has(i.where)).sort(byGroup),
+      work: scoped
+        .filter((i) => LISTED.has(i.where))
+        .map((i) =>
+          i.kind === 'draft' && i.draft && starting.has(i.draft) ? { ...i, state: 'starting' } : i,
+        )
+        .sort(byGroup),
       archived: scoped.filter((i) => i.where === 'done'),
     }
-  }, [snap, scope])
+  }, [snap, scope, starting])
   // Archived as shown: what the search finds, in the same order.
   const q = search?.query.trim() ?? ''
   const done = useMemo(
@@ -432,6 +439,8 @@ export function App({
     untrusted,
     setUntrusted,
     setFollow,
+    startingRef,
+    setStarting,
     reports,
     setReports: setReportsFocus,
     routineReports,

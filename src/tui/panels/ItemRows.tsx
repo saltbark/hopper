@@ -22,6 +22,7 @@ export const itemLines = (items: Item[], sel: number, height: number) =>
 // A routine's next run, "in 12d", with two spaces before the project rather than one, so it
 // doesn't read as part of the project.
 const NEXT_W = 8
+const STARTING = 'starting… '
 
 export const ItemRows = memo(function ItemRows(props: {
   items: Item[]
@@ -58,6 +59,9 @@ export const ItemRows = memo(function ItemRows(props: {
         const lit = isSel && focused
         const bg = lit ? T.sel : start + i === hover ? T.hover : undefined
         const next = showNext && it.kind === 'routine'
+        const nw = next ? nameW - NEXT_W : nameW
+        // A draft being started says so ahead of its name, which gives up the room.
+        const lead = it.state === 'starting' ? STARTING : ''
         return (
           <Text key={it.account + it.sessionId} wrap="truncate-end">
             <Rail on={lit} bg={bg} />
@@ -74,8 +78,9 @@ export const ItemRows = memo(function ItemRows(props: {
             )}
             <Text backgroundColor={bg}>
               {' '}
+              {lead ? <Text color={T.running}>{lead.slice(0, nw)}</Text> : null}
               <Text color={lit ? T.hi : done ? T.dim : T.text} bold={lit}>
-                {cell(shortName(it), next ? nameW - NEXT_W : nameW)}
+                {cell(shortName(it), nw - Math.min(lead.length, nw))}
               </Text>
               {next ? (
                 <Text color={T.faint}>

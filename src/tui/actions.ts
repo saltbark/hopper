@@ -36,7 +36,7 @@ import {
 } from '../routines/index.ts'
 import { pickAccount } from '../routing.ts'
 import { markAllRead, markRead } from '../seen.ts'
-import { startDraft } from '../start.ts'
+import { AlreadyStartingError, isStarting, startDraft } from '../start.ts'
 import type { Latest } from '../update.ts'
 import { isRelease, version } from '../version.ts'
 import { copyToClipboard } from './clipboard.ts'
@@ -154,12 +154,16 @@ export function makeActions(ctx: AppCtx) {
       },
     })
 
+  // A draft being started has nothing to edit: saved now, it would come back after it starts.
+  const startingNow = (item: Item | undefined) =>
+    item?.kind === 'draft' && !!item.draft && ctx.startingRef.current.has(item.draft)
+
   // A draft or routine on the list, as the editor would hold it, so the list's keys act on it the
   // way they would with it open.
   const editingOf = (item: Item | undefined): Editing | undefined => {
     if (item?.kind === 'draft') {
       const d = snap?.drafts.find((x) => draftSessionId(x.id) === item.sessionId)
-      return d && draftEditing(d)
+      return d && !ctx.startingRef.current.has(d.id) ? draftEditing(d) : undefined
     }
     if (item?.kind === 'routine') {
       const r = snap?.routines.find((x) => routineSessionId(x.name) === item.sessionId)
@@ -320,8 +324,11 @@ export function makeActions(ctx: AppCtx) {
 
   // Starting hands the draft to Claude Code as a background session in the project's folder. It
   // isn't opened: starting takes a moment, and by then you're often elsewhere, maybe starting the
-  // next one. It shows in the list as running; ⏎ on it opens it.
+  // next one. It shows in the list as running; ⏎ on it opens it. It starts once: it's marked
+  // starting before anything is awaited, so s pressed again meanwhile finds it so (useStarting).
   const start = async (e: Editing) => {
+    if (ctx.startingRef.current.has(e.id) || isStarting(e.id))
+      return setMessage('Already starting.')
     const text = e.text.trim()
     if (!text) return setMessage('Draft is empty.')
     const project = snap?.projects.find((p) => p.key === e.project)
@@ -330,16 +337,19 @@ export function makeActions(ctx: AppCtx) {
     const pick = pickAccount(config, project.key, snap?.accounts ?? [], model, e.account)
     if (!pick.account) return setMessage(`Can't start: ${pick.reason}.`)
     const account = pick.account
-    const draft = toDraft(e, now())
-    await saveDraft(config.home, draft)
-    setEditing(null)
+    ctx.setStarting(e.id, true)
     setMessage(`Starting on ${account.name}${e.model ? ' with ' + e.model : ''}…`)
     try {
+      const draft = toDraft(e, now())
+      await saveDraft(config.home, draft)
+      setEditing(null)
       const { name } = await startDraft({ config, project, account, draft, unattended: false })
       await refresh(false)
       setMessage(`Started on ${account.name}: ${name}`)
     } catch (err) {
-      if (err instanceof UntrustedError) {
+      ctx.setStarting(e.id, false)
+      if (err instanceof AlreadyStartingError) setMessage('Already starting.')
+      else if (err instanceof UntrustedError) {
         const dir = trustDir(config, err.dir)
         ctx.setUntrusted({ dir, draft: e })
         setMessage(`Untrusted folder. T trusts it and starts: ${tildify(dir)}`)
@@ -407,6 +417,7 @@ export function makeActions(ctx: AppCtx) {
       return r ? enterRoutine(r.name) : undefined
     }
     if (item.kind === 'draft') {
+      if (startingNow(item)) return setMessage('Starting. It opens from here once it runs.')
       const e = editingOf(item)
       return e ? write(e) : undefined
     }
@@ -756,6 +767,7 @@ export function makeActions(ctx: AppCtx) {
     reportConversation,
     keepRoutine,
     editingOf,
+    startingNow,
     saveEdit,
     runNow,
     commit,

@@ -41,6 +41,36 @@ export function useOpenConversations() {
   return { embeds: list, setEmbeds, embedsRef }
 }
 
+// Drafts being started from here, by id: their rows say starting… until the list has them
+// running, and they aren't started or edited again meanwhile. The ref is read at once, so a key
+// pressed again before the next render already sees it. A start that fails clears its own; one
+// that worked stays until a load no longer has the draft, since a refresh can return before
+// the load that would show it gone, and the draft back on the list would start again.
+export function useStarting(snap: Snapshot | null) {
+  const [startingIds, setStartingIds] = useState<ReadonlySet<string>>(new Set())
+  const startingRef = useRef(startingIds)
+  const put = useCallback((next: Set<string>) => {
+    startingRef.current = next
+    setStartingIds(next)
+  }, [])
+  const setStarting = useCallback(
+    (draftId: string, on: boolean) => {
+      const next = new Set(startingRef.current)
+      if (on) next.add(draftId)
+      else next.delete(draftId)
+      put(next)
+    },
+    [put],
+  )
+  useEffect(() => {
+    if (!snap || !startingRef.current.size) return
+    const there = new Set(snap.drafts.map((d) => d.id))
+    const left = [...startingRef.current].filter((id) => there.has(id))
+    if (left.length < startingRef.current.size) put(new Set(left))
+  }, [snap, put])
+  return { starting: startingIds, startingRef, setStarting }
+}
+
 const SESSION_POLL_MS = 5_000
 const AUTH_EVERY = 12 // polls, so about a minute
 const USAGE_MAX_AGE_MS = 5 * 60_000

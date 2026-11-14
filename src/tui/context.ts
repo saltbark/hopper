@@ -87,6 +87,9 @@ export type AppCtx = {
   routineReports: Report[]
   // A row to select on the list once it shows up there: a draft or routine just saved.
   setFollow: Set<string | null>
+  // Drafts being started from here (useStarting).
+  startingRef: { current: ReadonlySet<string> }
+  setStarting: (draftId: string, on: boolean) => void
 
   work: Item[]
   // Archived as shown, narrowed by the search, and all of it.

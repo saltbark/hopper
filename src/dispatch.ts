@@ -10,7 +10,7 @@ import type { Project } from './home.ts'
 import type { AccountState, Item } from './model.ts'
 import { readResult } from './routines/index.ts'
 import { accountsFor, hasRoom } from './routing.ts'
-import { startDraft } from './start.ts'
+import { isStarting, startDraft } from './start.ts'
 
 // Up next: drafts queued to start on their own. The open app (autopilot.ts), `g`, and
 // `hopper dispatch` starts each one that is ready, on an account with room, within the night's
@@ -175,6 +175,8 @@ export async function dispatch(opts: {
 
     const start = opts.deps?.start ?? startDraft
     for (const d of ready) {
+      // Being started by hand right now: it's running, not waiting.
+      if (isStarting(d.id)) continue
       const wait = (reason: string) =>
         report.waiting.push({ draft: d.id, name: firstLine(d), reason })
       const project = projects.find((p) => p.key === d.project)

@@ -693,7 +693,7 @@ describe('conversations', () => {
   beforeAll(async () => {
     bin = await fakeClaude(
       'echo "$PWD|$*" >> "$HOPPER_FAKE_LOG"\n' +
-        'case "$1" in --bg) if [ -n "$HOPPER_FAKE_UNTRUSTED" ]; then echo "Workspace not trusted."; exit 1; fi; echo "backgrounded · abc12345 · name";;\n' +
+        'case "$1" in --bg) if [ -n "$HOPPER_FAKE_UNTRUSTED" ]; then echo "Workspace not trusted."; exit 1; fi; if [ -n "$HOPPER_FAKE_SLOW" ]; then sleep 0.5; fi; echo "backgrounded · abc12345 · name";;\n' +
         '  attach) printf "fake claude screen\\n❯ "; while read -r line; do case "$line" in leave) printf "  enter to return · space to reply\\n";; box) printf "the prompt box\\n──────────\\n❯ \\n──────────\\033[1A\\r\\033[2C";; bracketed) printf "\\033[?2004hpastes on\\n❯ ";; *"[200~"*) printf "a paste: %s\\n❯ " "${line#*200~}";; "") printf "\\033[2J\\033[Hback in the conversation\\n❯ ";; *) printf "you said: %s\\n❯ " "$line";; esac; done;; esac\n' +
         'exit 0',
     )
@@ -733,6 +733,7 @@ describe('conversations', () => {
         const d = drafts.find((x) => `draft:${x.id}` === it.sessionId)
         if (d)
           Object.assign(it, {
+            draft: d.id,
             key: d.project,
             model: d.model,
             effort: d.effort,
@@ -748,7 +749,31 @@ describe('conversations', () => {
   const done = () => {
     delete process.env['HOPPER_CLAUDE']
     delete process.env['HOPPER_FAKE_UNTRUSTED']
+    delete process.env['HOPPER_FAKE_SLOW']
   }
+
+  it('s starts a draft once: pressed again while it starts, it says so and starts nothing', async () => {
+    const { cfg, log, live } = await setup()
+    process.env['HOPPER_FAKE_SLOW'] = '1'
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
+    await tick()
+    await press(stdin, '\t')
+    await press(stdin, 'start me once')
+    await press(stdin, '\u001b')
+    await onList(lastFrame)
+    // Two in a row, before a render, then one more once the row says it's starting.
+    stdin.write('s')
+    stdin.write('s')
+    await tick()
+    expect(lastFrame()).toContain('starting… start me once')
+    await press(stdin, 's')
+    expect(lastFrame()).toContain('Already starting.')
+    await until(() => (lastFrame() ?? '').includes('Started on'))
+    expect((await calls(log)).filter((l) => l.includes('|--bg'))).toHaveLength(1)
+    expect(lastFrame()).not.toContain('starting…')
+    unmount()
+    done()
+  })
 
   it('tab opens a draft where enter is a new line; esc leaves it on the list, s starts it', async () => {
     const { cfg, projects, log, live } = await setup()
