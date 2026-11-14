@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.1 (2026-11-14)
+
+- A draft starts once. Pressing `s` again while it was starting used to start another identical
+  conversation each time; now its row says "starting…" until it's running, and `s` there does
+  nothing more. The phone and the queue can't start it twice either.
+- Adding an account no longer changes the colours of the ones already there.
+
 ## 0.8.0 (2026-11-09)
 
 - Hopper on your iPhone: `hopper pair` shows a code for the iPhone app to scan, and while Hopper
