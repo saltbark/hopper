@@ -5,7 +5,16 @@ import { createElement, useEffect, useState, type ReactNode } from 'react'
 
 import { ACCOUNT_COLOR_NAMES, accountColorName, type Config } from '../../config.ts'
 import { OTHER, type Item } from '../../model.ts'
-import { ACCOUNT_COLORS, dimLine, SPIN_FRAMES, SPIN_MS, stateMark, T } from '../theme.ts'
+import {
+  ACCOUNT_COLORS,
+  dimLine,
+  SPIN_FRAMES,
+  SPIN_MS,
+  stateMark,
+  T,
+  TURN_FRAMES,
+  TURN_TICKS,
+} from '../theme.ts'
 
 // The pieces every panel is built from: the frame, list windowing, the glyphs that lead a row,
 // key caps and headings.
@@ -97,6 +106,7 @@ export function accountColor(config: Config, name: string): string {
 export const where = (i: Item) => (i.key === OTHER ? '~/' + basename(i.cwd) : i.key)
 
 // One clock for every spinner on screen, so they turn together and stop when none are shown.
+// Ticks since the first spinner, never wrapped, so animations of any length stay in step.
 let spinFrame = 0
 const spinners = new Set<() => void>()
 let spinTimer: ReturnType<typeof setInterval> | null = null
@@ -106,7 +116,7 @@ function useSpinFrame() {
     const tick = () => redraw((n) => n + 1)
     spinners.add(tick)
     spinTimer ??= setInterval(() => {
-      spinFrame = (spinFrame + 1) % SPIN_FRAMES.length
+      spinFrame += 1
       for (const s of spinners) s()
     }, SPIN_MS)
     return () => {
@@ -120,11 +130,24 @@ function useSpinFrame() {
   return spinFrame
 }
 
-function Spinner({ color, bg }: { color: string; bg?: string | undefined }) {
+const SPIN = [...SPIN_FRAMES]
+const TURN = [...TURN_FRAMES]
+
+function Spinner({
+  color,
+  bg,
+  frames = SPIN,
+  ticks = 1,
+}: {
+  color: string
+  bg?: string | undefined
+  frames?: string[]
+  ticks?: number
+}) {
   const frame = useSpinFrame()
   return (
     <Text color={color} backgroundColor={bg}>
-      {SPIN_FRAMES[frame]}
+      {frames[Math.floor(frame / ticks) % frames.length]}
     </Text>
   )
 }
@@ -133,6 +156,7 @@ function Spinner({ color, bg }: { color: string; bg?: string | undefined }) {
 export function Mark({ state, kind, bg }: { state: string; kind?: string; bg?: string }) {
   const { mark, color, bold } = stateMark(state, kind)
   if (mark === 'spin') return <Spinner color={color} bg={bg} />
+  if (mark === 'turn') return <Spinner color={color} bg={bg} frames={TURN} ticks={TURN_TICKS} />
   return (
     <Text color={color} backgroundColor={bg} bold={bold}>
       {mark}

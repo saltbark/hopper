@@ -768,6 +768,8 @@ describe('conversations', () => {
     stdin.write('s')
     await tick()
     expect(lastFrame()).toContain('starting… start me once')
+    // Its own draft diamond turns, not the running spinner.
+    expect(lastFrame()).toMatch(/[⬘⬗⬙⬖] starting… start me once/)
     await press(stdin, 's')
     expect(lastFrame()).toContain('Already starting.')
     await until(() => (lastFrame() ?? '').includes('Started on'))

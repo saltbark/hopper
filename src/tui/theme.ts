@@ -70,8 +70,9 @@ export function stateMark(
   state: string,
   kind?: string,
 ): { mark: string; color: string; bold?: boolean } {
-  // A draft on its way to running: s was pressed and claude --bg hasn't answered yet.
-  if (state === 'starting') return { mark: 'spin', color: T.running }
+  // A draft on its way to running: s was pressed and claude --bg hasn't answered yet. Its own
+  // diamond turns, so it reads as the draft getting going rather than something already running.
+  if (state === 'starting') return { mark: 'turn', color: T.draft }
   // Queued drafts: ○ to start when there's room, ☾ tonight.
   if (state === 'queued') return { mark: '○', color: T.dim }
   if (state === 'tonight') return { mark: '☾', color: T.dim }
@@ -92,6 +93,9 @@ export function stateMark(
 
 export const SPIN_FRAMES = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
 export const SPIN_MS = 120
+// The draft's ◇ turning: its dark half goes top, right, bottom, left, one step every two ticks.
+export const TURN_FRAMES = '⬘⬗⬙⬖'
+export const TURN_TICKS = 2
 
 // A panel without the keys is drawn a step darker, so the eye goes to the one that has them.
 // Every truecolor foreground keeps 100 - dim percent of its brightness (config.toml's dim, set
