@@ -693,7 +693,7 @@ describe('conversations', () => {
   beforeAll(async () => {
     bin = await fakeClaude(
       'echo "$PWD|$*" >> "$HOPPER_FAKE_LOG"\n' +
-        'case "$1" in --bg) if [ -n "$HOPPER_FAKE_UNTRUSTED" ]; then echo "Workspace not trusted."; exit 1; fi; if [ -n "$HOPPER_FAKE_SLOW" ]; then sleep 0.5; fi; echo "backgrounded · abc12345 · name";;\n' +
+        'case "$1" in --bg) if [ "$HOPPER_FAKE_UNTRUSTED" = 1 ]; then echo "Workspace not trusted."; exit 1; elif [ -n "$HOPPER_FAKE_UNTRUSTED" ]; then echo "Added folder not trusted: $HOPPER_FAKE_UNTRUSTED. Leave out its --add-dir or trust it."; exit 1; fi; if [ -n "$HOPPER_FAKE_SLOW" ]; then sleep 0.5; fi; echo "backgrounded · abc12345 · name";;\n' +
         '  attach) printf "fake claude screen\\n❯ "; while read -r line; do case "$line" in leave) printf "  enter to return · space to reply\\n";; box) printf "the prompt box\\n──────────\\n❯ \\n──────────\\033[1A\\r\\033[2C";; bracketed) printf "\\033[?2004hpastes on\\n❯ ";; *"[200~"*) printf "a paste: %s\\n❯ " "${line#*200~}";; "") printf "\\033[2J\\033[Hback in the conversation\\n❯ ";; *) printf "you said: %s\\n❯ " "$line";; esac; done;; esac\n' +
         'exit 0',
     )
@@ -703,14 +703,16 @@ describe('conversations', () => {
       ),
     )
   })
-  const setup = async (opts: { untrusted?: boolean } = {}) => {
+  const setup = async (opts: { untrusted?: boolean | string } = {}) => {
     const home = await mkdtemp(join(tmpdir(), 'hopper-app-'))
     await initHome(home)
     await appendFile(join(home, 'projects.toml'), '\n[[project]]\nkey = "bh/atlas"\n')
     const log = join(home, 'calls.log')
     process.env['HOPPER_CLAUDE'] = bin
     process.env['HOPPER_FAKE_LOG'] = log
-    if (opts.untrusted) process.env['HOPPER_FAKE_UNTRUSTED'] = '1'
+    // true refuses the run folder; a path refuses that --add-dir folder, as Claude 2.1.326 does.
+    if (opts.untrusted)
+      process.env['HOPPER_FAKE_UNTRUSTED'] = opts.untrusted === true ? '1' : opts.untrusted
     else delete process.env['HOPPER_FAKE_UNTRUSTED']
     const projects = await loadProjects(home)
     const cfg: Config = { ...setPrefixes(config, 'bh', ['bh/', 'meta/']), home }
@@ -1491,6 +1493,21 @@ describe('conversations', () => {
     expect(lastFrame()).toContain('T trusts it and starts')
     const { listDrafts } = await import('../src/drafts.ts')
     expect((await listDrafts(home)).map((d) => d.text)).toEqual(['hello'])
+    done()
+    unmount()
+  })
+
+  it('an untrusted added folder is the one T offers to trust, not the run folder', async () => {
+    const { cfg, live } = await setup({ untrusted: '/work/bh/atlas' })
+    const { lastFrame, stdin, unmount } = render(<App onFocus={onFocus} config={cfg} load={live} />)
+    await tick()
+    await press(stdin, '\t')
+    await press(stdin, 'hello')
+    await press(stdin, '\u001b')
+    await onList(lastFrame)
+    await press(stdin, 's')
+    await until(() => (lastFrame() ?? '').includes('T trusts it and starts'))
+    expect(lastFrame()).toContain('T trusts it and starts: /work/bh/atlas')
     done()
     unmount()
   })

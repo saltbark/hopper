@@ -9,6 +9,7 @@ import {
   parseBackgroundId,
   parseSessions,
   parseUsage,
+  untrustedDir,
 } from '../src/claude.ts'
 
 const dflt = { name: 'bh', label: 'BH', configDir: null }
@@ -138,5 +139,24 @@ describe('parseBackgroundId', () => {
     expect(parseBackgroundId('Workspace not trusted.')).toBeNull()
     // With colour forced, the id comes wrapped in escape codes.
     expect(parseBackgroundId('backgrounded · \x1b[36m0ee6c2bd\x1b[39m · ☾ probe')).toBe('0ee6c2bd')
+  })
+})
+
+describe('untrustedDir', () => {
+  const cwd = '/work/meta'
+  it('blames the run folder when Claude refuses it', () => {
+    expect(untrustedDir('Workspace not trusted.', cwd)).toBe(cwd)
+  })
+  it('names the added folder when that is the one Claude refuses', () => {
+    const out =
+      'Added folder not trusted: /work/bh/atlas.v2. Leave out its --add-dir or, if you trust it ' +
+      'and everything in its repository or below it, start `claude` there once and accept the trust prompt.\n'
+    expect(untrustedDir(out, cwd)).toBe('/work/bh/atlas.v2')
+    expect(untrustedDir('Added folder not trusted: \x1b[1m/work/bh/atlas\x1b[22m.', cwd)).toBe(
+      '/work/bh/atlas',
+    )
+  })
+  it('is null when nothing was refused', () => {
+    expect(untrustedDir('backgrounded · 699f6c71 · probe', cwd)).toBeNull()
   })
 })

@@ -190,6 +190,16 @@ export class UntrustedError extends Error {
   }
 }
 
+// Which folder `claude --bg` refused, or null if it refused none. Since Claude Code 2.1.326 an
+// --add-dir folder must be trusted too, and Claude names it ("Added folder not trusted: <dir>.
+// Leave out its --add-dir…"); blaming cwd instead sends T to a folder that's already trusted, so
+// there's no prompt to accept and the start fails again. Any other refusal is cwd's.
+export function untrustedDir(out: string, cwd: string): string | null {
+  const plain = out.replace(ESCAPES, '')
+  if (!/not trusted/i.test(plain)) return null
+  return /Added folder not trusted:\s*(.+?)\.(?:\s|$)/i.exec(plain)?.[1]?.trim() || cwd
+}
+
 // Parses "backgrounded · 699f6c71 · name" from `claude --bg`. With colour forced (FORCE_COLOR in
 // the environment) the id comes wrapped in escape codes; missing it would report a session that
 // started as a failure, and the dispatcher would start it again.
@@ -292,7 +302,8 @@ export async function startBackground(
       { cwd: opts.cwd, env: envFor(account), timeout: 60_000 },
       (err, stdout, stderr) => {
         const out = `${stdout}\n${stderr}`
-        if (/not trusted/i.test(out)) return reject(new UntrustedError(opts.cwd))
+        const untrusted = untrustedDir(out, opts.cwd)
+        if (untrusted) return reject(new UntrustedError(untrusted))
         const id = parseBackgroundId(out)
         if (id) return resolve(id)
         reject(
