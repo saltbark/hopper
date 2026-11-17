@@ -234,6 +234,10 @@ async function tui() {
   } finally {
     process.stdout.write(MOUSE_OFF + TITLE_RESTORE)
   }
+  // Quit means quit. Everything is closed as the app unmounts, but anything still holding Node
+  // (a socket, a timer, a child) would keep it running in the terminal until ctrl+c, so after a
+  // moment it goes regardless. Conversations are Claude's background sessions and keep running.
+  setTimeout(() => process.exit(0), 1000).unref()
 }
 
 // One run of a routine, now. The open app runs routines on their schedule; this is for trying

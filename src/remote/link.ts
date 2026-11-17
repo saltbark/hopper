@@ -135,10 +135,15 @@ export class Link {
     return true
   }
 
+  // Ends it at once: a polite close waits up to 30 s for the relay to answer, and the socket and
+  // its pinger kept Hopper running after it quit.
   stop() {
     this.stopped = true
     if (this.timer) clearTimeout(this.timer)
-    this.ws?.close()
+    if (this.pinger) clearInterval(this.pinger)
+    this.timer = null
+    this.pinger = null
+    this.ws?.terminate()
     this.ws = null
   }
 }

@@ -41,6 +41,7 @@ const viewKey = (view: PhoneView, loose: boolean) =>
 
 export class Bridge {
   private readonly links = new Map<string, Link>()
+  private stopped = false
   private readonly screens = new Map<string, PhoneScreen>()
   private targets = new Map<string, Target>()
   private view: PhoneView | null = null
@@ -72,6 +73,8 @@ export class Bridge {
 
   async sync(): Promise<void> {
     const phones = await loadPhones(this.dir)
+    // Stopped while the list loaded (Hopper quitting): links opened now would keep it running.
+    if (this.stopped) return
     const ids = new Set(phones.map((p) => p.id))
     for (const [id, link] of this.links)
       if (!ids.has(id)) {
@@ -179,6 +182,7 @@ export class Bridge {
   }
 
   stop() {
+    this.stopped = true
     for (const s of this.screens.values()) s.close()
     this.screens.clear()
     for (const link of this.links.values()) link.stop()
