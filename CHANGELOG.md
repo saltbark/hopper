@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.2 (2026-11-17)
+
+- Starting a project whose folder Claude doesn't trust yet works again. Since Claude Code 2.1.326
+  every folder a conversation is given must be trusted, not only the one it starts in, and Hopper
+  blamed the wrong one: T opened Claude where there was nothing to accept, and the start failed
+  again. Hopper now names the folder Claude refused, so T opens the trust prompt there.
+
 ## 0.8.1 (2026-11-14)
 
 - A draft starts once. Pressing `s` again while it was starting used to start another identical
