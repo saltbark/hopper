@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.3 (2026-11-17)
+
+- Quitting with `x x` ends Hopper at once. With a phone paired, it could stay running in the
+  terminal after the screen closed, until ctrl+c.
+- A draft that's starting turns its own purple diamond, in place of the green running spinner.
+
 ## 0.8.2 (2026-11-17)
 
 - Starting a project whose folder Claude doesn't trust yet works again. Since Claude Code 2.1.326
