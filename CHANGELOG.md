@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.4 (2026-11-18)
+
+- A draft that's starting no longer says "starting…" ahead of its name: the turning diamond
+  says it, and the name keeps its room.
+
 ## 0.8.3 (2026-11-17)
 
 - Quitting with `x x` ends Hopper at once. With a phone paired, it could stay running in the
