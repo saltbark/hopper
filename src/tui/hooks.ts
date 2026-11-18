@@ -41,7 +41,7 @@ export function useOpenConversations() {
   return { embeds: list, setEmbeds, embedsRef }
 }
 
-// Drafts being started from here, by id: their rows say starting… until the list has them
+// Drafts being started from here, by id: their diamonds turn until the list has them
 // running, and they aren't started or edited again meanwhile. The ref is read at once, so a key
 // pressed again before the next render already sees it. A start that fails clears its own; one
 // that worked stays until a load no longer has the draft, since a refresh can return before

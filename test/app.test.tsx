@@ -767,14 +767,13 @@ describe('conversations', () => {
     stdin.write('s')
     stdin.write('s')
     await tick()
-    expect(lastFrame()).toContain('starting… start me once')
-    // Its own draft diamond turns, not the running spinner.
-    expect(lastFrame()).toMatch(/[⬘⬗⬙⬖] starting… start me once/)
+    // Its own draft diamond turns, not the running spinner, and the name keeps its room.
+    expect(lastFrame()).toMatch(/[⬘⬗⬙⬖] start me once/)
     await press(stdin, 's')
     expect(lastFrame()).toContain('Already starting.')
     await until(() => (lastFrame() ?? '').includes('Started on'))
     expect((await calls(log)).filter((l) => l.includes('|--bg'))).toHaveLength(1)
-    expect(lastFrame()).not.toContain('starting…')
+    expect(lastFrame()).not.toMatch(/[⬘⬗⬙⬖] start me once/)
     unmount()
     done()
   })
